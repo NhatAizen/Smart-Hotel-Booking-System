@@ -1,0 +1,48 @@
+# Environment secrets
+.env
+.env.local
+.env.*.local
+
+# Java / Maven
+**/target/
+*.class
+*.jar.original
+
+# IDE
+.vscode/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+
+# Logs
+*.log
+logs/
+
+# Operating systems
+.DS_Store
+Thumbs.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Test reports
+**/surefire-reports/
+**/failsafe-reports/
+
+# Temporary files
+*.tmp
+*.temp
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Local backups
+.backup/
+
+# Runtime logs
+*.log

@@ -1,0 +1,441 @@
+name: smart-hotel-booking-system
+
+services:
+
+  # =========================================================
+  # DATABASES
+  # =========================================================
+
+  identity-postgres:
+    image: postgres:16-alpine
+    container_name: smart-hotel-identity-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: identity_db
+      POSTGRES_USER: identity_user
+      POSTGRES_PASSWORD: identity_password
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - identity_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U identity_user -d identity_db
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  hotel-postgres:
+    image: postgres:16-alpine
+    container_name: smart-hotel-hotel-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: hotel_db
+      POSTGRES_USER: hotel_user
+      POSTGRES_PASSWORD: hotel_password
+
+    ports:
+      - "5434:5432"
+
+    volumes:
+      - hotel_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U hotel_user -d hotel_db
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  booking-postgres:
+    image: postgres:16-alpine
+    container_name: smart-hotel-booking-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: booking_db
+      POSTGRES_USER: booking_user
+      POSTGRES_PASSWORD: booking_password
+
+    ports:
+      - "5435:5432"
+
+    volumes:
+      - booking_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U booking_user -d booking_db
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  payment-postgres:
+    image: postgres:16-alpine
+    container_name: smart-hotel-payment-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: payment_password
+
+    ports:
+      - "5436:5432"
+
+    volumes:
+      - payment_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U payment_user -d payment_db
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  notification-postgres:
+    image: postgres:16-alpine
+    container_name: smart-hotel-notification-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: notification_password
+
+    ports:
+      - "5437:5432"
+
+    volumes:
+      - notification_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U notification_user -d notification_db
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # =========================================================
+  # DEVELOPMENT INFRASTRUCTURE
+  # =========================================================
+
+  mailpit:
+    image: axllent/mailpit:v1.20
+    container_name: smart-hotel-mailpit
+    restart: unless-stopped
+
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+
+  # =========================================================
+  # BACKEND SERVICES
+  # =========================================================
+
+  identity-service:
+    build:
+      context: ./services/identity-service
+      dockerfile: Dockerfile
+
+    container_name: smart-hotel-identity-service
+    restart: unless-stopped
+
+    environment:
+      SERVER_PORT: 8081
+
+      DB_URL: jdbc:postgresql://identity-postgres:5432/identity_db
+      DB_USERNAME: identity_user
+      DB_PASSWORD: identity_password
+
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_USERNAME: ""
+      MAIL_PASSWORD: ""
+      MAIL_FROM: no-reply@smarthotel.local
+
+      PUBLIC_BASE_URL: http://localhost:8081
+
+      JWT_SECRET: ${JWT_SECRET}
+
+      JPA_SHOW_SQL: "false"
+
+    ports:
+      - "8081:8081"
+
+    depends_on:
+      identity-postgres:
+        condition: service_healthy
+
+      mailpit:
+        condition: service_started
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://localhost:8081/actuator/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+
+  hotel-service:
+    build:
+      context: ./services/hotel-service
+      dockerfile: Dockerfile
+
+    container_name: smart-hotel-hotel-service
+    restart: unless-stopped
+
+    environment:
+      SERVER_PORT: 8082
+
+      DB_URL: jdbc:postgresql://hotel-postgres:5432/hotel_db
+      DB_USERNAME: hotel_user
+      DB_PASSWORD: hotel_password
+
+      JPA_SHOW_SQL: "false"
+
+    ports:
+      - "8082:8082"
+
+    depends_on:
+      hotel-postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://localhost:8082/actuator/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+
+  booking-service:
+    build:
+      context: ./services/booking-service
+      dockerfile: Dockerfile
+
+    container_name: smart-hotel-booking-service
+    restart: unless-stopped
+
+    environment:
+      SERVER_PORT: 8083
+
+      DB_URL: jdbc:postgresql://booking-postgres:5432/booking_db
+      DB_USERNAME: booking_user
+      DB_PASSWORD: booking_password
+
+      JPA_SHOW_SQL: "false"
+
+    ports:
+      - "8083:8083"
+
+    depends_on:
+      booking-postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://localhost:8083/actuator/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+
+    container_name: smart-hotel-payment-service
+    restart: unless-stopped
+
+    environment:
+      SERVER_PORT: 8084
+
+      DB_URL: jdbc:postgresql://payment-postgres:5432/payment_db
+      DB_USERNAME: payment_user
+      DB_PASSWORD: payment_password
+
+      BOOKING_SERVICE_URL: http://booking-service:8083
+
+      JPA_SHOW_SQL: "false"
+
+    ports:
+      - "8084:8084"
+
+    depends_on:
+      payment-postgres:
+        condition: service_healthy
+
+      booking-service:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://localhost:8084/actuator/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+
+    container_name: smart-hotel-notification-service
+    restart: unless-stopped
+
+    environment:
+      SERVER_PORT: 8085
+
+      DB_URL: jdbc:postgresql://notification-postgres:5432/notification_db
+      DB_USERNAME: notification_user
+      DB_PASSWORD: notification_password
+
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_USERNAME: ""
+      MAIL_PASSWORD: ""
+      MAIL_FROM: no-reply@smarthotel.local
+
+      JPA_SHOW_SQL: "false"
+
+    ports:
+      - "8085:8085"
+
+    depends_on:
+      notification-postgres:
+        condition: service_healthy
+
+      mailpit:
+        condition: service_started
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://localhost:8085/actuator/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+
+  ai-service:
+    build:
+      context: ./services/ai-service
+      dockerfile: Dockerfile
+
+    container_name: smart-hotel-ai-service
+    restart: unless-stopped
+
+    environment:
+      SERVER_PORT: 8086
+
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_BASE_URL: https://generativelanguage.googleapis.com/v1beta
+      GEMINI_TIMEOUT_SECONDS: 30
+
+      HOTEL_SERVICE_URL: http://hotel-service:8082
+
+    ports:
+      - "8086:8086"
+
+    depends_on:
+      hotel-service:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://localhost:8086/actuator/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+
+    container_name: smart-hotel-api-gateway
+    restart: unless-stopped
+
+    environment:
+      SERVER_PORT: 8080
+
+      JWT_SECRET: ${JWT_SECRET}
+
+      IDENTITY_SERVICE_URL: http://identity-service:8081
+      HOTEL_SERVICE_URL: http://hotel-service:8082
+      BOOKING_SERVICE_URL: http://booking-service:8083
+      PAYMENT_SERVICE_URL: http://payment-service:8084
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      AI_SERVICE_URL: http://ai-service:8086
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      identity-service:
+        condition: service_healthy
+
+      hotel-service:
+        condition: service_healthy
+
+      booking-service:
+        condition: service_healthy
+
+      payment-service:
+        condition: service_healthy
+
+      notification-service:
+        condition: service_healthy
+
+      ai-service:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://localhost:8080/actuator/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+
+volumes:
+  identity_postgres_data:
+  hotel_postgres_data:
+  booking_postgres_data:
+  payment_postgres_data:
+  notification_postgres_data:

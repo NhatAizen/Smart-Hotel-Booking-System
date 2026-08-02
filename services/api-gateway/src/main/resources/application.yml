@@ -1,0 +1,82 @@
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+
+      routes:
+
+        # =====================================================
+        # NOTIFICATION SERVICE
+        # Phải đặt trước identity-service vì cùng dùng /api/users
+        # =====================================================
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/notifications/**,/api/users/*/notifications
+
+        # =====================================================
+        # IDENTITY SERVICE
+        # =====================================================
+        - id: identity-service
+          uri: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/auth/**,/api/users/**
+
+        # =====================================================
+        # HOTEL SERVICE
+        # =====================================================
+        - id: hotel-service
+          uri: ${HOTEL_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/hotels/**,/api/room-types/**,/api/rooms/**
+
+        # =====================================================
+        # BOOKING SERVICE
+        # =====================================================
+        - id: booking-service
+          uri: ${BOOKING_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/bookings/**,/api/customers/*/bookings
+
+        # =====================================================
+        # PAYMENT SERVICE
+        # =====================================================
+        - id: payment-service
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/payments/**,/api/bookings/*/payments,/api/customers/*/payments
+
+        # =====================================================
+        # AI SERVICE
+        # =====================================================
+        - id: ai-service
+          uri: ${AI_SERVICE_URL:http://localhost:8086}
+          predicates:
+            - Path=/api/ai/**
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: INFO
+    org.springframework.security: INFO
