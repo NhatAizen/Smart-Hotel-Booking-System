@@ -1,33 +1,17 @@
-import { ShieldCheck } from "lucide-react";
 import { Outlet } from "react-router-dom";
 
-import { useAuth } from "../auth/AuthContext";
-import Sidebar from "../components/layout/Sidebar";
-import NotificationBell from "../components/notifications/NotificationBell";
+import SystemAdminNavbar from "../components/layout/SystemAdminNavbar";
 
 export default function AdminLayout() {
-  const { user } = useAuth();
-
   return (
-    <div className="admin-shell">
-      <Sidebar />
+    <div className="admin-shell system-admin-shell">
+      <SystemAdminNavbar />
 
-      <section className="admin-main">
-        <header className="admin-topbar">
-          <div>
-            <span className="admin-topbar-kicker">
-              <ShieldCheck size={16} /> Trung tâm quản trị
-            </span>
-            <strong>Chào {user?.fullName ?? "quản trị viên"}</strong>
-          </div>
-
-          <NotificationBell admin />
-        </header>
-
+      <main className="admin-main">
         <div className="admin-content">
           <Outlet />
         </div>
-      </section>
+      </main>
     </div>
   );
 }

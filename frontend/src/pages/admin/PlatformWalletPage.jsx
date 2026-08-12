@@ -13,7 +13,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   approveWithdrawal,
@@ -46,6 +46,7 @@ function payoutMethodLabel(value) {
 }
 
 export default function PlatformWalletPage() {
+  const withdrawalDocumentsRequestRef = useRef(0);
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
@@ -77,16 +78,18 @@ export default function PlatformWalletPage() {
       setTransactions(Array.isArray(transactionData) ? transactionData : []);
       setWithdrawals(Array.isArray(withdrawalData) ? withdrawalData : []);
       setPaidPayments(Array.isArray(paymentData) ? paymentData : []);
-      if (selectedWithdrawal) {
-        const fresh = (Array.isArray(withdrawalData) ? withdrawalData : []).find((item) => item.id === selectedWithdrawal.id);
-        if (fresh) setSelectedWithdrawal(fresh);
-      }
+      setSelectedWithdrawal((current) => {
+        if (!current) return current;
+        return (Array.isArray(withdrawalData) ? withdrawalData : []).find(
+          (item) => item.id === current.id,
+        ) ?? current;
+      });
     } catch (requestError) {
       setError(requestError.response?.data?.message ?? "Không thể tải dữ liệu tài chính nền tảng.");
     } finally {
       setLoading(false);
     }
-  }, [status, selectedWithdrawal?.id]);
+  }, [status]);
 
   useEffect(() => {
     load();
@@ -123,6 +126,8 @@ export default function PlatformWalletPage() {
   }
 
   async function openWithdrawal(item) {
+    const requestId = withdrawalDocumentsRequestRef.current + 1;
+    withdrawalDocumentsRequestRef.current = requestId;
     setSelectedWithdrawal(item);
     setTransferReference(item.payoutReference ?? "");
     setTransferProof(null);
@@ -135,18 +140,23 @@ export default function PlatformWalletPage() {
     try {
       if (item.receiverQrAvailable) {
         const blob = await getWithdrawalReceiverQr(item.id);
+        if (withdrawalDocumentsRequestRef.current !== requestId) return;
         setReceiverQrUrl(URL.createObjectURL(blob));
       }
       if (item.transferProofAvailable) {
         const blob = await getWithdrawalTransferProof(item.id);
+        if (withdrawalDocumentsRequestRef.current !== requestId) return;
         setSavedProofUrl(URL.createObjectURL(blob));
       }
     } catch (requestError) {
-      setError(requestError.response?.data?.message ?? "Không thể tải tài liệu rút tiền.");
+      if (withdrawalDocumentsRequestRef.current === requestId) {
+        setError(requestError.response?.data?.message ?? "Không thể tải tài liệu rút tiền.");
+      }
     }
   }
 
   function closeWithdrawal() {
+    withdrawalDocumentsRequestRef.current += 1;
     setSelectedWithdrawal(null);
     setTransferReference("");
     setTransferProof(null);

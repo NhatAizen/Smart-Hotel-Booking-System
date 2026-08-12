@@ -14,7 +14,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import Loading from "../../components/common/Loading";
@@ -168,6 +168,8 @@ function amenityGroupFor(roomType, group) {
 
 export default function RoomTypesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const setSearchParamsRef = useRef(setSearchParams);
+  const roomTypesRequestRef = useRef(0);
   const [hotels, setHotels] = useState([]);
   const [hotelId, setHotelId] = useState(searchParams.get("hotelId") ?? "");
   const [roomTypes, setRoomTypes] = useState([]);
@@ -183,6 +185,29 @@ export default function RoomTypesPage() {
   const [imageActionId, setImageActionId] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    setSearchParamsRef.current = setSearchParams;
+  }, [setSearchParams]);
+
+  useEffect(() => {
+    const requestedHotelId = searchParams.get("hotelId") ?? "";
+
+    setHotelId((current) => {
+      const requestedIsValid =
+        requestedHotelId &&
+        (hotels.length === 0 ||
+          hotels.some((hotel) => hotel.id === requestedHotelId));
+
+      const nextHotelId = requestedIsValid
+        ? requestedHotelId
+        : hotels.some((hotel) => hotel.id === current)
+          ? current
+          : hotels[0]?.id ?? "";
+
+      return current === nextHotelId ? current : nextHotelId;
+    });
+  }, [hotels, searchParams]);
 
   const selectedHotel = useMemo(
     () => hotels.find((hotel) => hotel.id === hotelId),
@@ -228,12 +253,11 @@ export default function RoomTypesPage() {
         const safeHotels = Array.isArray(data) ? data : [];
         setHotels(safeHotels);
 
-        const requested = searchParams.get("hotelId");
-        const nextId = safeHotels.some((hotel) => hotel.id === requested)
-          ? requested
-          : safeHotels[0]?.id ?? "";
-
-        setHotelId(nextId);
+        setHotelId((current) =>
+          safeHotels.some((hotel) => hotel.id === current)
+            ? current
+            : safeHotels[0]?.id ?? "",
+        );
       } catch (requestError) {
         setError(errorMessage(requestError));
       } finally {
@@ -246,11 +270,14 @@ export default function RoomTypesPage() {
 
   useEffect(() => {
     if (!hotelId) {
+      roomTypesRequestRef.current += 1;
       setRoomTypes([]);
+      setLoadingTypes(false);
       return;
     }
 
-    setSearchParams({ hotelId }, { replace: true });
+    const requestId = roomTypesRequestRef.current + 1;
+    roomTypesRequestRef.current = requestId;
 
     async function loadTypes() {
       setLoadingTypes(true);
@@ -258,16 +285,32 @@ export default function RoomTypesPage() {
 
       try {
         const data = await getRoomTypes(hotelId);
-        setRoomTypes(Array.isArray(data) ? data : []);
+        if (roomTypesRequestRef.current === requestId) {
+          setRoomTypes(Array.isArray(data) ? data : []);
+        }
       } catch (requestError) {
-        setError(errorMessage(requestError));
+        if (roomTypesRequestRef.current === requestId) {
+          setError(errorMessage(requestError));
+        }
       } finally {
-        setLoadingTypes(false);
+        if (roomTypesRequestRef.current === requestId) {
+          setLoadingTypes(false);
+        }
       }
     }
 
     loadTypes();
   }, [hotelId]);
+
+  useEffect(() => {
+    if (!hotelId || hotels.length === 0) return;
+
+    const nextSearch = new URLSearchParams({ hotelId });
+    setSearchParamsRef.current((current) =>
+      current.toString() === nextSearch.toString() ? current : nextSearch,
+      { replace: true },
+    );
+  }, [hotelId, hotels.length]);
 
   useEffect(() => {
     if (!detailRoomType?.id) {

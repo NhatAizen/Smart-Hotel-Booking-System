@@ -85,21 +85,25 @@ export default function PartnerRequestsPage() {
     let backUrl = "";
 
     async function loadDocuments() {
+      setDocumentsError("");
       if (!selected?.id || !selected.cccdFrontAvailable || !selected.cccdBackAvailable) {
+        setDocumentsLoading(false);
         setDocumentUrls({ front: "", back: "" });
         return;
       }
 
       setDocumentsLoading(true);
-      setDocumentsError("");
       try {
         const [frontBlob, backBlob] = await Promise.all([
           getPartnerRequestDocument(selected.id, "front"),
           getPartnerRequestDocument(selected.id, "back"),
         ]);
+
+        if (!active) return;
+
         frontUrl = URL.createObjectURL(frontBlob);
         backUrl = URL.createObjectURL(backBlob);
-        if (active) setDocumentUrls({ front: frontUrl, back: backUrl });
+        setDocumentUrls({ front: frontUrl, back: backUrl });
       } catch (requestError) {
         if (active) {
           setDocumentsError(

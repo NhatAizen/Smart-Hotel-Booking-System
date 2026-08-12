@@ -5,7 +5,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import Loading from "../../components/common/Loading";
@@ -34,6 +34,8 @@ function errorMessage(error) {
 
 export default function RoomsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const setSearchParamsRef = useRef(setSearchParams);
+  const hotelDataRequestRef = useRef(0);
   const [hotels, setHotels] = useState([]);
   const [hotelId, setHotelId] = useState(searchParams.get("hotelId") ?? "");
   const [roomTypes, setRoomTypes] = useState([]);
@@ -49,6 +51,33 @@ export default function RoomsPage() {
   const [statusFilter, setStatusFilter] = useState(
     searchParams.get("status") ?? "",
   );
+
+  useEffect(() => {
+    setSearchParamsRef.current = setSearchParams;
+  }, [setSearchParams]);
+
+  useEffect(() => {
+    const requestedHotelId = searchParams.get("hotelId") ?? "";
+    const nextStatusFilter = searchParams.get("status") ?? "";
+
+    setHotelId((current) => {
+      const requestedIsValid =
+        requestedHotelId &&
+        (hotels.length === 0 ||
+          hotels.some((hotel) => hotel.id === requestedHotelId));
+
+      const nextHotelId = requestedIsValid
+        ? requestedHotelId
+        : hotels.some((hotel) => hotel.id === current)
+          ? current
+          : hotels[0]?.id ?? "";
+
+      return current === nextHotelId ? current : nextHotelId;
+    });
+    setStatusFilter((current) =>
+      current === nextStatusFilter ? current : nextStatusFilter,
+    );
+  }, [hotels, searchParams]);
 
   const roomTypeMap = useMemo(
     () => Object.fromEntries(roomTypes.map((type) => [type.id, type])),
@@ -75,12 +104,11 @@ export default function RoomsPage() {
         const safeHotels = Array.isArray(data) ? data : [];
         setHotels(safeHotels);
 
-        const requested = searchParams.get("hotelId");
-        const nextId = safeHotels.some((hotel) => hotel.id === requested)
-          ? requested
-          : safeHotels[0]?.id ?? "";
-
-        setHotelId(nextId);
+        setHotelId((current) =>
+          safeHotels.some((hotel) => hotel.id === current)
+            ? current
+            : safeHotels[0]?.id ?? "",
+        );
       } catch (requestError) {
         setError(errorMessage(requestError));
       } finally {
@@ -93,15 +121,15 @@ export default function RoomsPage() {
 
   useEffect(() => {
     if (!hotelId) {
+      hotelDataRequestRef.current += 1;
       setRooms([]);
       setRoomTypes([]);
+      setLoadingRooms(false);
       return;
     }
 
-    setSearchParams(
-      statusFilter ? { hotelId, status: statusFilter } : { hotelId },
-      { replace: true },
-    );
+    const requestId = hotelDataRequestRef.current + 1;
+    hotelDataRequestRef.current = requestId;
 
     async function loadHotelData() {
       setLoadingRooms(true);
@@ -113,6 +141,8 @@ export default function RoomsPage() {
           getManagedRooms(hotelId),
         ]);
 
+        if (hotelDataRequestRef.current !== requestId) return;
+
         const safeTypes = Array.isArray(typeData) ? typeData : [];
         setRoomTypes(safeTypes);
         setRooms(Array.isArray(roomData) ? roomData : []);
@@ -123,14 +153,31 @@ export default function RoomsPage() {
             : safeTypes[0]?.id ?? "",
         }));
       } catch (requestError) {
-        setError(errorMessage(requestError));
+        if (hotelDataRequestRef.current === requestId) {
+          setError(errorMessage(requestError));
+        }
       } finally {
-        setLoadingRooms(false);
+        if (hotelDataRequestRef.current === requestId) {
+          setLoadingRooms(false);
+        }
       }
     }
 
     loadHotelData();
-  }, [hotelId, statusFilter]);
+  }, [hotelId]);
+
+  useEffect(() => {
+    if (!hotelId || hotels.length === 0) return;
+
+    const nextSearch = new URLSearchParams();
+    nextSearch.set("hotelId", hotelId);
+    if (statusFilter) nextSearch.set("status", statusFilter);
+
+    setSearchParamsRef.current((current) =>
+      current.toString() === nextSearch.toString() ? current : nextSearch,
+      { replace: true },
+    );
+  }, [hotelId, hotels.length, statusFilter]);
 
   function handleBatchChange(event) {
     const { name, value } = event.target;

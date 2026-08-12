@@ -1,36 +1,17 @@
-import { Hotel } from "lucide-react";
 import { Outlet } from "react-router-dom";
 
-import { useAuth } from "../auth/AuthContext";
-import HotelAdminSidebar from "../components/layout/HotelAdminSidebar";
-import NotificationBell from "../components/notifications/NotificationBell";
+import HotelAdminNavbar from "../components/layout/HotelAdminNavbar";
 
 export default function HotelAdminLayout() {
-  const { user } = useAuth();
-
   return (
     <div className="admin-shell hotel-admin-shell">
-      <HotelAdminSidebar />
+      <HotelAdminNavbar />
 
-      <section className="admin-main">
-        <header className="admin-topbar">
-          <div>
-            <span className="admin-topbar-kicker hotel-admin-kicker">
-              <Hotel size={16} />
-              Trung tâm đối tác
-            </span>
-            <strong>
-              Chào {user?.fullName ?? "đối tác khách sạn"}
-            </strong>
-          </div>
-
-          <NotificationBell admin />
-        </header>
-
+      <main className="admin-main">
         <div className="admin-content">
           <Outlet />
         </div>
-      </section>
+      </main>
     </div>
   );
 }
