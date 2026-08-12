@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+  <rect width="900" height="600" fill="#eef4f8"/>
+  <g fill="none" stroke="#8aa0b5" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M250 470V210l200-110 200 110v260"/>
+    <path d="M340 470V300h220v170M410 300v170M490 300v170"/>
+  </g>
+  <text x="450" y="545" text-anchor="middle" fill="#60788e" font-family="Arial" font-size="34">Chưa có ảnh bìa</text>
+</svg>

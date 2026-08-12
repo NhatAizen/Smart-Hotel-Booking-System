@@ -1,0 +1,105 @@
+export const cities = [
+  "Hồ Chí Minh",
+  "Hà Nội",
+  "Đà Nẵng",
+  "Nha Trang",
+  "Đà Lạt",
+  "Vũng Tàu",
+  "Phú Quốc",
+  "Huế",
+  "Hội An",
+  "Cần Thơ",
+  "Hạ Long",
+  "Quy Nhơn",
+];
+
+export const hotelAmenities = [
+  "WiFi miễn phí",
+  "Bãi đỗ xe",
+  "Hồ bơi",
+  "Nhà hàng",
+  "Quầy bar",
+  "Lễ tân 24 giờ",
+  "Dịch vụ phòng",
+  "Thang máy",
+  "Phòng gym",
+  "Spa",
+  "Đưa đón sân bay",
+  "Phòng họp",
+  "Giặt ủi",
+  "Cho phép thú cưng",
+];
+
+export const roomAmenityGroups = [
+  {
+    title: "Tiện nghi nổi bật",
+    detailTitle: "Tiện nghi phòng",
+    items: [
+      "WiFi miễn phí",
+      "Máy điều hòa",
+      "TV màn hình phẳng",
+      "Minibar",
+      "Ban công",
+      "Két an toàn",
+      "Ấm đun nước",
+      "Bàn làm việc",
+      "Tủ lạnh",
+      "Cách âm",
+      "Nhìn ra thành phố",
+      "Nhìn ra biển",
+      "Máy lọc không khí",
+      "Hệ thống sưởi",
+      "Tủ hoặc phòng để quần áo",
+      "Giá treo quần áo",
+      "Đồng hồ báo thức",
+      "Bàn là",
+      "Quạt máy",
+    ],
+  },
+  {
+    title: "Phòng tắm riêng",
+    detailTitle: "Trong phòng tắm riêng",
+    items: [
+      "Phòng tắm riêng",
+      "Bồn tắm",
+      "Vòi sen",
+      "Đồ vệ sinh cá nhân miễn phí",
+      "Áo choàng tắm",
+      "Chậu rửa vệ sinh (bidet)",
+      "Nhà vệ sinh",
+      "Dép lê",
+      "Máy sấy tóc",
+      "Giấy vệ sinh",
+      "Khăn tắm",
+      "Nước rửa tay",
+    ],
+  },
+  {
+    title: "Dịch vụ và tiện ích khác",
+    detailTitle: "Dịch vụ trong phòng",
+    items: [
+      "Dịch vụ báo thức",
+      "Dọn phòng hằng ngày",
+      "Điện thoại",
+      "Ổ cắm gần giường",
+      "Bộ khăn trải giường",
+      "Nước suối miễn phí",
+      "Đồ ăn nhẹ",
+      "Khu vực tiếp khách",
+    ],
+  },
+];
+
+export const roomAmenities = roomAmenityGroups.flatMap(
+  (group) => group.items,
+);
+
+export const bedTypes = [
+  "Giường đơn",
+  "Giường đôi",
+  "Giường Queen",
+  "Giường King",
+  "2 giường đơn",
+  "Giường tầng",
+  "Sofa bed",
+];
