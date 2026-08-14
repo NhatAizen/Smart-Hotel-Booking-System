@@ -1,14 +1,17 @@
 package com.smarthotel.hotel.common.exception;
 
 import com.smarthotel.hotel.common.response.ApiErrorResponse;
+import com.smarthotel.hotel.rolechange.fence.OwnerDemotionFenceException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -19,40 +22,18 @@ public class GlobalExceptionHandler {
     private static final Logger LOGGER =
             LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    @ExceptionHandler(HotelNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleHotelNotFound(
-            HotelNotFoundException exception,
+    @ExceptionHandler({
+            HotelNotFoundException.class,
+            RoomTypeNotFoundException.class,
+            RoomNotFoundException.class
+    })
+    public ResponseEntity<ApiErrorResponse> handleNotFound(
+            RuntimeException exception,
             HttpServletRequest request
     ) {
         return build(
                 HttpStatus.NOT_FOUND,
-                "HOTEL_NOT_FOUND",
-                exception.getMessage(),
-                request
-        );
-    }
-
-    @ExceptionHandler(RoomTypeNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleRoomTypeNotFound(
-            RoomTypeNotFoundException exception,
-            HttpServletRequest request
-    ) {
-        return build(
-                HttpStatus.NOT_FOUND,
-                "ROOM_TYPE_NOT_FOUND",
-                exception.getMessage(),
-                request
-        );
-    }
-
-    @ExceptionHandler(RoomNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleRoomNotFound(
-            RoomNotFoundException exception,
-            HttpServletRequest request
-    ) {
-        return build(
-                HttpStatus.NOT_FOUND,
-                "ROOM_NOT_FOUND",
+                "RESOURCE_NOT_FOUND",
                 exception.getMessage(),
                 request
         );
@@ -60,7 +41,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             DuplicateRoomTypeNameException.class,
-            DuplicateRoomNumberException.class
+            DuplicateRoomNumberException.class,
+            OwnerDemotionFenceException.class
     })
     public ResponseEntity<ApiErrorResponse> handleConflict(
             RuntimeException exception,
@@ -69,6 +51,19 @@ public class GlobalExceptionHandler {
         return build(
                 HttpStatus.CONFLICT,
                 "RESOURCE_ALREADY_EXISTS",
+                exception.getMessage(),
+                request
+        );
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+            AccessDeniedException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                HttpStatus.FORBIDDEN,
+                "ACCESS_DENIED",
                 exception.getMessage(),
                 request
         );
@@ -83,36 +78,47 @@ public class GlobalExceptionHandler {
 
         exception.getBindingResult()
                 .getFieldErrors()
-                .forEach(error ->
-                        errors.putIfAbsent(
-                                error.getField(),
-                                error.getDefaultMessage()
-                        )
-                );
+                .forEach(error -> errors.putIfAbsent(
+                        error.getField(),
+                        error.getDefaultMessage()
+                ));
 
-        ApiErrorResponse response =
+        return ResponseEntity.badRequest().body(
                 ApiErrorResponse.validation(
                         HttpStatus.BAD_REQUEST.value(),
                         "VALIDATION_ERROR",
                         "Dữ liệu gửi lên không hợp lệ",
                         request.getRequestURI(),
                         errors
-                );
-
-        return ResponseEntity
-                .badRequest()
-                .body(response);
+                )
+        );
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiErrorResponse> handleIllegalArgument(
-            IllegalArgumentException exception,
+    @ExceptionHandler({
+            IllegalArgumentException.class,
+            IllegalStateException.class
+    })
+    public ResponseEntity<ApiErrorResponse> handleBusinessError(
+            RuntimeException exception,
             HttpServletRequest request
     ) {
         return build(
                 HttpStatus.BAD_REQUEST,
-                "INVALID_ARGUMENT",
+                "BUSINESS_ERROR",
                 exception.getMessage(),
+                request
+        );
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleMaxUpload(
+            MaxUploadSizeExceededException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "FILE_TOO_LARGE",
+                "Tệp tải lên vượt quá giới hạn cho phép",
                 request
         );
     }
@@ -142,15 +148,13 @@ public class GlobalExceptionHandler {
             String message,
             HttpServletRequest request
     ) {
-        return ResponseEntity
-                .status(status)
-                .body(
-                        ApiErrorResponse.of(
-                                status.value(),
-                                code,
-                                message,
-                                request.getRequestURI()
-                        )
-                );
+        return ResponseEntity.status(status).body(
+                ApiErrorResponse.of(
+                        status.value(),
+                        code,
+                        message,
+                        request.getRequestURI()
+                )
+        );
     }
 }

@@ -19,7 +19,6 @@ public record RoomResponse(
         Instant createdAt,
         Instant updatedAt
 ) {
-
     public static RoomResponse from(Room room) {
         return new RoomResponse(
                 room.getId(),

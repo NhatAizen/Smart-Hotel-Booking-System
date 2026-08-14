@@ -1,11 +1,13 @@
 package com.smarthotel.payment.common.exception;
 
 import com.smarthotel.payment.common.response.ApiErrorResponse;
+import com.smarthotel.payment.wallet.exception.HotelAdminDemotionFenceException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -40,6 +42,32 @@ public class GlobalExceptionHandler {
         return build(
                 HttpStatus.CONFLICT,
                 "DUPLICATE_TRANSACTION_CODE",
+                exception.getMessage(),
+                request
+        );
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+            AccessDeniedException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                HttpStatus.FORBIDDEN,
+                "ACCESS_DENIED",
+                exception.getMessage(),
+                request
+        );
+    }
+
+    @ExceptionHandler(HotelAdminDemotionFenceException.class)
+    public ResponseEntity<ApiErrorResponse> handleHotelAdminDemotionFence(
+            HotelAdminDemotionFenceException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                HttpStatus.CONFLICT,
+                "HOTEL_ADMIN_DEMOTION_IN_PROGRESS",
                 exception.getMessage(),
                 request
         );

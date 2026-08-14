@@ -1,7 +1,9 @@
 package com.smarthotel.gateway.config;
 
+import com.smarthotel.gateway.security.CurrentRoleWebFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
@@ -10,6 +12,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -19,19 +23,35 @@ public class SecurityConfig {
 
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(
-            ServerHttpSecurity http
+            ServerHttpSecurity http,
+            WebClient.Builder webClientBuilder,
+            @Value("${IDENTITY_SERVICE_URL:http://localhost:8081}")
+            String identityServiceUrl
     ) {
+        CurrentRoleWebFilter currentRoleWebFilter = new CurrentRoleWebFilter(
+                webClientBuilder,
+                identityServiceUrl
+        );
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
 
+                /*
+                 * CORS được cấu hình trong application.yml.
+                 * Bật cors() để Spring Security sử dụng cấu hình đó.
+                 */
                 .cors(cors -> {
                 })
 
                 .authorizeExchange(exchanges -> exchanges
 
-                        // =================================================
-                        // PUBLIC ENDPOINTS
-                        // =================================================
+                        /*
+                         * Preflight request của trình duyệt phải được public.
+                         */
+                        .pathMatchers(
+                                HttpMethod.OPTIONS,
+                                "/**"
+                        )
+                        .permitAll()
 
                         .pathMatchers(
                                 "/actuator/health",
@@ -40,156 +60,271 @@ public class SecurityConfig {
                         )
                         .permitAll()
 
+                        /*
+                         * Avatar/profile media phải public.
+                         *
+                         * Trình duyệt tải ảnh bằng thẻ <img src="..."> nên request
+                         * không tự gắn Authorization: Bearer <JWT>.
+                         * Chỉ public endpoint đọc file ảnh; các API /api/users/me
+                         * bên dưới vẫn yêu cầu đăng nhập.
+                         */
                         .pathMatchers(
-                                HttpMethod.OPTIONS,
-                                "/**"
+                                HttpMethod.GET,
+                                "/api/users/media/**"
                         )
                         .permitAll()
 
+                        /* PayOS gọi trực tiếp, không có JWT; payment-service vẫn kiểm tra signature. */
+                        .pathMatchers(
+                                HttpMethod.POST,
+                                "/api/payments/payos/webhook"
+                        )
+                        .permitAll()
+
+                        /*
+                         * Các API xác thực không yêu cầu JWT.
+                         */
                         .pathMatchers(
                                 "/api/auth/register",
                                 "/api/auth/login",
                                 "/api/auth/refresh",
+                                "/api/auth/logout",
                                 "/api/auth/verify-email",
                                 "/api/auth/resend-verification",
                                 "/api/auth/forgot-password",
-                                "/api/auth/reset-password"
+                                "/api/auth/reset-password",
+                                "/api/auth/oauth2/exchange"
                         )
                         .permitAll()
 
-                        // Guest được xem khách sạn, loại phòng và phòng.
+                        /*
+                         * SYSTEM ADMIN.
+                         */
+                        .pathMatchers(
+                                "/api/admin/partner-requests/**",
+                                "/api/admin/users/**",
+                                "/api/admin/hotels/**",
+                                "/api/admin/room-types/**",
+                                "/api/admin/wallet/**",
+                                "/api/admin/withdrawals/**",
+                                "/api/admin/payments/**"
+                        )
+                        .hasRole("SYSTEM_ADMIN")
+
+                        .pathMatchers(
+                                HttpMethod.POST,
+                                "/api/wallets/top-up/payos"
+                        )
+                        .hasRole("HOTEL_ADMIN")
+
+                        .pathMatchers(
+                                "/api/wallets/me",
+                                "/api/wallets/me/transactions",
+                                "/api/withdrawals",
+                                "/api/withdrawals/me"
+                        )
+                        .hasAnyRole("CUSTOMER", "HOTEL_ADMIN")
+
+                        .pathMatchers(
+                                HttpMethod.POST,
+                                "/api/payments/wallet/checkout"
+                        )
+                        .hasRole("CUSTOMER")
+
+                        .pathMatchers(
+                                HttpMethod.POST,
+                                "/api/payments/cash-at-hotel/*",
+                                "/api/payments/payos/check-in/*"
+                        )
+                        .hasRole("HOTEL_ADMIN")
+
+                        .pathMatchers(
+                                HttpMethod.PATCH,
+                                "/api/payments/*/refund"
+                        )
+                        .hasRole("SYSTEM_ADMIN")
+
+                        /*
+                         * CUSTOMER gửi hồ sơ đối tác.
+                         */
+                        .pathMatchers(
+                                "/api/partner-requests/deactivation",
+                                "/api/partner-requests/deactivation/**"
+                        )
+                        .hasRole("HOTEL_ADMIN")
+
+                        .pathMatchers(
+                                HttpMethod.POST,
+                                "/api/partner-requests",
+                                "/api/partner-requests/ocr/**",
+                                "/api/partner-requests/ekyc/**"
+                        )
+                        .hasRole("CUSTOMER")
+
                         .pathMatchers(
                                 HttpMethod.GET,
-                                "/api/hotels/**",
-                                "/api/room-types/**",
-                                "/api/rooms/**"
+                                "/api/partner-requests/me"
                         )
-                        .permitAll()
+                        .hasAnyRole(
+                                "CUSTOMER",
+                                "HOTEL_ADMIN"
+                        )
 
-                        // =================================================
-                        // SYSTEM ADMIN
-                        // =================================================
+                        .pathMatchers(
+                                HttpMethod.GET,
+                                "/api/partner-requests/me/cccd/**"
+                        )
+                        .hasAnyRole(
+                                "CUSTOMER",
+                                "HOTEL_ADMIN"
+                        )
 
-                        // Chỉ SYSTEM_ADMIN được tạo khách sạn.
+                        /*
+                         * HOTEL ADMIN đăng ký và quản lý khách sạn.
+                         */
                         .pathMatchers(
                                 HttpMethod.POST,
                                 "/api/hotels"
                         )
-                        .hasRole("SYSTEM_ADMIN")
+                        .hasRole("HOTEL_ADMIN")
 
-                        // Chỉ SYSTEM_ADMIN được sửa hoặc xóa khách sạn.
+                        .pathMatchers(
+                                HttpMethod.GET,
+                                "/api/hotels/mine"
+                        )
+                        .hasRole("HOTEL_ADMIN")
+
                         .pathMatchers(
                                 HttpMethod.PUT,
                                 "/api/hotels/**"
                         )
-                        .hasRole("SYSTEM_ADMIN")
-
-                        .pathMatchers(
-                                HttpMethod.PATCH,
-                                "/api/hotels/**"
-                        )
-                        .hasRole("SYSTEM_ADMIN")
+                        .hasRole("HOTEL_ADMIN")
 
                         .pathMatchers(
                                 HttpMethod.DELETE,
                                 "/api/hotels/**"
                         )
-                        .hasRole("SYSTEM_ADMIN")
+                        .hasRole("HOTEL_ADMIN")
 
+                        /*
+                         * HOTEL ADMIN xem booking theo khách sạn.
+                         *
+                         * Phải đứng trước rule GET /api/hotels/** permitAll
+                         * ở phía dưới để không vô tình public danh sách booking.
+                         */
                         .pathMatchers(
-                                "/api/admin/**"
+                                HttpMethod.GET,
+                                "/api/hotels/*/bookings"
                         )
-                        .hasRole("SYSTEM_ADMIN")
+                        .hasRole("HOTEL_ADMIN")
 
-                        // =================================================
-                        // HOTEL ADMIN
-                        // =================================================
-
-                        // HOTEL_ADMIN hoặc SYSTEM_ADMIN được quản lý
-                        // loại phòng.
+                        /*
+                         * HOTEL ADMIN quản lý loại phòng và phòng.
+                         */
                         .pathMatchers(
-                                HttpMethod.POST,
-                                "/api/room-types/**"
+                                HttpMethod.GET,
+                                "/api/hotels/*/rooms/manage"
                         )
                         .hasAnyRole(
                                 "HOTEL_ADMIN",
                                 "SYSTEM_ADMIN"
                         )
+
+                        .pathMatchers(
+                                HttpMethod.POST,
+                                "/api/hotels/*/rooms",
+                                "/api/room-types/**"
+                        )
+                        .hasRole("HOTEL_ADMIN")
 
                         .pathMatchers(
                                 HttpMethod.PUT,
-                                "/api/room-types/**"
+                                "/api/room-types/**",
+                                "/api/rooms/**"
                         )
-                        .hasAnyRole(
-                                "HOTEL_ADMIN",
-                                "SYSTEM_ADMIN"
-                        )
+                        .hasRole("HOTEL_ADMIN")
 
                         .pathMatchers(
                                 HttpMethod.PATCH,
-                                "/api/room-types/**"
+                                "/api/room-types/**",
+                                "/api/rooms/**"
                         )
-                        .hasAnyRole(
-                                "HOTEL_ADMIN",
-                                "SYSTEM_ADMIN"
-                        )
+                        .hasRole("HOTEL_ADMIN")
 
                         .pathMatchers(
                                 HttpMethod.DELETE,
-                                "/api/room-types/**"
+                                "/api/room-types/**",
+                                "/api/rooms/**"
                         )
-                        .hasAnyRole(
-                                "HOTEL_ADMIN",
-                                "SYSTEM_ADMIN"
-                        )
+                        .hasRole("HOTEL_ADMIN")
 
-                        // HOTEL_ADMIN hoặc SYSTEM_ADMIN được quản lý phòng.
+                        /*
+                         * Báo giá động phải public vì Guest/Customer cần xem
+                         * giá cuối tuần và ngày đặc biệt trước khi đăng nhập/đặt phòng.
+                         * Booking Service vẫn là nơi tính giá thật.
+                         */
                         .pathMatchers(
                                 HttpMethod.POST,
+                                "/api/pricing/quote"
+                        )
+                        .permitAll()
+
+                        /*
+                         * Guest xem khách sạn/phòng đã được duyệt.
+                         */
+                        .pathMatchers(
+                                HttpMethod.GET,
+                                "/api/hotels/**",
+                                "/api/room-types/**",
                                 "/api/rooms/**",
-                                "/api/hotels/*/rooms"
+                                "/api/availability/**",
+                                "/api/reviews/**"
                         )
-                        .hasAnyRole(
-                                "HOTEL_ADMIN",
-                                "SYSTEM_ADMIN"
-                        )
+                        .permitAll()
 
+                        /*
+                         * CUSTOMER quản lý danh sách khách sạn yêu thích.
+                         */
                         .pathMatchers(
-                                HttpMethod.PUT,
-                                "/api/rooms/**"
+                                "/api/favorites",
+                                "/api/favorites/**"
                         )
-                        .hasAnyRole(
-                                "HOTEL_ADMIN",
-                                "SYSTEM_ADMIN"
+                        .hasRole("CUSTOMER")
+
+                        /*
+                         * Customer self-booking endpoint dùng cho Enziu AI và trang cá nhân.
+                         */
+                        .pathMatchers(
+                                HttpMethod.GET,
+                                "/api/bookings/me"
                         )
+                        .hasRole("CUSTOMER")
 
                         .pathMatchers(
                                 HttpMethod.PATCH,
-                                "/api/rooms/**"
+                                "/api/bookings/*/cancel"
                         )
-                        .hasAnyRole(
-                                "HOTEL_ADMIN",
-                                "SYSTEM_ADMIN"
-                        )
+                        .hasRole("CUSTOMER")
 
+                        /*
+                         * Enziu AI V2 đọc booking cá nhân nên chỉ CUSTOMER được gọi.
+                         */
                         .pathMatchers(
-                                HttpMethod.DELETE,
-                                "/api/rooms/**"
+                                HttpMethod.POST,
+                                "/api/ai/assistant"
                         )
-                        .hasAnyRole(
-                                "HOTEL_ADMIN",
-                                "SYSTEM_ADMIN"
-                        )
+                        .hasRole("CUSTOMER")
 
-                        // =================================================
-                        // CUSTOMER OPERATIONS
-                        // =================================================
-
+                        /*
+                         * Các API nghiệp vụ còn lại yêu cầu đăng nhập.
+                         */
                         .pathMatchers(
                                 "/api/bookings/**",
+                                "/api/reviews/**",
                                 "/api/payments/**",
                                 "/api/notifications/**",
                                 "/api/users/*/notifications",
+                                "/api/users/*/notifications/**",
                                 "/api/ai/**"
                         )
                         .hasAnyRole(
@@ -198,7 +333,6 @@ public class SecurityConfig {
                                 "SYSTEM_ADMIN"
                         )
 
-                        // Endpoint còn lại cần đăng nhập.
                         .anyExchange()
                         .authenticated()
                 )
@@ -211,22 +345,14 @@ public class SecurityConfig {
                         )
                 )
 
+                .addFilterAfter(
+                        currentRoleWebFilter,
+                        SecurityWebFiltersOrder.AUTHENTICATION
+                )
+
                 .build();
     }
 
-    /**
-     * Chuyển claim:
-     *
-     * role = CUSTOMER
-     *
-     * thành authority:
-     *
-     * ROLE_CUSTOMER
-     *
-     * Không khai báo @Bean ở hàm này, vì Spring Boot sẽ cố đăng ký
-     * Converter lambda vào WebFlux ConversionService và làm Gateway
-     * khởi động thất bại.
-     */
     private Converter<
             Jwt,
             Mono<AbstractAuthenticationToken>

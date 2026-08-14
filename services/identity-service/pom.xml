@@ -52,6 +52,12 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
+        <!-- Đăng nhập Google/Facebook bằng OAuth2 và OpenID Connect -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+        </dependency>
+
         <!--
             Hỗ trợ JWT Bearer Token:
             JwtEncoder, JwtDecoder và OAuth2 Resource Server.

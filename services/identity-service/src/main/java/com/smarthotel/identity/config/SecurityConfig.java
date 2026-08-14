@@ -2,6 +2,10 @@ package com.smarthotel.identity.config;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.proc.SecurityContext;
+import com.smarthotel.identity.oauth.handler.OAuth2AuthenticationFailureHandler;
+import com.smarthotel.identity.oauth.handler.OAuth2AuthenticationSuccessHandler;
+import com.smarthotel.identity.oauth.service.CustomOAuth2UserService;
+import com.smarthotel.identity.oauth.service.CustomOidcUserService;
 import com.smarthotel.identity.security.JwtAuthenticationEntryPoint;
 import com.smarthotel.identity.security.JwtProperties;
 import com.smarthotel.identity.security.JwtRoleAuthenticationConverter;
@@ -13,6 +17,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -46,8 +51,10 @@ public class SecurityConfig {
     public SecretKey jwtSecretKey(
             JwtProperties properties
     ) {
-        if (properties.secret() == null
-                || properties.secret().isBlank()) {
+        if (
+                properties.secret() == null
+                        || properties.secret().isBlank()
+        ) {
             throw new IllegalStateException(
                     "JWT_SECRET chưa được cấu hình"
             );
@@ -56,12 +63,14 @@ public class SecurityConfig {
         final byte[] decodedKey;
 
         try {
-            decodedKey = Base64.getDecoder().decode(
-                    properties.secret().trim()
-            );
+            decodedKey = Base64
+                    .getDecoder()
+                    .decode(
+                            properties.secret().trim()
+                    );
         } catch (IllegalArgumentException exception) {
             throw new IllegalStateException(
-                    "JWT_SECRET phải là Base64 hợp lệ",
+                    "JWT_SECRET phải là chuỗi Base64 hợp lệ",
                     exception
             );
         }
@@ -82,10 +91,11 @@ public class SecurityConfig {
     public JwtEncoder jwtEncoder(
             SecretKey secretKey
     ) {
-        ImmutableSecret<SecurityContext> secret =
-                new ImmutableSecret<>(secretKey);
-
-        return new NimbusJwtEncoder(secret);
+        return new NimbusJwtEncoder(
+                new ImmutableSecret<SecurityContext>(
+                        secretKey
+                )
+        );
     }
 
     @Bean
@@ -93,10 +103,11 @@ public class SecurityConfig {
             SecretKey secretKey,
             JwtProperties properties
     ) {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder
-                .withSecretKey(secretKey)
-                .macAlgorithm(MacAlgorithm.HS256)
-                .build();
+        NimbusJwtDecoder decoder =
+                NimbusJwtDecoder
+                        .withSecretKey(secretKey)
+                        .macAlgorithm(MacAlgorithm.HS256)
+                        .build();
 
         OAuth2TokenValidator<Jwt> timestampValidator =
                 new JwtTimestampValidator();
@@ -120,59 +131,137 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationEntryPoint entryPoint,
-            JwtRoleAuthenticationConverter jwtConverter
+            JwtRoleAuthenticationConverter jwtConverter,
+            CustomOidcUserService customOidcUserService,
+            CustomOAuth2UserService customOAuth2UserService,
+            OAuth2AuthenticationSuccessHandler successHandler,
+            OAuth2AuthenticationFailureHandler failureHandler
     ) throws Exception {
 
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf ->
+                        csrf.disable()
+                )
 
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.IF_REQUIRED
                         )
                 )
 
-                .authorizeHttpRequests(authorize -> authorize
-                        .dispatcherTypeMatchers(
-                                DispatcherType.ERROR
-                        )
-                        .permitAll()
+                .authorizeHttpRequests(authorize ->
+                        authorize
+                                .dispatcherTypeMatchers(
+                                        DispatcherType.ERROR
+                                )
+                                .permitAll()
 
-                        .requestMatchers(
-                                "/api/auth/register",
-                                "/api/auth/login",
-                                "/api/auth/refresh",
-                                "/api/auth/logout",
-                                "/api/auth/verify-email",
-                                "/api/auth/resend-verification",
-                                "/api/auth/forgot-password",
-                                "/api/auth/reset-password",
+                                .requestMatchers(
+                                        "/api/auth/register",
+                                        "/api/auth/login",
+                                        "/api/auth/refresh",
+                                        "/api/auth/logout",
+                                        "/api/auth/verify-email",
+                                        "/api/auth/resend-verification",
+                                        "/api/auth/forgot-password",
+                                        "/api/auth/reset-password",
+                                        "/api/auth/oauth2/exchange",
+                                        "/oauth2/**",
+                                        "/login/oauth2/**"
+                                )
+                                .permitAll()
 
-                                "/swagger-ui.html",
-                                "/swagger-ui/**",
-                                "/v3/api-docs",
-                                "/v3/api-docs/**",
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/users/media/**",
+                                        "/api/users/*/public-profile"
+                                )
+                                .permitAll()
 
-                                "/actuator/health",
-                                "/actuator/info",
-                                "/error"
-                        )
-                        .permitAll()
+                                .requestMatchers(
+                                        "/swagger-ui.html",
+                                        "/swagger-ui/**",
+                                        "/v3/api-docs",
+                                        "/v3/api-docs/**",
+                                        "/actuator/health",
+                                        "/actuator/info",
+                                        "/error"
+                                )
+                                .permitAll()
 
-                        .requestMatchers(
-                                "/api/auth/logout-all"
-                        )
-                        .authenticated()
+                                .requestMatchers(
+                                        "/api/admin/partner-requests/**",
+                                        "/api/admin/users/**"
+                                )
+                                .hasRole("SYSTEM_ADMIN")
 
-                        .anyRequest()
-                        .authenticated()
+                                .requestMatchers(
+                                        "/api/partner-requests/deactivation",
+                                        "/api/partner-requests/deactivation/**"
+                                )
+                                .hasRole("HOTEL_ADMIN")
+
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/partner-requests",
+                                        "/api/partner-requests/ekyc/**"
+                                )
+                                .hasRole("CUSTOMER")
+
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/partner-requests/me"
+                                )
+                                .hasAnyRole(
+                                        "CUSTOMER",
+                                        "HOTEL_ADMIN"
+                                )
+
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/partner-requests/me/cccd/**"
+                                )
+                                .hasAnyRole(
+                                        "CUSTOMER",
+                                        "HOTEL_ADMIN"
+                                )
+
+                                .requestMatchers(
+                                        "/api/auth/logout-all"
+                                )
+                                .authenticated()
+
+                                .anyRequest()
+                                .authenticated()
+                )
+
+                .oauth2Login(oauth2 ->
+                        oauth2
+                                .userInfoEndpoint(userInfo ->
+                                        userInfo
+                                                /*
+                                                 * Google trả về OidcUser.
+                                                 */
+                                                .oidcUserService(
+                                                        customOidcUserService
+                                                )
+
+                                                /*
+                                                 * Facebook trả về OAuth2User.
+                                                 */
+                                                .userService(
+                                                        customOAuth2UserService
+                                                )
+                                )
+                                .successHandler(successHandler)
+                                .failureHandler(failureHandler)
                 )
 
                 .oauth2ResourceServer(resourceServer ->
                         resourceServer
                                 .authenticationEntryPoint(entryPoint)
-                                .jwt(jwt -> jwt
-                                        .jwtAuthenticationConverter(
+                                .jwt(jwt ->
+                                        jwt.jwtAuthenticationConverter(
                                                 jwtConverter
                                         )
                                 )

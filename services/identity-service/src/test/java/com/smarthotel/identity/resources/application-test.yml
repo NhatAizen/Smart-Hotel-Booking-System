@@ -1,0 +1,80 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/identity_db
+    username: identity_user
+    password: identity_password
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  mail:
+    host: localhost
+    port: 1025
+    username: ""
+    password: ""
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+            required: false
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test-google-client-id
+            client-secret: test-google-client-secret
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope:
+              - openid
+              - profile
+              - email
+            client-name: Google Test
+
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://openidconnect.googleapis.com/v1/userinfo
+            jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+            user-name-attribute: sub
+
+app:
+  jwt:
+    secret: ZW56aXVyb29tcy10ZXN0LWp3dC1zZWNyZXQta2V5LTMy
+    issuer: smart-hotel-identity-service-test
+    expiration-seconds: 3600
+    refresh-expiration-seconds: 2592000
+
+  mail:
+    from: no-reply@smarthotel.local
+    public-base-url: http://localhost:8081
+    frontend-base-url: http://localhost:5173
+    verification-expiration-seconds: 86400
+    password-reset-expiration-seconds: 1800
+
+  oauth2:
+    frontend-callback-url: http://localhost:5173/oauth2/callback
+    authorization-code-expiration-seconds: 120
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+  endpoint:
+    health:
+      show-details: always

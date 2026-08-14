@@ -1,16 +1,16 @@
 package com.smarthotel.identity.user.entity;
 
 /**
- * Vai trò của người dùng trong hệ thống.
+ * Vai trÃ² cá»§a ngÆ°á»i dÃ¹ng trong há»‡ thá»‘ng.
  *
  * CUSTOMER:
- * Khách hàng tìm kiếm và đặt phòng.
+ * KhÃ¡ch hÃ ng tÃ¬m kiáº¿m vÃ  Ä‘áº·t phÃ²ng.
  *
  * HOTEL_ADMIN:
- * Quản trị viên của một hoặc nhiều khách sạn.
+ * Quáº£n trá»‹ viÃªn cá»§a má»™t hoáº·c nhiá»u khÃ¡ch sáº¡n.
  *
  * SYSTEM_ADMIN:
- * Quản trị viên toàn hệ thống.
+ * Quáº£n trá»‹ viÃªn toÃ n há»‡ thá»‘ng.
  */
 public enum UserRole {
 

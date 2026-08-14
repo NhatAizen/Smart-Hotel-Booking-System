@@ -1,8 +1,8 @@
 package com.smarthotel.payment.payment.controller;
 
-import com.smarthotel.payment.payment.dto.CompletePaymentRequest;
-import com.smarthotel.payment.payment.dto.CreatePaymentRequest;
-import com.smarthotel.payment.payment.dto.FailPaymentRequest;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.smarthotel.payment.payment.dto.CreatePayOsCheckoutRequest;
+import com.smarthotel.payment.payment.dto.PaymentOrderResponse;
 import com.smarthotel.payment.payment.dto.PaymentResponse;
 import com.smarthotel.payment.payment.entity.PaymentStatus;
 import com.smarthotel.payment.payment.service.PaymentService;
@@ -11,113 +11,124 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api")
-@Tag(
-        name = "Payments",
-        description = "Manage payments and refunds"
-)
+@Tag(name = "Payments", description = "Thanh toán PayOS, đối soát và hoàn tiền")
 public class PaymentController {
-
     private final PaymentService paymentService;
+    public PaymentController(PaymentService paymentService) { this.paymentService = paymentService; }
 
-    public PaymentController(
-            PaymentService paymentService
-    ) {
-        this.paymentService = paymentService;
+    @Operation(summary = "Tạo một link PayOS cho nhóm booking")
+    @PostMapping("/payments/payos/checkout")
+    public ResponseEntity<PaymentOrderResponse> createPayOsCheckout(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody CreatePayOsCheckoutRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(paymentService.createPayOsCheckout(currentUserId(jwt), request));
     }
 
-    @Operation(summary = "Create payment")
-    @PostMapping("/payments")
-    public ResponseEntity<PaymentResponse> create(
-            @Valid @RequestBody CreatePaymentRequest request
+    @Operation(summary = "Customer thanh toán booking bằng Ví Enziu")
+    @PostMapping("/payments/wallet/checkout")
+    public ResponseEntity<List<PaymentResponse>> walletCheckout(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody CreatePayOsCheckoutRequest request
     ) {
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(paymentService.create(request));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(paymentService.createWalletCheckout(currentUserId(jwt), request));
     }
 
-    @Operation(summary = "Get payment details")
-    @GetMapping("/payments/{paymentId}")
-    public ResponseEntity<PaymentResponse> getById(
-            @PathVariable UUID paymentId
-    ) {
-        return ResponseEntity.ok(
-                paymentService.getById(paymentId)
-        );
-    }
-
-    @Operation(summary = "List payments by booking")
-    @GetMapping("/bookings/{bookingId}/payments")
-    public ResponseEntity<List<PaymentResponse>> getByBooking(
+    @Operation(summary = "Hotel Admin ghi nhận thu tiền mặt tại quầy và hạch toán hoa hồng")
+    @PostMapping("/payments/cash-at-hotel/{bookingId}")
+    public ResponseEntity<PaymentResponse> collectCashAtHotel(
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID bookingId
     ) {
-        return ResponseEntity.ok(
-                paymentService.getByBooking(bookingId)
-        );
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(paymentService.collectCashAtHotel(currentUserId(jwt), bookingId));
     }
 
-    @Operation(summary = "List payments by customer")
+    @Operation(summary = "Hotel Admin tạo QR PayOS thu phần còn lại khi check-in")
+    @PostMapping("/payments/payos/check-in/{bookingId}")
+    public ResponseEntity<PaymentOrderResponse> createCheckInCheckout(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID bookingId
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(paymentService.createCheckInPayOsCheckout(
+                        currentUserId(jwt), bookingId
+                ));
+    }
+
+    @Operation(summary = "Webhook PayOS - public, bắt buộc xác minh signature")
+    @PostMapping("/payments/payos/webhook")
+    public ResponseEntity<Map<String, String>> webhook(@RequestBody JsonNode payload) {
+        paymentService.handlePayOsWebhook(payload);
+        return ResponseEntity.ok(Map.of("message", "OK"));
+    }
+
+    @Operation(summary = "Đồng bộ trạng thái đơn từ PayOS")
+    @PostMapping("/payments/payos/orders/{orderCode}/sync")
+    public PaymentOrderResponse sync(@AuthenticationPrincipal Jwt jwt,
+                                     @PathVariable long orderCode) {
+        return paymentService.sync(currentUserId(jwt), orderCode);
+    }
+
+    @Operation(summary = "Chi tiết đơn thanh toán PayOS")
+    @GetMapping("/payments/payos/orders/{orderCode}")
+    public PaymentOrderResponse order(@AuthenticationPrincipal Jwt jwt,
+                                      @PathVariable long orderCode) {
+        return paymentService.getOrder(currentUserId(jwt), orderCode);
+    }
+
+    @Operation(summary = "Hủy link PayOS chưa thanh toán")
+    @PostMapping("/payments/payos/orders/{orderCode}/cancel")
+    public PaymentOrderResponse cancel(@AuthenticationPrincipal Jwt jwt,
+                                       @PathVariable long orderCode) {
+        return paymentService.cancel(currentUserId(jwt), orderCode);
+    }
+
+    @GetMapping("/payments/payos/orders/me")
+    public List<PaymentOrderResponse> myOrders(@AuthenticationPrincipal Jwt jwt) {
+        return paymentService.getCustomerOrders(currentUserId(jwt));
+    }
+
+    @GetMapping("/payments/{paymentId}")
+    public PaymentResponse payment(@PathVariable UUID paymentId) {
+        return paymentService.getById(paymentId);
+    }
+
+    @GetMapping("/bookings/{bookingId}/payments")
+    public List<PaymentResponse> bookingPayments(@PathVariable UUID bookingId) {
+        return paymentService.getByBooking(bookingId);
+    }
+
     @GetMapping("/customers/{customerId}/payments")
-    public ResponseEntity<List<PaymentResponse>> getByCustomer(
-            @PathVariable UUID customerId
-    ) {
-        return ResponseEntity.ok(
-                paymentService.getByCustomer(customerId)
-        );
+    public List<PaymentResponse> customerPayments(@PathVariable UUID customerId) {
+        return paymentService.getByCustomer(customerId);
     }
 
-    @Operation(summary = "Filter payments by status")
     @GetMapping("/payments")
-    public ResponseEntity<List<PaymentResponse>> getByStatus(
-            @RequestParam PaymentStatus status
-    ) {
-        return ResponseEntity.ok(
-                paymentService.getByStatus(status)
-        );
+    public List<PaymentResponse> byStatus(@RequestParam PaymentStatus status) {
+        return paymentService.getByStatus(status);
     }
 
-    @Operation(summary = "Complete payment")
-    @PatchMapping("/payments/{paymentId}/complete")
-    public ResponseEntity<PaymentResponse> complete(
-            @PathVariable UUID paymentId,
-            @Valid @RequestBody CompletePaymentRequest request
-    ) {
-        return ResponseEntity.ok(
-                paymentService.complete(paymentId, request)
-        );
-    }
-
-    @Operation(summary = "Mark payment as failed")
-    @PatchMapping("/payments/{paymentId}/fail")
-    public ResponseEntity<PaymentResponse> fail(
-            @PathVariable UUID paymentId,
-            @Valid @RequestBody FailPaymentRequest request
-    ) {
-        return ResponseEntity.ok(
-                paymentService.fail(paymentId, request)
-        );
-    }
-
-    @Operation(summary = "Refund payment")
     @PatchMapping("/payments/{paymentId}/refund")
-    public ResponseEntity<PaymentResponse> refund(
-            @PathVariable UUID paymentId
-    ) {
-        return ResponseEntity.ok(
-                paymentService.refund(paymentId)
-        );
+    public PaymentResponse refund(@PathVariable UUID paymentId) {
+        return paymentService.refund(paymentId);
+    }
+
+    private UUID currentUserId(Jwt jwt) {
+        if (jwt == null || jwt.getSubject() == null || jwt.getSubject().isBlank()) {
+            throw new IllegalStateException("Không xác định được người dùng hiện tại");
+        }
+        return UUID.fromString(jwt.getSubject());
     }
 }

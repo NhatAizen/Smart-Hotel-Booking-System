@@ -7,52 +7,68 @@ spring:
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
 
-      routes:
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowed-origin-patterns:
+              - "http://localhost:5173"
+              - "http://127.0.0.1:5173"
+              - "http://localhost:5300"
+              - "http://127.0.0.1:5300"
+            allowed-methods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowed-headers:
+              - "*"
+            exposed-headers:
+              - Authorization
+              - Location
+            allow-credentials: true
+            max-age: 3600
 
-        # =====================================================
-        # NOTIFICATION SERVICE
-        # Phải đặt trước identity-service vì cùng dùng /api/users
-        # =====================================================
-        - id: notification-service
+      routes:
+        - id: notification-user-inbox
+          order: -30
           uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
           predicates:
-            - Path=/api/notifications/**,/api/users/*/notifications
+            - Path=/api/users/*/notifications,/api/users/*/notifications/**
 
-        # =====================================================
-        # IDENTITY SERVICE
-        # =====================================================
         - id: identity-service
           uri: ${IDENTITY_SERVICE_URL:http://localhost:8081}
           predicates:
-            - Path=/api/auth/**,/api/users/**
+            - Path=/api/auth/**,/api/users/**,/api/partner-requests/**,/api/admin/partner-requests/**,/api/admin/users/**
 
-        # =====================================================
-        # HOTEL SERVICE
-        # =====================================================
+        - id: booking-service-hotel-bookings
+          order: -20
+          uri: ${BOOKING_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/hotels/*/bookings
+
         - id: hotel-service
           uri: ${HOTEL_SERVICE_URL:http://localhost:8082}
           predicates:
-            - Path=/api/hotels/**,/api/room-types/**,/api/rooms/**
+            - Path=/api/hotels/**,/api/room-types/**,/api/rooms/**,/api/admin/hotels/**,/api/admin/room-types/**
 
-        # =====================================================
-        # BOOKING SERVICE
-        # =====================================================
-        - id: booking-service
-          uri: ${BOOKING_SERVICE_URL:http://localhost:8083}
-          predicates:
-            - Path=/api/bookings/**,/api/customers/*/bookings
-
-        # =====================================================
-        # PAYMENT SERVICE
-        # =====================================================
         - id: payment-service
           uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
           predicates:
-            - Path=/api/payments/**,/api/bookings/*/payments,/api/customers/*/payments
+            - Path=/api/payments/**,/api/bookings/*/payments,/api/customers/*/payments,/api/wallets/**,/api/withdrawals/**,/api/admin/wallet/**,/api/admin/withdrawals/**,/api/admin/payments/**
 
-        # =====================================================
-        # AI SERVICE
-        # =====================================================
+        - id: booking-service
+          uri: ${BOOKING_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/bookings/**,/api/customers/*/bookings,/api/availability/**,/api/pricing/**,/api/reviews/**,/api/favorites/**
+
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/notifications/**
+
         - id: ai-service
           uri: ${AI_SERVICE_URL:http://localhost:8086}
           predicates:
@@ -77,6 +93,5 @@ management:
 
 logging:
   level:
-    root: INFO
     org.springframework.cloud.gateway: INFO
     org.springframework.security: INFO

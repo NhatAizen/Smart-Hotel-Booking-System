@@ -2285,12 +2285,26 @@ button.outline-button {
 }
 
 .admin-navbar-account-item.logout,
-.admin-navbar-mobile-account > button {
+.admin-navbar-mobile-account-actions .logout {
   color: #cf3f4b;
 }
 
 .admin-navbar-account-item.logout:hover {
   background: #fff1f2;
+}
+
+.admin-navbar-account-item.danger {
+  color: #b7424d;
+}
+
+.admin-navbar-account-item.danger:hover {
+  color: #a72f3c;
+  background: #fff1f2;
+}
+
+.admin-navbar-account-item:disabled {
+  opacity: .55;
+  cursor: wait;
 }
 
 .admin-navbar-account-item > span {
@@ -2508,7 +2522,14 @@ button.outline-button {
     font-size: 10px;
   }
 
-  .admin-navbar-mobile-account > button {
+  .admin-navbar-mobile-account-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .admin-navbar-mobile-account-actions > button {
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
@@ -2520,6 +2541,17 @@ button.outline-button {
     background: #fff5f5;
     font-weight: 750;
     cursor: pointer;
+  }
+
+  .admin-navbar-mobile-account-actions > button.danger {
+    color: #a83b47;
+    border-color: #efd0d4;
+    background: #fff7f7;
+  }
+
+  .admin-navbar-mobile-account-actions > button:disabled {
+    opacity: .55;
+    cursor: wait;
   }
 
   .admin-navbar-mobile-toggle {
@@ -2607,7 +2639,13 @@ button.outline-button {
     flex-direction: column;
   }
 
-  .admin-navbar-mobile-account > button {
+  .admin-navbar-mobile-account-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .admin-navbar-mobile-account-actions > button {
     justify-content: center;
   }
 
@@ -7301,4 +7339,485 @@ a.hotel-dashboard-operation-card:hover {
   font: inherit;
   font-weight: 800;
   cursor: pointer;
+}
+
+/* Role changes and partner deactivation */
+.admin-users-table {
+  min-width: 1120px;
+}
+
+.admin-users-state-button.role.promote {
+  color: #176b4a;
+  border: 1px solid #bfe3d1;
+  background: #ecf9f3;
+}
+
+.admin-users-state-button.role.demote {
+  color: #a33f49;
+  border: 1px solid #edc9ce;
+  background: #fff3f4;
+}
+
+.admin-users-state-button.role:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: saturate(1.08);
+}
+
+.admin-role-change-confirm,
+.admin-deactivation-review-modal,
+.hotel-deactivation-modal {
+  width: min(620px, 100%);
+}
+
+.admin-role-change-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 0 4px;
+}
+
+.admin-role-change-user > div {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 3px;
+}
+
+.admin-role-change-user > div strong,
+.admin-role-change-user > div small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-role-change-user > div strong { color: #21364e; font-size: 14px; }
+.admin-role-change-user > div small { color: #8290a2; font-size: 11px; }
+
+.admin-role-change-note,
+.admin-role-change-error,
+.hotel-deactivation-message,
+.admin-deactivation-request-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 13px 14px;
+  border-radius: 11px;
+  line-height: 1.55;
+}
+
+.admin-role-change-note svg,
+.admin-role-change-error svg,
+.hotel-deactivation-message svg,
+.admin-deactivation-request-summary > svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.admin-role-change-note p,
+.admin-role-change-error span,
+.hotel-deactivation-message span,
+.admin-deactivation-request-summary p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.admin-role-change-note.promote {
+  color: #246148;
+  border: 1px solid #c8e6d6;
+  background: #f0faf5;
+}
+
+.admin-role-change-note.reject,
+.admin-role-change-error,
+.hotel-deactivation-message.error {
+  color: #9d363f;
+  border: 1px solid #efc9cd;
+  background: #fff3f4;
+}
+
+.hotel-deactivation-message.success {
+  color: #176f4d;
+  border: 1px solid #c4e5d4;
+  background: #eff9f4;
+}
+
+.admin-role-change-description,
+.hotel-deactivation-intro {
+  margin: 17px 0 12px;
+  color: #66778b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.admin-role-eligibility-loading,
+.hotel-deactivation-loading {
+  min-height: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+  color: #68798c;
+  border: 1px solid #e5ebf2;
+  border-radius: 12px;
+  background: #fafbfd;
+  font-size: 12px;
+}
+
+.admin-role-eligibility-loading .admin-spinner,
+.hotel-deactivation-loading .admin-spinner {
+  width: 20px;
+  height: 20px;
+}
+
+.role-eligibility-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.role-eligibility-list > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 12px;
+  border-radius: 10px;
+}
+
+.role-eligibility-list > div.clear {
+  color: #18714f;
+  border: 1px solid #c5e4d4;
+  background: #eef9f4;
+}
+
+.role-eligibility-list > div.blocked {
+  color: #a33c45;
+  border: 1px solid #efc8cd;
+  background: #fff3f4;
+}
+
+.role-eligibility-list svg { flex: 0 0 auto; }
+.role-eligibility-list span { min-width: 0; display: grid; gap: 2px; }
+.role-eligibility-list strong { font-size: 11px; }
+.role-eligibility-list small { opacity: .82; font-size: 10px; }
+
+.role-eligibility-blockers {
+  margin: 10px 0 0;
+  padding: 11px 14px 11px 31px;
+  color: #983943;
+  border: 1px solid #efc9cd;
+  border-radius: 10px;
+  background: #fff6f6;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.hotel-deactivation-submit {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 15px;
+  color: #fff;
+  border: 1px solid #bd424c;
+  border-radius: 10px;
+  background: #bd424c;
+  font: inherit;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.hotel-deactivation-submit:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.hotel-deactivation-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 13px;
+}
+
+.hotel-deactivation-status > svg { flex: 0 0 auto; }
+.hotel-deactivation-status strong { display: block; font-size: 14px; }
+.hotel-deactivation-status p { margin: 5px 0 0; font-size: 12px; line-height: 1.55; }
+.hotel-deactivation-status small { display: block; margin-top: 7px; font-size: 11px; }
+.hotel-deactivation-status.pending { color: #85590c; border: 1px solid #efd596; background: #fff8e7; }
+.hotel-deactivation-status.approved { color: #176f4d; border: 1px solid #c4e5d4; background: #eff9f4; }
+.hotel-deactivation-status.rejected { color: #9c3a43; border: 1px solid #efc9cd; background: #fff3f4; }
+
+.admin-partner-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 25px 0 14px;
+}
+
+.admin-partner-section-heading > div { min-width: 0; }
+.admin-partner-section-heading span { color: #078bd4; font-size: 10px; font-weight: 850; letter-spacing: .1em; }
+.admin-partner-section-heading h2 { margin: 4px 0; color: #1c3048; font-size: 20px; }
+.admin-partner-section-heading p { margin: 0; color: #7a899b; font-size: 12px; }
+.admin-partner-section-heading > strong {
+  min-width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  color: #087ebd;
+  border-radius: 11px;
+  background: #eaf7ff;
+  font-size: 15px;
+}
+
+.admin-partner-deactivation-section { margin-top: 35px; }
+.admin-partner-empty { margin-top: 0; }
+.admin-review-icon.deactivation { color: #a53e48; background: #fff1f2; }
+.admin-deactivation-card .admin-review-meta strong { max-width: 440px; }
+
+.admin-deactivation-request-summary {
+  color: #42576f;
+  border: 1px solid #e2e9f1;
+  background: #f8fafc;
+}
+
+.admin-deactivation-request-summary > div { min-width: 0; flex: 1; }
+.admin-deactivation-request-summary strong,
+.admin-deactivation-request-summary small { display: block; }
+.admin-deactivation-request-summary strong { color: #21364e; font-size: 14px; }
+.admin-deactivation-request-summary small { margin-top: 2px; color: #8090a2; font-size: 11px; }
+.admin-deactivation-request-summary p { margin-top: 8px; color: #607287; }
+
+@media (max-width: 760px) {
+  .role-eligibility-list { grid-template-columns: 1fr; }
+  .admin-role-change-user { align-items: flex-start; flex-wrap: wrap; }
+  .admin-role-change-user .admin-role-badge { margin-left: 64px; }
+  .admin-role-change-confirm .admin-modal-actions,
+  .admin-deactivation-review-modal .admin-modal-actions,
+  .hotel-deactivation-modal .admin-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .admin-deactivation-card .admin-card-actions { grid-template-columns: 1fr; }
+  .admin-partner-section-heading { align-items: flex-start; }
+}
+
+
+/* ===== ROLE MANAGEMENT MODAL POLISH ===== */
+.admin-role-change-confirm {
+  width: min(720px, 100%);
+  padding: 28px 30px;
+}
+
+.admin-role-change-confirm .admin-modal-header h2 {
+  color: #13243d;
+  font-size: clamp(24px, 3vw, 31px);
+  letter-spacing: -0.7px;
+}
+
+.admin-role-change-user {
+  margin-top: 2px;
+  padding: 20px 0 10px;
+}
+
+.admin-role-change-error {
+  min-height: 58px;
+  align-items: center;
+  padding: 14px 16px;
+  color: #a33843;
+  border-color: #efc7cc;
+  background: #fff5f5;
+}
+
+.admin-role-change-error span,
+.role-eligibility-blockers li {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.admin-role-change-description {
+  margin-top: 20px;
+  color: #607288;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.admin-role-change-confirm .admin-form-field {
+  padding-top: 22px;
+}
+
+.admin-role-change-confirm .admin-form-field > span {
+  margin-bottom: 10px;
+  color: #31465e;
+  font-size: 14px;
+}
+
+.admin-role-change-confirm .admin-form-field textarea {
+  min-height: 132px;
+  padding: 14px 15px;
+  border-radius: 12px;
+  line-height: 1.55;
+}
+
+.admin-role-change-confirm .admin-modal-actions {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.admin-role-change-confirm .admin-modal-actions > button {
+  min-height: 44px;
+}
+
+@media (max-width: 760px) {
+  .admin-role-change-confirm {
+    padding: 22px 18px;
+  }
+
+  .admin-role-change-user .admin-role-badge {
+    margin-left: 0;
+  }
+}
+
+
+/* ===== SYSTEM ADMIN eKYC EVIDENCE REVIEW ===== */
+.partner-admin-identity-compare {
+  margin-top: 22px;
+  padding: 20px;
+  border: 1px solid #dce7ef;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fbfdff, #f6fbfa);
+}
+
+.partner-admin-compare-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  color: #216449;
+  border: 1px solid #c9e7d8;
+  border-radius: 11px;
+  background: #eff9f4;
+}
+
+.partner-admin-compare-status > svg { flex: 0 0 auto; margin-top: 1px; }
+.partner-admin-compare-status > div { display: grid; gap: 3px; }
+.partner-admin-compare-status strong { font-size: 13px; }
+.partner-admin-compare-status small { color: #5f7d6e; font-size: 11px; line-height: 1.5; }
+
+.partner-admin-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.partner-admin-compare-grid figure {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #dce5ed;
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(20, 48, 70, .055);
+}
+
+.partner-admin-compare-grid figure.verified-evidence {
+  border-color: #b9dfcf;
+  box-shadow: 0 8px 24px rgba(24, 118, 79, .08);
+}
+
+.partner-admin-compare-image {
+  position: relative;
+  height: 310px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #111b2b;
+}
+
+.partner-admin-compare-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.partner-admin-evidence-badge {
+  position: absolute;
+  right: 11px;
+  top: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  color: #0c6e49;
+  border: 1px solid rgba(164, 222, 194, .9);
+  border-radius: 999px;
+  background: rgba(235, 250, 243, .94);
+  font-size: 10px;
+  font-weight: 850;
+  backdrop-filter: blur(7px);
+}
+
+.partner-admin-compare-grid figcaption {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 13px;
+  color: #315067;
+}
+
+.partner-admin-compare-grid figcaption > svg { flex: 0 0 auto; color: #1780bd; }
+.partner-admin-compare-grid .verified-evidence figcaption > svg { color: #17845e; }
+.partner-admin-compare-grid figcaption > span { display: grid; gap: 2px; }
+.partner-admin-compare-grid figcaption strong { font-size: 12px; }
+.partner-admin-compare-grid figcaption small { color: #8595a4; font-size: 10px; }
+
+.partner-admin-evidence-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 13px 14px;
+  color: #965f08;
+  border: 1px solid #ecd494;
+  border-radius: 11px;
+  background: #fff8e5;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.partner-admin-evidence-warning > svg { flex: 0 0 auto; margin-top: 1px; }
+
+.partner-admin-evidence-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 13px;
+}
+
+.partner-admin-evidence-metrics > div {
+  display: grid;
+  gap: 4px;
+  padding: 11px 12px;
+  border: 1px solid #e1e9ef;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.partner-admin-evidence-metrics span { color: #8392a1; font-size: 9px; font-weight: 750; }
+.partner-admin-evidence-metrics strong { color: #29465b; font-size: 11px; }
+.partner-admin-evidence-metrics strong.pass { color: #17734f; }
+.partner-admin-evidence-metrics strong.fail { color: #af3d45; }
+
+@media (max-width: 820px) {
+  .partner-admin-compare-grid,
+  .partner-admin-evidence-metrics { grid-template-columns: 1fr; }
+  .partner-admin-compare-image { height: 270px; }
 }

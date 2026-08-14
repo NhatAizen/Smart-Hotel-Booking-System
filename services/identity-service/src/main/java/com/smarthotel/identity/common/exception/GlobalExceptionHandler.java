@@ -1,6 +1,8 @@
 package com.smarthotel.identity.common.exception;
 
 import com.smarthotel.identity.common.response.ApiErrorResponse;
+import com.smarthotel.identity.partnerrequest.ekyc.PartnerEkycVerificationException;
+import com.smarthotel.identity.partnerrequest.ocr.PartnerOcrVerificationException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +29,33 @@ public class GlobalExceptionHandler {
         return build(
                 HttpStatus.CONFLICT,
                 "EMAIL_ALREADY_EXISTS",
+                exception.getMessage(),
+                request
+        );
+    }
+
+
+    @ExceptionHandler(AccountDeletedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccountDeleted(
+            AccountDeletedException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                HttpStatus.GONE,
+                "ACCOUNT_DELETED",
+                exception.getMessage(),
+                request
+        );
+    }
+
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccountLocked(
+            AccountLockedException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                HttpStatus.LOCKED,
+                "ACCOUNT_LOCKED",
                 exception.getMessage(),
                 request
         );
@@ -64,7 +93,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
         LOGGER.error(
-                "Không thể gửi email tại endpoint {}",
+                "KhÃ´ng thá»ƒ gá»­i email táº¡i endpoint {}",
                 request.getRequestURI(),
                 exception
         );
@@ -116,6 +145,32 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(PartnerEkycVerificationException.class)
+    public ResponseEntity<ApiErrorResponse> handlePartnerEkycVerification(
+            PartnerEkycVerificationException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "PARTNER_EKYC_VERIFICATION_FAILED",
+                exception.getMessage(),
+                request
+        );
+    }
+
+    @ExceptionHandler(PartnerOcrVerificationException.class)
+    public ResponseEntity<ApiErrorResponse> handlePartnerOcrVerification(
+            PartnerOcrVerificationException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "CCCD_OCR_VERIFICATION_FAILED",
+                exception.getMessage(),
+                request
+        );
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiErrorResponse> handleIllegalArgument(
             IllegalArgumentException exception,
@@ -149,7 +204,7 @@ public class GlobalExceptionHandler {
                 ApiErrorResponse.validation(
                         HttpStatus.BAD_REQUEST.value(),
                         "VALIDATION_ERROR",
-                        "Dữ liệu gửi lên không hợp lệ",
+                        "Dá»¯ liá»‡u gá»­i lÃªn khÃ´ng há»£p lá»‡",
                         request.getRequestURI(),
                         errors
                 );
@@ -165,7 +220,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
         LOGGER.error(
-                "Lỗi không mong muốn tại endpoint {}",
+                "Lá»—i khÃ´ng mong muá»‘n táº¡i endpoint {}",
                 request.getRequestURI(),
                 exception
         );
@@ -173,7 +228,7 @@ public class GlobalExceptionHandler {
         return build(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "INTERNAL_SERVER_ERROR",
-                "Hệ thống xảy ra lỗi không mong muốn",
+                "Há»‡ thá»‘ng xáº£y ra lá»—i khÃ´ng mong muá»‘n",
                 request
         );
     }

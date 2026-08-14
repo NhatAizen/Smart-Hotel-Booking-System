@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 
 /**
- * Sinh JWT Access Token sau khi người dùng đăng nhập thành công.
+ * Sinh JWT Access Token sau khi ngÆ°á»i dÃ¹ng Ä‘Äƒng nháº­p thÃ nh cÃ´ng.
  */
 @Service
 public class JwtService {
@@ -38,7 +38,7 @@ public class JwtService {
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
 
-                // Subject là ID người dùng.
+                // Subject lÃ  ID ngÆ°á»i dÃ¹ng.
                 .subject(user.getId().toString())
 
                 // Custom claims.

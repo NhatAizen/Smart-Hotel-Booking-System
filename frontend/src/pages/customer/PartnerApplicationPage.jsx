@@ -88,6 +88,19 @@ function formatDate(value) {
   }
 }
 
+function formatCompactDate(value) {
+  if (!value) return "—";
+  try {
+    return new Intl.DateTimeFormat("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(new Date(`${value}T00:00:00`));
+  } catch {
+    return value;
+  }
+}
+
 function formatDateTime(value) {
   if (!value) return "—";
   try {
@@ -323,12 +336,12 @@ export default function PartnerApplicationPage() {
         backFile,
       );
       setOcrCheck(result);
-      setSuccess(result?.message || "CCCD đã được OCR và đối chiếu thành công.");
+      setSuccess(result?.message || "CCCD mặt trước và mặt sau đã được OCR/MRZ và đối chiếu thành công.");
     } catch (ocrError) {
       setOcrCheck(null);
       setOcrError(
         ocrError.response?.data?.message ||
-          "OCR chưa đọc chắc chắn được CCCD. Hãy chụp thẻ thẳng, gần hơn, đủ sáng và tránh lóa.",
+          "OCR/MRZ chưa đọc chắc chắn được CCCD. Hãy chụp rõ cả mặt trước và mặt sau, giữ thẻ thẳng, gần hơn, đủ sáng và tránh lóa.",
       );
     } finally {
       setCheckingOcr(false);
@@ -666,22 +679,63 @@ export default function PartnerApplicationPage() {
                         <span>BƯỚC 1 · KIỂM TRA CCCD</span>
                         <h3>{ocrCheck?.verified ? "CCCD đã được xác minh" : "OCR và đối chiếu thông tin"}</h3>
                         <p>
-                          Hệ thống đọc nhiều lượt để đối chiếu số CCCD, họ tên và ngày sinh.
-                          Mặt sau chỉ được kiểm tra là ảnh hợp lệ, không ép OCR chữ không cần thiết.
+                          Hệ thống OCR cả mặt trước và mặt sau. Mặt trước đối chiếu số CCCD, họ tên và ngày sinh; mặt sau đọc MRZ để xác nhận hai ảnh thuộc cùng một CCCD.
                         </p>
                       </div>
                     </div>
 
                     {ocrCheck?.verified ? (
-                      <div className="partner-ocr-precheck-results">
-                        <div><CheckCircle2 size={16} /><span>Số CCCD</span><strong>{ocrCheck.identityNumber || form.identityNumber}</strong></div>
-                        <div><CheckCircle2 size={16} /><span>Họ tên</span><strong>{ocrCheck.fullName || (form.applicantType === "INDIVIDUAL" ? form.legalName : form.representativeName)}</strong></div>
-                        <div><CheckCircle2 size={16} /><span>Ngày sinh</span><strong>{formatDate(ocrCheck.dateOfBirth || form.dateOfBirth)}</strong></div>
-                      </div>
+                      <>
+                        <div className="partner-ocr-precheck-results">
+                          <div><CheckCircle2 size={16} /><span>Số CCCD</span><strong>{ocrCheck.identityNumber || form.identityNumber}</strong></div>
+                          <div><CheckCircle2 size={16} /><span>Họ tên</span><strong>{ocrCheck.fullName || (form.applicantType === "INDIVIDUAL" ? form.legalName : form.representativeName)}</strong></div>
+                          <div><CheckCircle2 size={16} /><span>Ngày sinh</span><strong>{formatCompactDate(ocrCheck.dateOfBirth || form.dateOfBirth)}</strong></div>
+                        </div>
+
+                        <section className="partner-mrz-result-card" aria-label="Kết quả xác minh MRZ mặt sau">
+                          <div className="partner-mrz-result-head">
+                            <div>
+                              <span>MẶT SAU / MRZ</span>
+                              <strong>Thông tin đọc từ vùng MRZ</strong>
+                            </div>
+                            <span className="partner-mrz-valid-badge">
+                              <CheckCircle2 size={16} /> Hợp lệ
+                            </span>
+                          </div>
+
+                          <div className="partner-mrz-detail-grid">
+                            <div>
+                              <span>Số định danh</span>
+                              <strong>{ocrCheck.mrzIdentityNumber || ocrCheck.identityNumber || form.identityNumber}</strong>
+                            </div>
+                            <div>
+                              <span>Ngày sinh</span>
+                              <strong>{formatCompactDate(ocrCheck.mrzDateOfBirth || ocrCheck.dateOfBirth || form.dateOfBirth)}</strong>
+                            </div>
+                            <div>
+                              <span>Giới tính</span>
+                              <strong>{ocrCheck.mrzGender || "—"}</strong>
+                            </div>
+                            <div>
+                              <span>Quốc tịch</span>
+                              <strong>{ocrCheck.mrzNationality || "—"}</strong>
+                            </div>
+                            <div>
+                              <span>Ngày hết hạn</span>
+                              <strong>{formatCompactDate(ocrCheck.mrzExpiryDate)}</strong>
+                            </div>
+                          </div>
+
+                          <div className="partner-mrz-match-banner">
+                            <CheckCircle2 size={17} />
+                            <span>Khớp với thông tin mặt trước</span>
+                          </div>
+                        </section>
+                      </>
                     ) : (
                       <div className="partner-ocr-precheck-note">
                         <Info size={17} />
-                        <span>Chụp thẻ thẳng, đủ 4 góc, không phản sáng. Sau khi OCR đạt, bước camera mới được mở.</span>
+                        <span>Chụp rõ đủ 4 góc của cả hai mặt, không phản sáng; đặc biệt giữ rõ vùng MRZ ở cạnh dưới mặt sau. Chỉ khi OCR + MRZ cùng đạt thì bước camera mới được mở.</span>
                       </div>
                     )}
 
@@ -701,7 +755,7 @@ export default function PartnerApplicationPage() {
                     >
                       <ScanLine size={18} />
                       {checkingOcr
-                        ? "Đang đọc CCCD nhiều lượt..."
+                        ? "Đang quét cả 2 mặt CCCD..."
                         : ocrCheck?.verified
                           ? "Kiểm tra lại CCCD"
                           : "Kiểm tra OCR CCCD"}
@@ -744,7 +798,7 @@ export default function PartnerApplicationPage() {
               <span>QUY TRÌNH eKYC</span>
               <h2>Hệ thống kiểm tra gì?</h2>
               <ol>
-                <li><b>1</b><div><strong>OCR CCCD</strong><small>Đọc và đối chiếu số CCCD, họ tên, ngày sinh.</small></div></li>
+                <li><b>1</b><div><strong>OCR CCCD + MRZ</strong><small>Quét mặt trước và mặt sau, đối chiếu số CCCD, họ tên, ngày sinh và MRZ.</small></div></li>
                 <li><b>2</b><div><strong>Camera trực tiếp</strong><small>Không cho upload selfie có sẵn thay cho camera.</small></div></li>
                 <li><b>3</b><div><strong>Liveness challenge</strong><small>Chỉ nhìn thẳng vào camera; sau một lần bấm bắt đầu, hệ thống tự lấy mẫu liên tục đến khi vòng chuyển xanh.</small></div></li>
                 <li><b>4</b><div><strong>Face match</strong><small>So sánh khuôn mặt camera với ảnh chân dung trên CCCD bằng SFace.</small></div></li>

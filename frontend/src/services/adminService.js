@@ -38,6 +38,14 @@ export async function getPartnerRequestDocument(requestId, side) {
   return response.data;
 }
 
+export async function getPartnerRequestEkycEvidence(requestId) {
+  const response = await apiClient.get(
+    `/admin/partner-requests/${requestId}/ekyc/evidence`,
+    { responseType: "blob" },
+  );
+  return response.data;
+}
+
 export async function getPendingHotels() {
   return unwrap(await apiClient.get("/admin/hotels/pending"));
 }
@@ -74,6 +82,56 @@ export async function unlockAdminUser(userId) {
 
 export async function deleteAdminUser(userId) {
   return unwrap(await apiClient.delete(`/admin/users/${userId}`));
+}
+
+export async function promoteAdminUserToHotelAdmin(userId, reason) {
+  return unwrap(
+    await apiClient.patch(
+      `/admin/users/${userId}/promote-to-hotel-admin`,
+      { reason },
+    ),
+  );
+}
+
+export async function demoteAdminUserToCustomer(userId, reason) {
+  return unwrap(
+    await apiClient.patch(
+      `/admin/users/${userId}/demote-to-customer`,
+      { reason },
+    ),
+  );
+}
+
+export async function getAdminUserDemotionEligibility(userId) {
+  return unwrap(
+    await apiClient.get(`/admin/users/${userId}/demotion-eligibility`),
+  );
+}
+
+export async function getPendingPartnerDeactivationRequests() {
+  return unwrap(
+    await apiClient.get("/admin/partner-requests/deactivations", {
+      params: { status: "PENDING" },
+    }),
+  );
+}
+
+export async function approvePartnerDeactivationRequest(requestId, reason) {
+  return unwrap(
+    await apiClient.patch(
+      `/admin/partner-requests/deactivations/${requestId}/approve`,
+      { reason },
+    ),
+  );
+}
+
+export async function rejectPartnerDeactivationRequest(requestId, reason) {
+  return unwrap(
+    await apiClient.patch(
+      `/admin/partner-requests/deactivations/${requestId}/reject`,
+      { reason },
+    ),
+  );
 }
 
 export async function getPendingRoomTypes() {

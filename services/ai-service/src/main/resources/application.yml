@@ -10,10 +10,13 @@ management:
     web:
       exposure:
         include: health,info
-
   endpoint:
     health:
       show-details: always
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
 
 app:
   gemini:
@@ -25,3 +28,5 @@ app:
 clients:
   hotel:
     base-url: ${HOTEL_SERVICE_URL:http://localhost:8082}
+  booking:
+    base-url: ${BOOKING_SERVICE_URL:http://localhost:8083}

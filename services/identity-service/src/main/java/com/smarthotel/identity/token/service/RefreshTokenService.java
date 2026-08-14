@@ -36,10 +36,10 @@ public class RefreshTokenService {
     }
 
     /**
-     * Tạo refresh token mới cho một phiên đăng nhập.
+     * Táº¡o refresh token má»›i cho má»™t phiÃªn Ä‘Äƒng nháº­p.
      *
-     * Chỉ token thô được trả cho client.
-     * Database chỉ nhận SHA-256 hash.
+     * Chá»‰ token thÃ´ Ä‘Æ°á»£c tráº£ cho client.
+     * Database chá»‰ nháº­n SHA-256 hash.
      */
     @Transactional
     public String issue(User user) {
@@ -61,9 +61,9 @@ public class RefreshTokenService {
     /**
      * Refresh Token Rotation:
      *
-     * 1. Kiểm tra token cũ.
-     * 2. Thu hồi token cũ.
-     * 3. Tạo token mới.
+     * 1. Kiá»ƒm tra token cÅ©.
+     * 2. Thu há»“i token cÅ©.
+     * 3. Táº¡o token má»›i.
      */
     @Transactional
     public RefreshTokenRotation rotate(String rawToken) {
@@ -104,8 +104,8 @@ public class RefreshTokenService {
     }
 
     /**
-     * Logout có tính idempotent:
-     * token không tồn tại cũng được coi là đã logout.
+     * Logout cÃ³ tÃ­nh idempotent:
+     * token khÃ´ng tá»“n táº¡i cÅ©ng Ä‘Æ°á»£c coi lÃ  Ä‘Ã£ logout.
      */
     @Transactional
     public void revoke(String rawToken) {
@@ -150,7 +150,7 @@ public class RefreshTokenService {
 
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(
-                    "SHA-256 không được hỗ trợ",
+                    "SHA-256 khÃ´ng Ä‘Æ°á»£c há»— trá»£",
                     exception
             );
         }

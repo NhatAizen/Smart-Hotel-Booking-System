@@ -8,6 +8,8 @@ import com.smarthotel.identity.auth.dto.LoginRequest;
 import com.smarthotel.identity.auth.dto.RefreshTokenRequest;
 import com.smarthotel.identity.auth.dto.RegisterRequest;
 import com.smarthotel.identity.auth.dto.ResetPasswordRequest;
+import com.smarthotel.identity.common.exception.AccountDeletedException;
+import com.smarthotel.identity.common.exception.AccountLockedException;
 import com.smarthotel.identity.common.exception.EmailAlreadyExistsException;
 import com.smarthotel.identity.common.exception.InvalidCredentialsException;
 import com.smarthotel.identity.common.response.MessageResponse;
@@ -109,8 +111,16 @@ public class AuthService {
                         user.getPasswordHash()
                 );
 
-        if (!passwordMatches || !user.isActive()) {
+        if (!passwordMatches) {
             throw new InvalidCredentialsException();
+        }
+
+        if (user.isDeleted()) {
+            throw new AccountDeletedException();
+        }
+
+        if (!user.isActive()) {
+            throw new AccountLockedException();
         }
 
         String accessToken =

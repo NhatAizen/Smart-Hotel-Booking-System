@@ -8,22 +8,36 @@ COPY mvnw.cmd .
 COPY pom.xml .
 
 RUN chmod +x mvnw
-RUN ./mvnw --batch-mode --no-transfer-progress dependency:go-offline
+
+RUN ./mvnw \
+    --batch-mode \
+    --no-transfer-progress \
+    dependency:go-offline
 
 COPY src src
 
-RUN ./mvnw --batch-mode --no-transfer-progress clean package -DskipTests
+RUN ./mvnw \
+    --batch-mode \
+    --no-transfer-progress \
+    clean package \
+    -DskipTests
 
 
 FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
-RUN addgroup -S spring && adduser -S spring -G spring
+RUN addgroup -S spring \
+    && adduser -S spring -G spring \
+    && mkdir -p /app/uploads \
+    && chown -R spring:spring /app
+
+COPY --from=builder \
+    --chown=spring:spring \
+    /app/target/hotel-service-0.0.1-SNAPSHOT.jar \
+    /app/app.jar
 
 USER spring:spring
-
-COPY --from=builder /app/target/hotel-service-0.0.1-SNAPSHOT.jar /app/app.jar
 
 EXPOSE 8082
 

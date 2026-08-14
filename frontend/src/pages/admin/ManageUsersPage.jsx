@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Eye,
+  Hotel,
   Lock,
   RefreshCw,
   Search,
@@ -9,6 +10,7 @@ import {
   Trash2,
   Unlock,
   UserCog,
+  UserRound,
   Users,
   X,
 } from "lucide-react";
@@ -19,9 +21,61 @@ import {
   getAdminUser,
   getAdminUsers,
   deleteAdminUser,
+  demoteAdminUserToCustomer,
+  getAdminUserDemotionEligibility,
   lockAdminUser,
+  promoteAdminUserToHotelAdmin,
   unlockAdminUser,
 } from "../../services/adminService";
+
+const DEMOTION_CHECKS = [
+  ["currentStayCount", "Khách đang lưu trú"],
+  ["actionableBookingCount", "Booking sắp tới cần xử lý"],
+  ["pendingWithdrawalCount", "Withdrawal đang chờ"],
+  ["financialIssueCount", "Vấn đề tài chính cần xử lý"],
+];
+
+const WINDOWS_1252_BYTE_BY_CHAR = (() => {
+  try {
+    const decoder = new TextDecoder("windows-1252");
+    const map = new Map();
+    for (let byte = 0; byte <= 255; byte += 1) {
+      map.set(decoder.decode(Uint8Array.of(byte)), byte);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+})();
+
+function repairMojibake(value) {
+  if (typeof value !== "string" || !value) return value;
+
+  if (!/[ÃÂâð]|á[º»¼½¾¿]|Æ|á»|áº/.test(value)) {
+    return value;
+  }
+
+  try {
+    const bytes = [];
+    for (const char of value) {
+      const byte = WINDOWS_1252_BYTE_BY_CHAR.get(char);
+      if (byte == null) return value;
+      bytes.push(byte);
+    }
+
+    const repaired = new TextDecoder("utf-8", { fatal: true }).decode(
+      Uint8Array.from(bytes),
+    );
+
+    return repaired || value;
+  } catch {
+    return value;
+  }
+}
+
+function apiMessage(err, fallback) {
+  return repairMojibake(err?.response?.data?.message) || fallback;
+}
 
 function arrayFrom(payload) {
   if (Array.isArray(payload)) return payload;
@@ -96,6 +150,18 @@ function formatDate(value) {
   }).format(date);
 }
 
+function eligibilityCount(eligibility, key) {
+  const value = Number(eligibility?.[key] ?? 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function blockerText(blocker) {
+  if (typeof blocker === "string") return repairMojibake(blocker);
+  return repairMojibake(
+    blocker?.message ?? blocker?.label ?? blocker?.code,
+  ) ?? "Điều kiện chưa đáp ứng";
+}
+
 export default function ManageUsersPage() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
@@ -108,6 +174,11 @@ export default function ManageUsersPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [roleTarget, setRoleTarget] = useState(null);
+  const [roleReason, setRoleReason] = useState("");
+  const [roleEligibility, setRoleEligibility] = useState(null);
+  const [roleEligibilityLoading, setRoleEligibilityLoading] = useState(false);
+  const [roleActionError, setRoleActionError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [notice, setNotice] = useState("");
 
@@ -119,8 +190,10 @@ export default function ManageUsersPage() {
       setUsers(arrayFrom(payload).map(normalizeUser));
     } catch (err) {
       setError(
-        err?.response?.data?.message ??
+        apiMessage(
+          err,
           "Không thể tải danh sách tài khoản. Hãy kiểm tra identity-service và API Gateway.",
+        ),
       );
     } finally {
       setLoading(false);
@@ -218,8 +291,10 @@ export default function ManageUsersPage() {
       window.setTimeout(() => setNotice(""), 3500);
     } catch (err) {
       setError(
-        err?.response?.data?.message ??
+        apiMessage(
+          err,
           "Không thể cập nhật trạng thái tài khoản. Vui lòng thử lại.",
+        ),
       );
     } finally {
       setActionLoading(false);
@@ -248,9 +323,118 @@ export default function ManageUsersPage() {
       window.setTimeout(() => setNotice(""), 4500);
     } catch (err) {
       setError(
-        err?.response?.data?.message ??
-          "Không thể xóa tài khoản. Vui lòng thử lại.",
+        apiMessage(err, "Không thể xóa tài khoản. Vui lòng thử lại."),
       );
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function loadRoleEligibility(target = roleTarget) {
+    if (!target?.id || target.role !== "HOTEL_ADMIN") return null;
+
+    setRoleEligibilityLoading(true);
+    setRoleActionError("");
+    try {
+      const payload = await getAdminUserDemotionEligibility(target.id);
+      setRoleEligibility(payload);
+      return payload;
+    } catch (err) {
+      setRoleEligibility(null);
+      setRoleActionError(
+        apiMessage(
+          err,
+          "Không thể kiểm tra điều kiện chuyển tài khoản về Customer.",
+        ),
+      );
+      return null;
+    } finally {
+      setRoleEligibilityLoading(false);
+    }
+  }
+
+  function openRoleChange(target) {
+    if (
+      !target?.id ||
+      isDeleted(target.status) ||
+      !["CUSTOMER", "HOTEL_ADMIN"].includes(target.role)
+    ) {
+      return;
+    }
+
+    setRoleTarget(target);
+    setRoleReason("");
+    setRoleEligibility(null);
+    setRoleActionError("");
+    if (target.role === "HOTEL_ADMIN") {
+      void loadRoleEligibility(target);
+    }
+  }
+
+  function closeRoleChange() {
+    if (actionLoading) return;
+    setRoleTarget(null);
+    setRoleReason("");
+    setRoleEligibility(null);
+    setRoleActionError("");
+  }
+
+  async function changeRole() {
+    const target = roleTarget;
+    const normalizedReason = roleReason.trim();
+    if (!target?.id || !["CUSTOMER", "HOTEL_ADMIN"].includes(target.role)) return;
+    if (!normalizedReason) {
+      setRoleActionError("Vui lòng nhập lý do thay đổi vai trò để ghi audit log.");
+      return;
+    }
+    if (target.role === "HOTEL_ADMIN" && !roleEligibility?.eligible) {
+      setRoleActionError("Tài khoản chưa đáp ứng đủ điều kiện để chuyển về Customer.");
+      return;
+    }
+
+    const nextRole = target.role === "CUSTOMER" ? "HOTEL_ADMIN" : "CUSTOMER";
+    setActionLoading(true);
+    setRoleActionError("");
+    try {
+      const payload = target.role === "CUSTOMER"
+        ? await promoteAdminUserToHotelAdmin(target.id, normalizedReason)
+        : await demoteAdminUserToCustomer(target.id, normalizedReason);
+      const responseUser = payload?.user ?? payload ?? {};
+      const updated = normalizeUser({
+        ...target,
+        ...responseUser,
+        role: responseUser.role ?? nextRole,
+      });
+
+      setUsers((items) =>
+        items.map((item) =>
+          String(item.id) === String(target.id) ? { ...item, ...updated } : item,
+        ),
+      );
+      setSelected((item) =>
+        item && String(item.id) === String(target.id)
+          ? { ...item, ...updated }
+          : item,
+      );
+      setNotice(
+        nextRole === "HOTEL_ADMIN"
+          ? `Đã chuyển ${target.email} thành Hotel Admin.`
+          : `Đã chuyển ${target.email} về Customer. Các khách sạn liên quan đã được ngừng hoạt động theo quy trình.`,
+      );
+      setRoleTarget(null);
+      setRoleReason("");
+      setRoleEligibility(null);
+      setRoleActionError("");
+      window.setTimeout(() => setNotice(""), 5000);
+    } catch (err) {
+      const message = apiMessage(
+        err,
+        "Không thể thay đổi vai trò tài khoản. Vui lòng thử lại.",
+      );
+      if (target.role === "HOTEL_ADMIN" && err?.response?.status === 409) {
+        await loadRoleEligibility(target);
+      }
+      setRoleActionError(message);
     } finally {
       setActionLoading(false);
     }
@@ -371,6 +555,21 @@ export default function ManageUsersPage() {
                         <button type="button" className="admin-users-icon-button" title="Xem chi tiết" onClick={() => openDetail(item)}><Eye size={17} /></button>
                         {!isDeleted(item.status) ? (
                           <>
+                            {["CUSTOMER", "HOTEL_ADMIN"].includes(item.role) ? (
+                              <button
+                                type="button"
+                                className={`admin-users-state-button role ${item.role === "CUSTOMER" ? "promote" : "demote"}`}
+                                title={
+                                  item.role === "CUSTOMER"
+                                    ? "Chuyển trực tiếp thành Hotel Admin"
+                                    : "Kiểm tra điều kiện và chuyển về Customer"
+                                }
+                                onClick={() => openRoleChange(item)}
+                              >
+                                {item.role === "CUSTOMER" ? <Hotel size={16} /> : <UserRound size={16} />}
+                                {item.role === "CUSTOMER" ? "Chuyển thành Hotel Admin" : "Chuyển về Customer"}
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               className={`admin-users-state-button ${isLocked(item.status) ? "unlock" : "lock"}`}
@@ -431,6 +630,16 @@ export default function ManageUsersPage() {
               <button type="button" className="admin-cancel-button" onClick={() => setSelected(null)}>Đóng</button>
               {!isDeleted(selected.status) ? (
                 <>
+                  {["CUSTOMER", "HOTEL_ADMIN"].includes(selected.role) ? (
+                    <button
+                      type="button"
+                      className={`admin-users-state-button role ${selected.role === "CUSTOMER" ? "promote" : "demote"}`}
+                      onClick={() => openRoleChange(selected)}
+                    >
+                      {selected.role === "CUSTOMER" ? <Hotel size={16} /> : <UserRound size={16} />}
+                      {selected.role === "CUSTOMER" ? "Chuyển thành Hotel Admin" : "Chuyển về Customer"}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className={`admin-users-state-button ${isLocked(selected.status) ? "unlock" : "lock"}`}
@@ -452,6 +661,159 @@ export default function ManageUsersPage() {
               ) : (
                 <span className="admin-deleted-hint">Tài khoản đã xóa mềm, dữ liệu lịch sử vẫn được giữ.</span>
               )}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {roleTarget ? (
+        <div
+          className="admin-modal-layer admin-confirm-layer"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeRoleChange();
+          }}
+        >
+          <section
+            className="admin-modal small admin-role-change-confirm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-role-change-title"
+          >
+            <div className="admin-modal-header">
+              <div>
+                <span>ROLE MANAGEMENT</span>
+                <h2 id="admin-role-change-title">
+                  {roleTarget.role === "CUSTOMER"
+                    ? "Chuyển thành Hotel Admin"
+                    : "Chuyển về Customer"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeRoleChange}
+                disabled={actionLoading}
+                aria-label="Đóng"
+              >
+                <X size={19} />
+              </button>
+            </div>
+
+            <div className="admin-role-change-user">
+              <span className="admin-user-detail-avatar">
+                {roleTarget.fullName.charAt(0).toUpperCase()}
+              </span>
+              <div>
+                <strong>{roleTarget.fullName}</strong>
+                <small>{roleTarget.email}</small>
+              </div>
+              <span className={`admin-role-badge ${roleTarget.role.toLowerCase().replaceAll("_", "-")}`}>
+                {roleLabel(roleTarget.role)}
+              </span>
+            </div>
+
+            {roleActionError ? (
+              <div className="admin-role-change-error" role="alert">
+                <AlertTriangle size={18} />
+                <span>{repairMojibake(roleActionError)}</span>
+              </div>
+            ) : null}
+
+            {roleTarget.role === "CUSTOMER" ? (
+              <div className="admin-role-change-note promote">
+                <ShieldCheck size={20} />
+                <p>
+                  System Admin có thể cấp quyền Hotel Admin trực tiếp, không cần
+                  partner request hoặc eKYC. Tài khoản và toàn bộ lịch sử được giữ nguyên.
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="admin-role-change-description">
+                  Chỉ có thể chuyển về Customer khi mọi nghiệp vụ lưu trú, booking,
+                  withdrawal và tài chính đã được xử lý xong.
+                </p>
+                {roleEligibilityLoading ? (
+                  <div className="admin-role-eligibility-loading">
+                    <span className="admin-spinner" /> Đang kiểm tra điều kiện...
+                  </div>
+                ) : roleEligibility ? (
+                  <div className="role-eligibility-list">
+                    {DEMOTION_CHECKS.map(([key, label]) => {
+                      const count = eligibilityCount(roleEligibility, key);
+                      const clear = count === 0;
+                      return (
+                        <div className={clear ? "clear" : "blocked"} key={key}>
+                          {clear ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+                          <span>
+                            <strong>{label}</strong>
+                            <small>{clear ? "Đã xử lý xong" : `${count} mục còn tồn tại`}</small>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                {!roleEligibility?.eligible && Array.isArray(roleEligibility?.blockers) && roleEligibility.blockers.length > 0 ? (
+                  <ul className="role-eligibility-blockers">
+                    {roleEligibility.blockers.map((blocker, index) => (
+                      <li key={`${blockerText(blocker)}-${index}`}>{blockerText(blocker)}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </>
+            )}
+
+            <label className="admin-form-field">
+              <span>Lý do thay đổi vai trò *</span>
+              <textarea
+                rows={4}
+                maxLength={500}
+                value={roleReason}
+                onChange={(event) => {
+                  setRoleReason(event.target.value);
+                  setRoleActionError("");
+                }}
+                placeholder="Nhập lý do để lưu trong audit log..."
+              />
+            </label>
+
+            <div className="admin-modal-actions">
+              {roleTarget.role === "HOTEL_ADMIN" ? (
+                <button
+                  type="button"
+                  className="admin-secondary-button"
+                  disabled={roleEligibilityLoading || actionLoading}
+                  onClick={() => void loadRoleEligibility()}
+                >
+                  <RefreshCw size={16} /> Kiểm tra lại
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="admin-cancel-button"
+                disabled={actionLoading}
+                onClick={closeRoleChange}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className={`admin-users-state-button role ${roleTarget.role === "CUSTOMER" ? "promote" : "demote"}`}
+                disabled={
+                  actionLoading ||
+                  roleEligibilityLoading ||
+                  !roleReason.trim() ||
+                  (roleTarget.role === "HOTEL_ADMIN" && !roleEligibility?.eligible)
+                }
+                onClick={() => void changeRole()}
+              >
+                {actionLoading
+                  ? "Đang xử lý..."
+                  : roleTarget.role === "CUSTOMER"
+                    ? "Xác nhận chuyển thành Hotel Admin"
+                    : "Xác nhận chuyển về Customer"}
+              </button>
             </div>
           </section>
         </div>

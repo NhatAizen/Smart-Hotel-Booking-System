@@ -83,7 +83,11 @@ export default function LoginPage() {
   ] = useState(true);
 
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(() => {
+    const message = sessionStorage.getItem("enziuroomsAuthNotice") ?? "";
+    sessionStorage.removeItem("enziuroomsAuthNotice");
+    return message;
+  });
 
   function handleChange(event) {
     const {

@@ -1,43 +1,50 @@
 package com.smarthotel.booking.booking.dto;
 
-import jakarta.validation.constraints.DecimalMin;
+import com.smarthotel.booking.booking.entity.PaymentOption;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
 public record CreateBookingRequest(
-
-        @NotNull(message = "Customer ID không được để trống")
-        UUID customerId,
-
-        @NotNull(message = "Hotel ID không được để trống")
-        UUID hotelId,
-
-        @NotNull(message = "Room ID không được để trống")
-        UUID roomId,
-
-        @NotNull(message = "Ngày nhận phòng không được để trống")
-        @FutureOrPresent(message = "Ngày nhận phòng không được ở quá khứ")
-        LocalDate checkIn,
-
-        @NotNull(message = "Ngày trả phòng không được để trống")
-        LocalDate checkOut,
-
-        @NotNull(message = "Số khách không được để trống")
-        @Min(value = 1, message = "Số khách phải từ 1")
-        Integer guestCount,
-
-        @NotNull(message = "Tổng tiền không được để trống")
-        @DecimalMin(value = "0.0", inclusive = true, message = "Tổng tiền phải lớn hơn hoặc bằng 0")
-        BigDecimal totalPrice,
-
-        @Size(max = 1000, message = "Yêu cầu đặc biệt tối đa 1000 ký tự")
-        String specialRequest
-
+        @NotNull UUID customerId,
+        @NotNull UUID hotelId,
+        @NotNull UUID roomId,
+        @NotNull @FutureOrPresent LocalDate checkIn,
+        @NotNull LocalDate checkOut,
+        @NotNull @Min(1) Integer adults,
+        @NotNull @Min(0) Integer children,
+        @NotNull PaymentOption paymentOption,
+        @NotBlank @Size(max = 100) String bookerLastName,
+        @NotBlank @Size(max = 100) String bookerFirstName,
+        @NotBlank @Email @Size(max = 255) String bookerEmail,
+        @NotBlank @Size(min = 8, max = 30) String bookerPhone,
+        boolean bookerIsGuest,
+        @Size(max = 100) String guestLastName,
+        @Size(max = 100) String guestFirstName,
+        @Size(max = 30) String guestPhone,
+        @Size(max = 1000) String specialRequest,
+        boolean invoiceRequested,
+        @Size(max = 255) String invoiceCompanyName,
+        @Size(max = 50) String invoiceTaxCode,
+        @Size(max = 500) String invoiceAddress,
+        @Email @Size(max = 255) String invoiceEmail,
+        @AssertTrue boolean termsAccepted
 ) {
+    public CreateBookingBatchRequest toBatch() {
+        return new CreateBookingBatchRequest(
+                customerId, hotelId, java.util.List.of(roomId), checkIn, checkOut,
+                adults, children, paymentOption, bookerLastName, bookerFirstName,
+                bookerEmail, bookerPhone, bookerIsGuest, guestLastName,
+                guestFirstName, guestPhone, specialRequest, invoiceRequested,
+                invoiceCompanyName, invoiceTaxCode, invoiceAddress, invoiceEmail,
+                termsAccepted, null
+        );
+    }
 }

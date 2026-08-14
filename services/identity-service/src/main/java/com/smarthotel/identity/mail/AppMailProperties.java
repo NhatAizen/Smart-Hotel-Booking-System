@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record AppMailProperties(
         String from,
         String publicBaseUrl,
+        String frontendBaseUrl,
         long verificationExpirationSeconds,
         long passwordResetExpirationSeconds
 ) {

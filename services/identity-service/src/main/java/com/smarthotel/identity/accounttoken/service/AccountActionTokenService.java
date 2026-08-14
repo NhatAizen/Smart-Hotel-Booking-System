@@ -32,10 +32,10 @@ public class AccountActionTokenService {
     }
 
     /**
-     * Tạo token mới.
+     * Táº¡o token má»›i.
      *
-     * Token cũ cùng loại của user sẽ bị vô hiệu hóa.
-     * Database chỉ lưu SHA-256 hash.
+     * Token cÅ© cÃ¹ng loáº¡i cá»§a user sáº½ bá»‹ vÃ´ hiá»‡u hÃ³a.
+     * Database chá»‰ lÆ°u SHA-256 hash.
      */
     @Transactional
     public String issue(
@@ -67,7 +67,7 @@ public class AccountActionTokenService {
     }
 
     /**
-     * Kiểm tra và sử dụng token đúng một lần.
+     * Kiá»ƒm tra vÃ  sá»­ dá»¥ng token Ä‘Ãºng má»™t láº§n.
      */
     @Transactional
     public User consume(
@@ -138,7 +138,7 @@ public class AccountActionTokenService {
 
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(
-                    "SHA-256 không được hỗ trợ",
+                    "SHA-256 khÃ´ng Ä‘Æ°á»£c há»— trá»£",
                     exception
             );
         }

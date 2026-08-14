@@ -20,20 +20,68 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  servlet:
+    multipart:
+      max-file-size: 8MB
+      max-request-size: 35MB
+
   mail:
-    host: ${MAIL_HOST:localhost}
-    port: ${MAIL_PORT:1025}
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+
     properties:
       mail:
         smtp:
-          auth: false
+          auth: ${MAIL_SMTP_AUTH:true}
           starttls:
-            enable: false
+            enable: ${MAIL_STARTTLS_ENABLE:true}
+            required: ${MAIL_STARTTLS_REQUIRED:true}
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope:
+              - openid
+              - profile
+              - email
+            client-name: Google
+
+          facebook:
+            client-id: ${FACEBOOK_CLIENT_ID}
+            client-secret: ${FACEBOOK_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope:
+              - public_profile
+              - email
+            client-name: Facebook
+
+        provider:
+          google:
+            issuer-uri: https://accounts.google.com
+            user-name-attribute: sub
+
+          facebook:
+            authorization-uri: https://www.facebook.com/v20.0/dialog/oauth
+            token-uri: https://graph.facebook.com/v20.0/oauth/access_token
+            user-info-uri: https://graph.facebook.com/v20.0/me?fields=id,name,email,picture
+            user-name-attribute: id
 
 server:
   port: ${SERVER_PORT:8081}
+  forward-headers-strategy: framework
 
 management:
   endpoints:
@@ -53,10 +101,15 @@ app:
     refresh-expiration-seconds: 2592000
 
   mail:
-    from: ${MAIL_FROM:no-reply@smarthotel.local}
-    public-base-url: ${PUBLIC_BASE_URL:http://localhost:8081}
+    from: ${MAIL_FROM:trannguyennhunhat2005@gmail.com}
+    public-base-url: ${PUBLIC_BASE_URL:http://localhost:8080}
+    frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
     verification-expiration-seconds: 86400
     password-reset-expiration-seconds: 1800
+
+  oauth2:
+    frontend-callback-url: ${OAUTH_FRONTEND_REDIRECT:http://localhost:5173/oauth2/callback}
+    authorization-code-expiration-seconds: ${OAUTH_CODE_EXPIRATION_SECONDS:120}
 
 springdoc:
   api-docs:
@@ -73,3 +126,29 @@ springdoc:
   packages-to-scan:
     - com.smarthotel.identity.auth.controller
     - com.smarthotel.identity.user.controller
+    - com.smarthotel.identity.partnerrequest.controller
+    - com.smarthotel.identity.oauth.controller
+profiles:
+  media:
+    upload-dir: ${PROFILE_MEDIA_UPLOAD_DIR:./uploads/profiles}
+    public-base-url: ${PUBLIC_PROFILE_MEDIA_BASE_URL:http://localhost:8080/api/users/media}
+    max-file-size-bytes: ${PROFILE_MEDIA_MAX_FILE_SIZE_BYTES:5242880}
+
+clients:
+  notification:
+    base-url: ${NOTIFICATION_SERVICE_URL:http://notification-service:8085}
+partner-documents:
+  upload-dir: ${PARTNER_DOCUMENT_UPLOAD_DIR:./uploads/partner-documents}
+  max-file-size-bytes: ${PARTNER_DOCUMENT_MAX_FILE_SIZE_BYTES:8388608}
+
+partner-ocr:
+  command: ${PARTNER_OCR_COMMAND:tesseract}
+  languages: ${PARTNER_OCR_LANGUAGES:vie+eng}
+  timeout-seconds: ${PARTNER_OCR_TIMEOUT_SECONDS:20}
+
+
+partner-ekyc:
+  base-url: ${PARTNER_EKYC_BASE_URL:http://ekyc-service:8090}
+  internal-api-key: ${PARTNER_EKYC_INTERNAL_API_KEY:change-me-in-production}
+  connect-timeout-seconds: ${PARTNER_EKYC_CONNECT_TIMEOUT_SECONDS:5}
+  read-timeout-seconds: ${PARTNER_EKYC_READ_TIMEOUT_SECONDS:30}

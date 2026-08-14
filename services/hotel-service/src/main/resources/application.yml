@@ -11,7 +11,7 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
-    show-sql: true
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
         format_sql: true
@@ -20,8 +20,37 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 250MB
+
 server:
   port: ${SERVER_PORT:8082}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+
+clients:
+  notification:
+    base-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+
+  # Public Nominatim is used only for low-volume hotel-address geocoding.
+  # Coordinates are persisted, so map views do not repeatedly geocode the same hotel.
+  nominatim:
+    enabled: ${NOMINATIM_ENABLED:true}
+    base-url: ${NOMINATIM_BASE_URL:https://nominatim.openstreetmap.org}
+    user-agent: ${NOMINATIM_USER_AGENT:EnziuRooms/1.0 (Smart Hotel Booking System student project)}
+    min-interval-ms: ${NOMINATIM_MIN_INTERVAL_MS:1100}
+    connect-timeout-ms: ${NOMINATIM_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${NOMINATIM_READ_TIMEOUT_MS:10000}
+
+app:
+  media:
+    upload-dir: ${MEDIA_UPLOAD_DIR:uploads}
+    public-base-url: ${PUBLIC_MEDIA_BASE_URL:http://localhost:8080/api/hotels/media}
+    max-file-size-bytes: ${MEDIA_MAX_FILE_SIZE_BYTES:10485760}
 
 management:
   endpoints:

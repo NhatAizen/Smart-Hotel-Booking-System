@@ -49,6 +49,7 @@ export default function AdminNavbar({
   items,
   desktopNavigation,
   profilePath,
+  accountActions = [],
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -72,6 +73,12 @@ export default function AdminNavbar({
     logout();
     closeMenus();
     navigate("/login", { replace: true });
+  }
+
+  function handleAccountAction(action) {
+    if (action.disabled) return;
+    closeMenus();
+    action.onClick?.();
   }
 
   useEffect(() => {
@@ -213,10 +220,27 @@ export default function AdminNavbar({
                 <small>{user?.email ?? roleDescription}</small>
               </span>
             </div>
-            <button type="button" onClick={handleLogout}>
-              <LogOut size={18} aria-hidden="true" />
-              Đăng xuất
-            </button>
+            <div className="admin-navbar-mobile-account-actions">
+              {accountActions.map((action) => {
+                const ActionIcon = action.icon;
+                return (
+                  <button
+                    type="button"
+                    className={action.tone ?? ""}
+                    disabled={action.disabled}
+                    key={action.key ?? action.label}
+                    onClick={() => handleAccountAction(action)}
+                  >
+                    {ActionIcon ? <ActionIcon size={18} aria-hidden="true" /> : null}
+                    {action.label}
+                  </button>
+                );
+              })}
+              <button type="button" className="logout" onClick={handleLogout}>
+                <LogOut size={18} aria-hidden="true" />
+                Đăng xuất
+              </button>
+            </div>
           </div>
         </nav>
 
@@ -300,6 +324,30 @@ export default function AdminNavbar({
                       <small>Thông tin tài khoản</small>
                     </span>
                   </Link>
+                ) : null}
+
+                {accountActions.map((action) => {
+                  const ActionIcon = action.icon;
+                  return (
+                    <button
+                      type="button"
+                      className={`admin-navbar-account-item ${action.tone ?? ""}`.trim()}
+                      disabled={action.disabled}
+                      key={action.key ?? action.label}
+                      role="menuitem"
+                      onClick={() => handleAccountAction(action)}
+                    >
+                      {ActionIcon ? <ActionIcon size={18} aria-hidden="true" /> : null}
+                      <span>
+                        <strong>{action.label}</strong>
+                        {action.description ? <small>{action.description}</small> : null}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {profilePath || accountActions.length > 0 ? (
+                  <div className="admin-navbar-dropdown-divider" />
                 ) : null}
 
                 <button

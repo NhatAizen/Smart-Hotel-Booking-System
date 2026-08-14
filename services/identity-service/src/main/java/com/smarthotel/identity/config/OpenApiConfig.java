@@ -20,8 +20,8 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("Smart Hotel Identity Service API")
                         .description("""
-                                API đăng ký, đăng nhập, JWT, refresh token,
-                                xác thực email và đặt lại mật khẩu.
+                                API Ä‘Äƒng kÃ½, Ä‘Äƒng nháº­p, JWT, refresh token,
+                                xÃ¡c thá»±c email vÃ  Ä‘áº·t láº¡i máº­t kháº©u.
                                 """)
                         .version("1.0.0")
                         .contact(new Contact()

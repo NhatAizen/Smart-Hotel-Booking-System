@@ -145,6 +145,34 @@ services:
       - "8025:8025"
 
 
+
+  redis:
+    image: redis:7-alpine
+    container_name: smart-hotel-redis
+    restart: unless-stopped
+
+    ports:
+      - "6379:6379"
+
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+
+    volumes:
+      - redis_data:/data
+
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+
   # =========================================================
   # BACKEND SERVICES
   # =========================================================
@@ -164,20 +192,56 @@ services:
       DB_USERNAME: identity_user
       DB_PASSWORD: identity_password
 
-      MAIL_HOST: mailpit
-      MAIL_PORT: 1025
-      MAIL_USERNAME: ""
-      MAIL_PASSWORD: ""
-      MAIL_FROM: no-reply@smarthotel.local
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      FACEBOOK_CLIENT_ID: ${FACEBOOK_CLIENT_ID}
+      FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET}
 
+      OAUTH_FRONTEND_REDIRECT: ${OAUTH_FRONTEND_REDIRECT:-http://localhost:5300/oauth2/callback}
+
+      MAIL_HOST: smtp.gmail.com
+      MAIL_PORT: 587
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_APP_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+
+      MAIL_SMTP_AUTH: "true"
+      MAIL_STARTTLS_ENABLE: "true"
+
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5300}
       PUBLIC_BASE_URL: http://localhost:8081
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+
+      # Identity Service cần gọi các service này khi kiểm tra điều kiện
+      # CUSTOMER <-> HOTEL_ADMIN. Trong Docker không được dùng localhost.
+      HOTEL_SERVICE_URL: http://hotel-service:8082
+      BOOKING_SERVICE_URL: http://booking-service:8083
+      PAYMENT_SERVICE_URL: http://payment-service:8084
 
       JWT_SECRET: ${JWT_SECRET}
-
       JPA_SHOW_SQL: "false"
+
+      PROFILE_MEDIA_UPLOAD_DIR: /app/uploads/profiles
+      PUBLIC_PROFILE_MEDIA_BASE_URL: http://localhost:8080/api/users/media
+      PROFILE_MEDIA_MAX_FILE_SIZE_BYTES: 5242880
+
+      PARTNER_DOCUMENT_UPLOAD_DIR: /app/uploads/partner-documents
+      PARTNER_DOCUMENT_MAX_FILE_SIZE_BYTES: 8388608
+      PARTNER_OCR_COMMAND: tesseract
+      PARTNER_OCR_LANGUAGES: vie+eng
+      PARTNER_OCR_TIMEOUT_SECONDS: 20
+
+      PARTNER_EKYC_BASE_URL: http://ekyc-service:8090
+      PARTNER_EKYC_INTERNAL_API_KEY: ${EKYC_INTERNAL_API_KEY:-dev-ekyc-internal-key-change-me}
+      PARTNER_EKYC_CONNECT_TIMEOUT_SECONDS: 5
+      PARTNER_EKYC_READ_TIMEOUT_SECONDS: 35
 
     ports:
       - "8081:8081"
+
+    volumes:
+      - identity_profile_media_data:/app/uploads/profiles
+      - identity_partner_document_data:/app/uploads/partner-documents
 
     depends_on:
       identity-postgres:
@@ -185,6 +249,9 @@ services:
 
       mailpit:
         condition: service_started
+
+      ekyc-service:
+        condition: service_healthy
 
     healthcheck:
       test:
@@ -207,17 +274,34 @@ services:
     environment:
       SERVER_PORT: 8082
 
+      MEDIA_UPLOAD_DIR: /app/uploads
+      PUBLIC_MEDIA_BASE_URL: http://localhost:8080/api/hotels/media
+      MEDIA_MAX_FILE_SIZE_BYTES: 10485760
+
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+
       DB_URL: jdbc:postgresql://hotel-postgres:5432/hotel_db
       DB_USERNAME: hotel_user
       DB_PASSWORD: hotel_password
 
+      JWT_SECRET: ${JWT_SECRET}
+      IDENTITY_SERVICE_URL: http://identity-service:8081
       JPA_SHOW_SQL: "false"
+
+    volumes:
+      - hotel_media_data:/app/uploads
 
     ports:
       - "8082:8082"
 
     depends_on:
       hotel-postgres:
+        condition: service_healthy
+
+      notification-service:
+        condition: service_healthy
+
+      identity-service:
         condition: service_healthy
 
     healthcheck:
@@ -245,13 +329,32 @@ services:
       DB_USERNAME: booking_user
       DB_PASSWORD: booking_password
 
+      HOTEL_SERVICE_URL: http://hotel-service:8082
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      IDENTITY_SERVICE_URL: http://identity-service:8081
+      JWT_SECRET: ${JWT_SECRET}
+
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+
+      REVIEW_MEDIA_UPLOAD_DIR: /app/uploads/reviews
+      PUBLIC_REVIEW_MEDIA_BASE_URL: http://localhost:8080/api/reviews/media
+      REVIEW_MEDIA_MAX_FILE_SIZE_BYTES: 5242880
+
       JPA_SHOW_SQL: "false"
+
+    volumes:
+      - booking_review_media_data:/app/uploads/reviews
 
     ports:
       - "8083:8083"
 
     depends_on:
       booking-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      identity-service:
         condition: service_healthy
 
     healthcheck:
@@ -280,6 +383,25 @@ services:
       DB_PASSWORD: payment_password
 
       BOOKING_SERVICE_URL: http://booking-service:8083
+      HOTEL_SERVICE_URL: http://hotel-service:8082
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      IDENTITY_SERVICE_URL: http://identity-service:8081
+
+      JWT_SECRET: ${JWT_SECRET}
+
+      PAYOS_ENABLED: ${PAYOS_ENABLED:-true}
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID}
+      PAYOS_API_KEY: ${PAYOS_API_KEY}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY}
+      PAYOS_BASE_URL: ${PAYOS_BASE_URL:-https://api-merchant.payos.vn}
+
+      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-http://localhost:5300/payment/payos/success}
+      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-http://localhost:5300/payment/payos/cancel}
+      PAYOS_WEBHOOK_URL: ${PAYOS_WEBHOOK_URL:-}
+
+      PAYOS_COMMISSION_RATE: ${PAYOS_COMMISSION_RATE:-10.00}
+      PAYOS_AUTO_RELEASE_HOTEL_REVENUE: ${PAYOS_AUTO_RELEASE_HOTEL_REVENUE:-false}
+      PAYOS_PAYOUT_ENABLED: ${PAYOS_PAYOUT_ENABLED:-false}
 
       JPA_SHOW_SQL: "false"
 
@@ -291,6 +413,9 @@ services:
         condition: service_healthy
 
       booking-service:
+        condition: service_healthy
+
+      identity-service:
         condition: service_healthy
 
     healthcheck:
@@ -362,13 +487,17 @@ services:
       GEMINI_BASE_URL: https://generativelanguage.googleapis.com/v1beta
       GEMINI_TIMEOUT_SECONDS: 30
 
+      JWT_SECRET: ${JWT_SECRET}
       HOTEL_SERVICE_URL: http://hotel-service:8082
+      BOOKING_SERVICE_URL: http://booking-service:8083
 
     ports:
       - "8086:8086"
 
     depends_on:
       hotel-service:
+        condition: service_healthy
+      booking-service:
         condition: service_healthy
 
     healthcheck:
@@ -379,6 +508,47 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+
+
+  ekyc-service:
+    build:
+      context: ./services/ekyc-service
+      dockerfile: Dockerfile
+
+    container_name: smart-hotel-ekyc-service
+    restart: unless-stopped
+
+    environment:
+      EKYC_INTERNAL_API_KEY: ${EKYC_INTERNAL_API_KEY:-dev-ekyc-internal-key-change-me}
+      EKYC_TOKEN_SECRET: ${EKYC_TOKEN_SECRET:-dev-ekyc-token-secret-change-me-32bytes-minimum}
+      EKYC_CHALLENGE_TTL_SECONDS: 300
+      EKYC_FACE_MATCH_THRESHOLD: ${EKYC_FACE_MATCH_THRESHOLD:-0.42}
+      EKYC_LIVE_CONSISTENCY_THRESHOLD: ${EKYC_LIVE_CONSISTENCY_THRESHOLD:-0.34}
+      EKYC_ID_MIN_BLUR_VARIANCE: ${EKYC_ID_MIN_BLUR_VARIANCE:-20}
+      EKYC_LIVE_MIN_BLUR_VARIANCE: ${EKYC_LIVE_MIN_BLUR_VARIANCE:-20}
+      EKYC_FRONT_MIN_FRAME_DIFFERENCE: ${EKYC_FRONT_MIN_FRAME_DIFFERENCE:-0.65}
+      EKYC_CHALLENGE_RATE_LIMIT_COUNT: ${EKYC_CHALLENGE_RATE_LIMIT_COUNT:-5}
+      EKYC_CHALLENGE_RATE_LIMIT_WINDOW_SECONDS: ${EKYC_CHALLENGE_RATE_LIMIT_WINDOW_SECONDS:-600}
+
+    expose:
+      - "8090"
+
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://localhost:8090/health', timeout=3).read()" || exit 1
+      interval: 20s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
 
 
   api-gateway:
@@ -435,7 +605,12 @@ services:
 
 volumes:
   identity_postgres_data:
+  identity_profile_media_data:
+  identity_partner_document_data:
   hotel_postgres_data:
   booking_postgres_data:
   payment_postgres_data:
   notification_postgres_data:
+  hotel_media_data:
+  booking_review_media_data:
+  redis_data:

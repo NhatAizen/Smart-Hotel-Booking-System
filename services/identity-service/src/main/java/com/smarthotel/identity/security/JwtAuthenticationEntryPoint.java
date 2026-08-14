@@ -33,7 +33,7 @@ public class JwtAuthenticationEntryPoint
         ApiErrorResponse body = ApiErrorResponse.of(
                 HttpServletResponse.SC_UNAUTHORIZED,
                 "UNAUTHORIZED",
-                "Bạn cần đăng nhập hoặc cung cấp JWT hợp lệ",
+                "Báº¡n cáº§n Ä‘Äƒng nháº­p hoáº·c cung cáº¥p JWT há»£p lá»‡",
                 request.getRequestURI()
         );
 

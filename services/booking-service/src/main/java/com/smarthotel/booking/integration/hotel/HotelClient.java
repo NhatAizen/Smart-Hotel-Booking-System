@@ -1,0 +1,149 @@
+package com.smarthotel.booking.integration.hotel;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+
+import java.math.BigDecimal;
+import java.time.LocalTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
+
+@Component
+public class HotelClient {
+
+    private final RestClient restClient;
+
+    public HotelClient(
+            @Value("${clients.hotel.base-url}") String hotelServiceUrl
+    ) {
+        this.restClient = RestClient.builder()
+                .baseUrl(hotelServiceUrl)
+                .build();
+    }
+
+    public HotelDetails getHotel(UUID hotelId) {
+        HotelDetails response = restClient.get()
+                .uri("/api/hotels/{hotelId}", hotelId)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (request, httpResponse) -> {
+                    throw new IllegalArgumentException(
+                            "Không tìm thấy khách sạn đang hoạt động: " + hotelId
+                    );
+                })
+                .body(HotelDetails.class);
+
+        if (response == null) {
+            throw new IllegalStateException("Hotel Service không trả về thông tin khách sạn");
+        }
+        return response;
+    }
+
+    public RoomDetails getRoom(UUID roomId) {
+        RoomDetails response = restClient.get()
+                .uri("/api/rooms/{roomId}", roomId)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (request, httpResponse) -> {
+                    throw new IllegalArgumentException(
+                            "Không tìm thấy phòng hoặc phòng không còn được mở bán: " + roomId
+                    );
+                })
+                .body(RoomDetails.class);
+
+        if (response == null) {
+            throw new IllegalStateException("Hotel Service không trả về thông tin phòng");
+        }
+        return response;
+    }
+
+    public RoomTypeDetails getRoomType(UUID roomTypeId) {
+        RoomTypeDetails response = restClient.get()
+                .uri("/api/room-types/{roomTypeId}", roomTypeId)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (request, httpResponse) -> {
+                    throw new IllegalArgumentException(
+                            "Không tìm thấy loại phòng đang hoạt động: " + roomTypeId
+                    );
+                })
+                .body(RoomTypeDetails.class);
+
+        if (response == null) {
+            throw new IllegalStateException("Hotel Service không trả về thông tin loại phòng");
+        }
+        return response;
+    }
+
+    public void updateRoomStatus(RoomDetails room, String status, String bearerToken) {
+        if (bearerToken == null || bearerToken.isBlank()) {
+            throw new IllegalStateException("Thiếu token Hotel Admin để đồng bộ trạng thái phòng");
+        }
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("roomTypeId", room.roomTypeId());
+        body.put("roomNumber", room.roomNumber());
+        body.put("floor", room.floor());
+        body.put("status", status);
+        body.put("customPrice", room.customPrice());
+        body.put("note", room.note());
+
+        restClient.put()
+                .uri("/api/rooms/{roomId}", room.id())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + bearerToken)
+                .body(body)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (request, response) -> {
+                    throw new IllegalStateException(
+                            "Không thể đồng bộ trạng thái phòng " + room.roomNumber()
+                    );
+                })
+                .toBodilessEntity();
+    }
+
+    public record HotelDetails(
+            UUID id,
+            UUID ownerId,
+            String name,
+            String address,
+            String city,
+            LocalTime checkInTime,
+            LocalTime checkOutTime
+    ) {
+    }
+
+    public record RoomDetails(
+            UUID id,
+            UUID hotelId,
+            UUID roomTypeId,
+            String roomNumber,
+            Integer floor,
+            String status,
+            BigDecimal customPrice,
+            String note
+    ) {
+    }
+
+    public record RoomTypeDetails(
+            UUID id,
+            UUID hotelId,
+            String name,
+            String description,
+            BigDecimal basePrice,
+            Integer maxAdults,
+            Integer maxChildren,
+            String bedType,
+            Integer bedCount,
+            BigDecimal areaSqm,
+            boolean breakfastIncluded,
+            boolean refundable,
+            boolean smokingAllowed,
+            boolean payAtHotelAllowed,
+            boolean depositAllowed,
+            Integer depositPercent,
+            boolean fullPaymentAllowed
+    ) {
+    }
+
+}

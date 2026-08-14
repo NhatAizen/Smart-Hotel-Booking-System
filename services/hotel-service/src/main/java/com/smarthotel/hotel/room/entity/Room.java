@@ -6,19 +6,17 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-@Getter
 @Entity
 @Table(name = "rooms")
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Room {
+
+    protected Room() {
+    }
 
     @Id
     @Column(name = "id", nullable = false, updatable = false)
@@ -91,8 +89,27 @@ public class Room {
         this.updatedAt = Instant.now();
     }
 
+    public void completeCleaning() {
+        if (this.status != RoomStatus.CLEANING) {
+            throw new IllegalStateException("Phòng không ở trạng thái đang dọn");
+        }
+        this.status = RoomStatus.AVAILABLE;
+        this.updatedAt = Instant.now();
+    }
+
     public void deactivate() {
         this.status = RoomStatus.INACTIVE;
         this.updatedAt = Instant.now();
     }
+
+    public UUID getId() { return id; }
+    public UUID getHotelId() { return hotelId; }
+    public UUID getRoomTypeId() { return roomTypeId; }
+    public String getRoomNumber() { return roomNumber; }
+    public Integer getFloor() { return floor; }
+    public RoomStatus getStatus() { return status; }
+    public BigDecimal getCustomPrice() { return customPrice; }
+    public String getNote() { return note; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
 }

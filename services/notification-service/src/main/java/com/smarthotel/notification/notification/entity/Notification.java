@@ -6,25 +6,23 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.util.UUID;
 
-@Getter
 @Entity
 @Table(name = "notifications")
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Notification {
 
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id")
     private UUID userId;
+
+    @Column(name = "recipient_role", length = 40)
+    private String recipientRole;
 
     @Column(name = "email", length = 255)
     private String email;
@@ -36,8 +34,14 @@ public class Notification {
     private String content;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false, length = 30)
+    @Column(name = "type", nullable = false, length = 40)
     private NotificationType type;
+
+    @Column(name = "category", length = 40)
+    private String category;
+
+    @Column(name = "action_url", length = 500)
+    private String actionUrl;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
@@ -58,21 +62,46 @@ public class Notification {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+
+    protected Notification() {
+    }
+
+    public UUID getId() { return id; }
+    public UUID getUserId() { return userId; }
+    public String getRecipientRole() { return recipientRole; }
+    public String getEmail() { return email; }
+    public String getTitle() { return title; }
+    public String getContent() { return content; }
+    public NotificationType getType() { return type; }
+    public String getCategory() { return category; }
+    public String getActionUrl() { return actionUrl; }
+    public NotificationStatus getStatus() { return status; }
+    public boolean isRead() { return read; }
+    public Instant getSentAt() { return sentAt; }
+    public Instant getReadAt() { return readAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
+
     public Notification(
             UUID userId,
+            String recipientRole,
             String email,
             String title,
             String content,
-            NotificationType type
+            NotificationType type,
+            String category,
+            String actionUrl
     ) {
         Instant now = Instant.now();
-
         this.id = UUID.randomUUID();
         this.userId = userId;
+        this.recipientRole = normalizeRole(recipientRole);
         this.email = email;
         this.title = title;
         this.content = content;
         this.type = type;
+        this.category = category;
+        this.actionUrl = actionUrl;
         this.status = NotificationStatus.CREATED;
         this.read = false;
         this.createdAt = now;
@@ -96,5 +125,10 @@ public class Notification {
             this.readAt = Instant.now();
             this.updatedAt = Instant.now();
         }
+    }
+
+    private static String normalizeRole(String value) {
+        if (value == null || value.isBlank()) return null;
+        return value.trim().toUpperCase();
     }
 }

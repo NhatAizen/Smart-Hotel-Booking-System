@@ -2,10 +2,10 @@ package com.smarthotel.ai.integration.hotel;
 
 import com.smarthotel.ai.integration.hotel.dto.HotelResponse;
 import com.smarthotel.ai.integration.hotel.dto.HotelWithRoomTypes;
+import com.smarthotel.ai.integration.hotel.dto.RoomResponse;
 import com.smarthotel.ai.integration.hotel.dto.RoomTypeResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -18,81 +18,53 @@ public class HotelClient {
 
     private final RestClient restClient;
 
-    public HotelClient(
-            @Value("${clients.hotel.base-url}") String hotelServiceUrl
-    ) {
-        this.restClient = RestClient.builder()
-                .baseUrl(hotelServiceUrl)
-                .build();
+    public HotelClient(@Value("${clients.hotel.base-url}") String hotelServiceUrl) {
+        this.restClient = RestClient.builder().baseUrl(hotelServiceUrl).build();
     }
 
     public List<HotelResponse> getHotels() {
-        List<HotelResponse> hotels = restClient
-                .get()
+        List<HotelResponse> hotels = restClient.get()
                 .uri("/api/hotels")
                 .retrieve()
-                .onStatus(
-                        HttpStatusCode::isError,
-                        (request, response) -> {
-                            throw new IllegalStateException(
-                                    "Không thể lấy danh sách khách sạn. "
-                                            + "Hotel Service trả về HTTP "
-                                            + response.getStatusCode()
-                            );
-                        }
-                )
-                .body(
-                        new ParameterizedTypeReference<
-                                List<HotelResponse>
-                                >() {
-                        }
-                );
+                .body(new ParameterizedTypeReference<List<HotelResponse>>() {});
+        return hotels == null ? Collections.emptyList() : hotels;
+    }
 
-        return hotels == null
-                ? Collections.emptyList()
-                : hotels;
+    public HotelResponse getHotel(UUID hotelId) {
+        return restClient.get()
+                .uri("/api/hotels/{hotelId}", hotelId)
+                .retrieve()
+                .body(HotelResponse.class);
     }
 
     public List<RoomTypeResponse> getRoomTypes(UUID hotelId) {
-        List<RoomTypeResponse> roomTypes = restClient
-                .get()
-                .uri(
-                        "/api/hotels/{hotelId}/room-types",
-                        hotelId
-                )
+        List<RoomTypeResponse> roomTypes = restClient.get()
+                .uri("/api/hotels/{hotelId}/room-types", hotelId)
                 .retrieve()
-                .onStatus(
-                        HttpStatusCode::isError,
-                        (request, response) -> {
-                            throw new IllegalStateException(
-                                    "Không thể lấy loại phòng của khách sạn "
-                                            + hotelId
-                                            + ". Hotel Service trả về HTTP "
-                                            + response.getStatusCode()
-                            );
-                        }
-                )
-                .body(
-                        new ParameterizedTypeReference<
-                                List<RoomTypeResponse>
-                                >() {
-                        }
-                );
+                .body(new ParameterizedTypeReference<List<RoomTypeResponse>>() {});
+        return roomTypes == null ? Collections.emptyList() : roomTypes;
+    }
 
-        return roomTypes == null
-                ? Collections.emptyList()
-                : roomTypes;
+    public RoomTypeResponse getRoomType(UUID roomTypeId) {
+        return restClient.get()
+                .uri("/api/room-types/{roomTypeId}", roomTypeId)
+                .retrieve()
+                .body(RoomTypeResponse.class);
+    }
+
+    public List<RoomResponse> getRooms(UUID hotelId) {
+        List<RoomResponse> rooms = restClient.get()
+                .uri("/api/hotels/{hotelId}/rooms", hotelId)
+                .retrieve()
+                .body(new ParameterizedTypeReference<List<RoomResponse>>() {});
+        return rooms == null ? Collections.emptyList() : rooms;
     }
 
     public List<HotelWithRoomTypes> getHotelsWithRoomTypes() {
-        return getHotels()
-                .stream()
+        return getHotels().stream()
                 .filter(hotel -> hotel.id() != null)
                 .filter(this::isActive)
-                .map(hotel -> new HotelWithRoomTypes(
-                        hotel,
-                        getRoomTypes(hotel.id())
-                ))
+                .map(hotel -> new HotelWithRoomTypes(hotel, getRoomTypes(hotel.id())))
                 .toList();
     }
 

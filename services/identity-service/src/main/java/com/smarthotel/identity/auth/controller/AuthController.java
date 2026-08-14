@@ -32,8 +32,8 @@ import java.util.UUID;
 @Tag(
         name = "Authentication",
         description = """
-                API đăng ký, đăng nhập, JWT, refresh token,
-                đăng xuất, xác thực email và đặt lại mật khẩu
+                API Ä‘Äƒng kÃ½, Ä‘Äƒng nháº­p, JWT, refresh token,
+                Ä‘Äƒng xuáº¥t, xÃ¡c thá»±c email vÃ  Ä‘áº·t láº¡i máº­t kháº©u
                 """
 )
 public class AuthController {
@@ -45,10 +45,10 @@ public class AuthController {
     }
 
     @Operation(
-            summary = "Đăng ký tài khoản",
+            summary = "ÄÄƒng kÃ½ tÃ i khoáº£n",
             description = """
-                    Tạo tài khoản khách hàng mới và gửi email xác thực.
-                    Tài khoản mới mặc định có role CUSTOMER.
+                    Táº¡o tÃ i khoáº£n khÃ¡ch hÃ ng má»›i vÃ  gá»­i email xÃ¡c thá»±c.
+                    TÃ i khoáº£n má»›i máº·c Ä‘á»‹nh cÃ³ role CUSTOMER.
                     """
     )
     @PostMapping("/register")
@@ -61,10 +61,10 @@ public class AuthController {
     }
 
     @Operation(
-            summary = "Đăng nhập",
+            summary = "ÄÄƒng nháº­p",
             description = """
-                    Kiểm tra email và mật khẩu.
-                    Trả về JWT access token và refresh token nếu hợp lệ.
+                    Kiá»ƒm tra email vÃ  máº­t kháº©u.
+                    Tráº£ vá» JWT access token vÃ  refresh token náº¿u há»£p lá»‡.
                     """
     )
     @PostMapping("/login")
@@ -77,11 +77,11 @@ public class AuthController {
     }
 
     @Operation(
-            summary = "Làm mới token",
+            summary = "LÃ m má»›i token",
             description = """
-                    Sử dụng refresh token hiện tại để tạo access token mới
-                    và refresh token mới theo cơ chế Refresh Token Rotation.
-                    Refresh token cũ sẽ bị thu hồi.
+                    Sá»­ dá»¥ng refresh token hiá»‡n táº¡i Ä‘á»ƒ táº¡o access token má»›i
+                    vÃ  refresh token má»›i theo cÆ¡ cháº¿ Refresh Token Rotation.
+                    Refresh token cÅ© sáº½ bá»‹ thu há»“i.
                     """
     )
     @PostMapping("/refresh")
@@ -94,10 +94,10 @@ public class AuthController {
     }
 
     @Operation(
-            summary = "Đăng xuất một phiên",
+            summary = "ÄÄƒng xuáº¥t má»™t phiÃªn",
             description = """
-                    Thu hồi refresh token được gửi lên.
-                    Access token hiện tại vẫn còn hiệu lực đến khi hết hạn.
+                    Thu há»“i refresh token Ä‘Æ°á»£c gá»­i lÃªn.
+                    Access token hiá»‡n táº¡i váº«n cÃ²n hiá»‡u lá»±c Ä‘áº¿n khi háº¿t háº¡n.
                     """
     )
     @PostMapping("/logout")
@@ -110,10 +110,10 @@ public class AuthController {
     }
 
     @Operation(
-            summary = "Đăng xuất tất cả thiết bị",
+            summary = "ÄÄƒng xuáº¥t táº¥t cáº£ thiáº¿t bá»‹",
             description = """
-                    Thu hồi toàn bộ refresh token của người dùng hiện tại.
-                    API này yêu cầu Bearer access token hợp lệ.
+                    Thu há»“i toÃ n bá»™ refresh token cá»§a ngÆ°á»i dÃ¹ng hiá»‡n táº¡i.
+                    API nÃ y yÃªu cáº§u Bearer access token há»£p lá»‡.
                     """
     )
     @PostMapping("/logout-all")
@@ -130,16 +130,16 @@ public class AuthController {
     }
 
     @Operation(
-            summary = "Xác thực email",
+            summary = "XÃ¡c thá»±c email",
             description = """
-                    Xác thực email bằng token nhận được trong email.
-                    Token chỉ được sử dụng một lần và có thời hạn.
+                    XÃ¡c thá»±c email báº±ng token nháº­n Ä‘Æ°á»£c trong email.
+                    Token chá»‰ Ä‘Æ°á»£c sá»­ dá»¥ng má»™t láº§n vÃ  cÃ³ thá»i háº¡n.
                     """
     )
     @GetMapping("/verify-email")
     public ResponseEntity<MessageResponse> verifyEmail(
             @RequestParam
-            @NotBlank(message = "Token không được để trống")
+            @NotBlank(message = "Token khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng")
             String token
     ) {
         return ResponseEntity.ok(
@@ -148,11 +148,11 @@ public class AuthController {
     }
 
     @Operation(
-            summary = "Gửi lại email xác thực",
+            summary = "Gá»­i láº¡i email xÃ¡c thá»±c",
             description = """
-                    Gửi lại email xác thực nếu tài khoản tồn tại,
-                    đang hoạt động và chưa xác thực email.
-                    Response không tiết lộ email có tồn tại hay không.
+                    Gá»­i láº¡i email xÃ¡c thá»±c náº¿u tÃ i khoáº£n tá»“n táº¡i,
+                    Ä‘ang hoáº¡t Ä‘á»™ng vÃ  chÆ°a xÃ¡c thá»±c email.
+                    Response khÃ´ng tiáº¿t lá»™ email cÃ³ tá»“n táº¡i hay khÃ´ng.
                     """
     )
     @PostMapping("/resend-verification")
@@ -165,10 +165,10 @@ public class AuthController {
     }
 
     @Operation(
-            summary = "Quên mật khẩu",
+            summary = "QuÃªn máº­t kháº©u",
             description = """
-                    Gửi email chứa token đặt lại mật khẩu.
-                    Response không tiết lộ email có tồn tại hay không.
+                    Gá»­i email chá»©a token Ä‘áº·t láº¡i máº­t kháº©u.
+                    Response khÃ´ng tiáº¿t lá»™ email cÃ³ tá»“n táº¡i hay khÃ´ng.
                     """
     )
     @PostMapping("/forgot-password")
@@ -181,11 +181,11 @@ public class AuthController {
     }
 
     @Operation(
-            summary = "Đặt lại mật khẩu",
+            summary = "Äáº·t láº¡i máº­t kháº©u",
             description = """
-                    Đặt mật khẩu mới bằng token nhận được trong email.
-                    Token chỉ dùng một lần. Sau khi thành công,
-                    toàn bộ refresh token của tài khoản sẽ bị thu hồi.
+                    Äáº·t máº­t kháº©u má»›i báº±ng token nháº­n Ä‘Æ°á»£c trong email.
+                    Token chá»‰ dÃ¹ng má»™t láº§n. Sau khi thÃ nh cÃ´ng,
+                    toÃ n bá»™ refresh token cá»§a tÃ i khoáº£n sáº½ bá»‹ thu há»“i.
                     """
     )
     @PostMapping("/reset-password")

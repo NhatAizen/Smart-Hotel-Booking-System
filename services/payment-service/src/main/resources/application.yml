@@ -20,19 +20,58 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
 server:
   port: ${SERVER_PORT:8084}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
-
   endpoint:
     health:
       show-details: always
 
 clients:
+  identity:
+    base-url: ${IDENTITY_SERVICE_URL:http://identity-service:8081}
   booking:
     base-url: ${BOOKING_SERVICE_URL:http://localhost:8083}
+  hotel:
+    base-url: ${HOTEL_SERVICE_URL:http://localhost:8082}
+  notification:
+    base-url: ${NOTIFICATION_SERVICE_URL:http://notification-service:8085}
+
+payos:
+  enabled: ${PAYOS_ENABLED:true}
+  client-id: ${PAYOS_CLIENT_ID:}
+  api-key: ${PAYOS_API_KEY:}
+  checksum-key: ${PAYOS_CHECKSUM_KEY:}
+  base-url: ${PAYOS_BASE_URL:https://api-merchant.payos.vn}
+  return-url: ${PAYOS_RETURN_URL:http://localhost:5300/payment/payos/success}
+  cancel-url: ${PAYOS_CANCEL_URL:http://localhost:5300/payment/payos/cancel}
+  webhook-url: ${PAYOS_WEBHOOK_URL:}
+  commission-rate: ${PAYOS_COMMISSION_RATE:10.00}
+  # Giữ để tương thích config cũ; payment online luôn pending tới CHECKED_OUT.
+  auto-release-hotel-revenue: false
+
+  payout:
+    enabled: ${PAYOS_PAYOUT_ENABLED:false}
+    client-id: ${PAYOS_PAYOUT_CLIENT_ID:}
+    api-key: ${PAYOS_PAYOUT_API_KEY:}
+    checksum-key: ${PAYOS_PAYOUT_CHECKSUM_KEY:}
+    base-url: ${PAYOS_PAYOUT_BASE_URL:https://api-merchant.payos.vn}
+
+wallet:
+  settlement:
+    initial-delay-ms: ${WALLET_SETTLEMENT_INITIAL_DELAY_MS:10000}
+    scan-delay-ms: ${WALLET_SETTLEMENT_SCAN_DELAY_MS:15000}

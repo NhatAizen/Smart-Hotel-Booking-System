@@ -3,6 +3,7 @@ package com.smarthotel.identity.auth.service;
 import com.smarthotel.identity.accounttoken.service.AccountActionTokenService;
 import com.smarthotel.identity.auth.dto.AuthResponse;
 import com.smarthotel.identity.auth.dto.LoginRequest;
+import com.smarthotel.identity.common.exception.AccountLockedException;
 import com.smarthotel.identity.common.exception.InvalidCredentialsException;
 import com.smarthotel.identity.mail.AppMailProperties;
 import com.smarthotel.identity.mail.MailService;
@@ -55,6 +56,7 @@ class AuthServiceTest {
                 new AppMailProperties(
                         "no-reply@smarthotel.local",
                         "http://localhost:8081",
+                        "http://localhost:5173",
                         86400,
                         1800
                 );
@@ -175,6 +177,41 @@ class AuthServiceTest {
         assertTrue(
                 exception.getMessage()
                         .contains("không chính xác")
+        );
+    }
+
+
+    @Test
+    void login_shouldThrowAccountLocked_whenPasswordIsCorrectButAccountIsInactive() {
+        User user = new User(
+                "locked@gmail.com",
+                "$2a$10$encoded-password",
+                "Locked User",
+                UserRole.CUSTOMER
+        );
+        user.deactivate();
+
+        LoginRequest request = new LoginRequest(
+                "locked@gmail.com",
+                "Nhat12345"
+        );
+
+        when(
+                userRepository.findByEmailIgnoreCase(
+                        "locked@gmail.com"
+                )
+        ).thenReturn(Optional.of(user));
+
+        when(
+                passwordEncoder.matches(
+                        "Nhat12345",
+                        user.getPasswordHash()
+                )
+        ).thenReturn(true);
+
+        assertThrows(
+                AccountLockedException.class,
+                () -> authService.login(request)
         );
     }
 

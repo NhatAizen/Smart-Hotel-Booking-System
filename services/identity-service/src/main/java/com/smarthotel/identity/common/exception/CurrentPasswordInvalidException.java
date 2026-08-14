@@ -4,6 +4,6 @@ public class CurrentPasswordInvalidException
         extends RuntimeException {
 
     public CurrentPasswordInvalidException() {
-        super("Mật khẩu hiện tại không chính xác");
+        super("Máº­t kháº©u hiá»‡n táº¡i khÃ´ng chÃ­nh xÃ¡c");
     }
 }

@@ -2,6 +2,11 @@ spring:
   application:
     name: booking-service
 
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 30MB
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5435/booking_db}
     username: ${DB_USERNAME:booking_user}
@@ -20,6 +25,12 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: ${REDIS_TIMEOUT:2s}
+
 server:
   port: ${SERVER_PORT:8083}
 
@@ -32,3 +43,32 @@ management:
   endpoint:
     health:
       show-details: always
+clients:
+  hotel:
+    base-url: ${HOTEL_SERVICE_URL:http://hotel-service:8082}
+  identity:
+    base-url: ${IDENTITY_SERVICE_URL:http://identity-service:8081}
+  notification:
+    base-url: ${NOTIFICATION_SERVICE_URL:http://notification-service:8085}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+
+reviews:
+  media:
+    upload-dir: ${REVIEW_MEDIA_UPLOAD_DIR:./uploads/reviews}
+    public-base-url: ${PUBLIC_REVIEW_MEDIA_BASE_URL:http://localhost:8080/api/reviews/media}
+    max-file-size-bytes: ${REVIEW_MEDIA_MAX_FILE_SIZE_BYTES:5242880}
+
+booking:
+  hold:
+    ttl-seconds: ${BOOKING_HOLD_TTL_SECONDS:600}
+    cleanup-delay-ms: ${BOOKING_HOLD_CLEANUP_DELAY_MS:5000}
+
+pricing:
+  weekend-surcharge-percent: ${WEEKEND_SURCHARGE_PERCENT:10}
+  late-checkout:
+    grace-minutes: ${LATE_CHECKOUT_GRACE_MINUTES:60}
+    up-to-3-hours-percent: ${LATE_CHECKOUT_3H_PERCENT:30}
+    up-to-6-hours-percent: ${LATE_CHECKOUT_6H_PERCENT:50}

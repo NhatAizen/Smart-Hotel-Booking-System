@@ -16,10 +16,29 @@ import { getMyProfile } from "../services/profileService";
 
 import {
   buildUserFromToken,
+  decodeAccessToken,
   isTokenExpired,
 } from "../utils/jwt";
 
 const AuthContext = createContext(null);
+const ROLE_CHANGE_NOTICE_KEY = "enziuroomsAuthNotice";
+
+function normalizeRole(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/^ROLE_/i, "")
+    .toUpperCase();
+}
+
+function getTokenRole(token) {
+  const payload = decodeAccessToken(token);
+  let value = payload?.role ?? payload?.roles ?? payload?.authorities ?? null;
+  if (Array.isArray(value)) value = value[0];
+  if (value && typeof value === "object") {
+    value = value.authority ?? value.role ?? value.name ?? null;
+  }
+  return normalizeRole(value);
+}
 
 export function AuthProvider({ children }) {
   const [accessToken, setAccessToken] = useState(
@@ -135,9 +154,25 @@ export function AuthProvider({ children }) {
     }
 
     const profile = await getMyProfile();
+
+    const tokenRole = getTokenRole(accessToken);
+    const profileRole = normalizeRole(profile?.role);
+
+    if (tokenRole && profileRole && tokenRole !== profileRole) {
+      sessionStorage.setItem(
+        ROLE_CHANGE_NOTICE_KEY,
+        profileRole === "CUSTOMER"
+          ? "Vai trò của bạn đã được chuyển về Customer. Vui lòng đăng nhập lại để tiếp tục."
+          : "Vai trò tài khoản đã thay đổi. Vui lòng đăng nhập lại để nhận quyền mới.",
+      );
+      logout();
+      window.location.replace("/login?reason=role-changed");
+      return null;
+    }
+
     updateCachedUser(profile);
     return profile;
-  }, [accessToken, updateCachedUser]);
+  }, [accessToken, logout, updateCachedUser]);
 
   const login = useCallback(
     async (credentials, options = {}) => {
@@ -211,6 +246,28 @@ export function AuthProvider({ children }) {
       // Giữ thông tin từ JWT nếu identity-service tạm thời chưa phản hồi.
     });
   }, [accessToken, logout, refreshUserProfile]);
+
+  useEffect(() => {
+    if (!accessToken || isTokenExpired(accessToken)) return undefined;
+
+    function refreshOnReturn() {
+      if (document.visibilityState === "visible") {
+        refreshUserProfile().catch(() => {
+          // API interceptor xử lý session hết hạn; lỗi mạng không được làm mất phiên hiện tại.
+        });
+      }
+    }
+
+    const timer = window.setInterval(refreshOnReturn, 60000);
+    window.addEventListener("focus", refreshOnReturn);
+    document.addEventListener("visibilitychange", refreshOnReturn);
+
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshOnReturn);
+      document.removeEventListener("visibilitychange", refreshOnReturn);
+    };
+  }, [accessToken, refreshUserProfile]);
 
   const value = useMemo(
     () => ({

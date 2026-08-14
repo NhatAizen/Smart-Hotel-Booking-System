@@ -26,7 +26,14 @@ FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
+# OCR CCCD chạy hoàn toàn trong container, không gửi ảnh sang dịch vụ bên thứ ba.
+RUN apk add --no-cache \
+    tesseract-ocr \
+    tesseract-ocr-data-vie \
+    tesseract-ocr-data-eng
+
 RUN addgroup -S spring && adduser -S spring -G spring
+RUN mkdir -p /app/uploads/profiles /app/uploads/partner-documents && chown -R spring:spring /app/uploads
 
 USER spring:spring
 

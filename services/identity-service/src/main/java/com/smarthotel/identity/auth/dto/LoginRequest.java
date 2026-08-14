@@ -5,11 +5,11 @@ import jakarta.validation.constraints.NotBlank;
 
 public record LoginRequest(
 
-        @NotBlank(message = "Email không được để trống")
-        @Email(message = "Email không đúng định dạng")
+        @NotBlank(message = "Email khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng")
+        @Email(message = "Email khÃ´ng Ä‘Ãºng Ä‘á»‹nh dáº¡ng")
         String email,
 
-        @NotBlank(message = "Mật khẩu không được để trống")
+        @NotBlank(message = "Máº­t kháº©u khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng")
         String password
 
 ) {

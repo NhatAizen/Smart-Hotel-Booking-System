@@ -1,0 +1,3 @@
+ALTER TABLE bookings
+    ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS checked_out_at TIMESTAMPTZ;

@@ -1,11 +1,14 @@
 package com.smarthotel.booking.common.exception;
 
 import com.smarthotel.booking.common.response.ApiErrorResponse;
+import com.smarthotel.booking.booking.hold.RoomHoldService;
+import com.smarthotel.booking.rolechange.fence.OwnerDemotionFenceException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -40,6 +43,46 @@ public class GlobalExceptionHandler {
         return build(
                 HttpStatus.CONFLICT,
                 "ROOM_ALREADY_BOOKED",
+                exception.getMessage(),
+                request
+        );
+    }
+
+
+    @ExceptionHandler(RoomHoldService.RoomHoldConflictException.class)
+    public ResponseEntity<ApiErrorResponse> handleRoomHoldConflict(
+            RoomHoldService.RoomHoldConflictException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                HttpStatus.CONFLICT,
+                "ROOM_TEMPORARILY_HELD",
+                exception.getMessage(),
+                request
+        );
+    }
+
+    @ExceptionHandler(OwnerDemotionFenceException.class)
+    public ResponseEntity<ApiErrorResponse> handleOwnerDemotionFence(
+            OwnerDemotionFenceException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                HttpStatus.CONFLICT,
+                "OWNER_ROLE_TRANSITION_IN_PROGRESS",
+                exception.getMessage(),
+                request
+        );
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+            AccessDeniedException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                HttpStatus.FORBIDDEN,
+                "ACCESS_DENIED",
                 exception.getMessage(),
                 request
         );
@@ -103,7 +146,7 @@ public class GlobalExceptionHandler {
         return build(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "INTERNAL_SERVER_ERROR",
-                "Há»‡ thá»‘ng xáº£y ra lá»—i khÃ´ng mong muá»‘n",
+                "Hệ thống xảy ra lỗi không mong muốn",
                 request
         );
     }

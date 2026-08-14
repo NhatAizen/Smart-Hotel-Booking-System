@@ -8,17 +8,24 @@ import java.util.List;
 import java.util.UUID;
 
 public interface RoomRepository extends JpaRepository<Room, UUID> {
+    boolean existsByHotelIdAndRoomNumberIgnoreCase(UUID hotelId, String roomNumber);
+
+    boolean existsByHotelIdAndRoomNumberIgnoreCaseAndIdNot(
+            UUID hotelId,
+            String roomNumber,
+            UUID roomId
+    );
 
     List<Room> findAllByHotelIdOrderByRoomNumberAsc(UUID hotelId);
-
-    List<Room> findAllByHotelIdAndStatusOrderByRoomNumberAsc(
-            UUID hotelId,
-            RoomStatus status
-    );
 
     List<Room> findAllByHotelIdAndRoomTypeIdOrderByRoomNumberAsc(
             UUID hotelId,
             UUID roomTypeId
+    );
+
+    List<Room> findAllByHotelIdAndStatusOrderByRoomNumberAsc(
+            UUID hotelId,
+            RoomStatus status
     );
 
     List<Room> findAllByHotelIdAndRoomTypeIdAndStatusOrderByRoomNumberAsc(
@@ -27,19 +34,7 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
             RoomStatus status
     );
 
-    boolean existsByHotelIdAndRoomNumberIgnoreCase(
-            UUID hotelId,
-            String roomNumber
-    );
-
-    boolean existsByHotelIdAndRoomNumberIgnoreCaseAndIdNot(
-            UUID hotelId,
-            String roomNumber,
-            UUID id
-    );
-
-    boolean existsByRoomTypeIdAndStatusNot(
-            UUID roomTypeId,
-            RoomStatus status
-    );
+    long countByHotelId(UUID hotelId);
+    long countByRoomTypeId(UUID roomTypeId);
+    long countByRoomTypeIdAndStatus(UUID roomTypeId, RoomStatus status);
 }

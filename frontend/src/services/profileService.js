@@ -94,3 +94,19 @@ export async function getMyPartnerDocument(side) {
     }),
   );
 }
+
+export async function getMyPartnerDeactivationRequest() {
+  return data(await apiClient.get("/partner-requests/deactivation/me"));
+}
+
+export async function getMyPartnerDeactivationEligibility() {
+  return data(
+    await apiClient.get("/partner-requests/deactivation/eligibility"),
+  );
+}
+
+export async function submitPartnerDeactivationRequest(reason) {
+  return data(
+    await apiClient.post("/partner-requests/deactivation", { reason }),
+  );
+}
