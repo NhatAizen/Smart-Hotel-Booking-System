@@ -415,6 +415,100 @@
   }
 }
 
+/* Operations hierarchy: shared UI primitives with page-specific layout. */
+.current-stays-heading.ui-page-header {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.current-stays-heading .ui-page-header__eyebrow {
+  color: #0c8c84;
+}
+
+.current-stays-heading .ui-page-header__description {
+  max-width: 760px;
+}
+
+.current-stays-summary .current-stays-stat {
+  display: block;
+  min-height: 126px;
+  padding: 18px;
+}
+
+.current-stays-summary .current-stays-stat .ui-stat-card__topline,
+.current-stays-summary .current-stays-stat .ui-stat-card__footer {
+  display: flex;
+}
+
+.current-stays-summary .current-stays-stat .ui-stat-card__icon {
+  width: 42px;
+  height: 42px;
+}
+
+.current-stays-summary .current-stays-stat .ui-stat-card__value {
+  margin-top: 8px;
+}
+
+.current-stay-guest {
+  min-width: 0;
+}
+
+.current-stay-guest-label {
+  display: block;
+  margin-top: 12px;
+  color: #718499;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.current-stay-guest h2 {
+  overflow-wrap: anywhere;
+  font-size: clamp(22px, 2.4vw, 28px);
+}
+
+.current-stay-deadline.ui-badge,
+.current-stay-deadline.ui-badge span {
+  color: inherit;
+}
+
+.current-stay-deadline.ui-badge--warning {
+  color: #956000;
+  background: #fff6df;
+}
+
+.current-stay-deadline.ui-badge--danger {
+  color: #b53128;
+  background: #fff0ee;
+}
+
+.current-stay-deadline.ui-badge--info {
+  color: #1c638f;
+  background: #edf7fc;
+}
+
+@media (max-width: 760px) {
+  .current-stays-heading.ui-page-header {
+    align-items: stretch;
+  }
+
+  .current-stays-heading .ui-page-header__actions,
+  .current-stays-heading .ui-page-header__actions button {
+    width: 100%;
+  }
+
+  .current-stays-summary .current-stays-stat {
+    min-height: 0;
+  }
+
+  .current-stay-deadline.ui-badge {
+    align-self: flex-start;
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+
 @media (max-width: 620px) {
   .late-checkout-panel,
   .current-stay-collection-panel {

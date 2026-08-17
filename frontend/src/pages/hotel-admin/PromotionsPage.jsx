@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { ErrorState, LoadingState, StatusBadge } from "../../components/ui";
 import { getMyHotels } from "../../services/hotelAdminService";
 import {
   createHotelPromotion,
@@ -17,12 +18,7 @@ import {
 } from "../../services/promotionService";
 import { useRealtime } from "../../realtime/RealtimeContext";
 import "../shared/PromotionCenter.css";
-
-function nowInput(days = 0) {
-  const date = new Date(Date.now() + days * 86400000);
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 16);
-}
+import "./HotelPromotionsPage.css";
 
 const initial = {
   code: "",
@@ -30,26 +26,99 @@ const initial = {
   description: "",
   hotelId: "",
   discountType: "PERCENT",
-  discountValue: 10,
+  discountValue: "",
   maxDiscount: "",
-  minBookingAmount: 0,
-  startAt: nowInput(),
-  endAt: nowInput(30),
-  usageLimit: 100,
-  usagePerUser: 1,
+  minBookingAmount: "",
+  startAt: "",
+  endAt: "",
+  usageLimit: "",
+  usagePerUser: "",
 };
 
 function money(value) {
-  return `${new Intl.NumberFormat("vi-VN").format(Number(value ?? 0))} đ`;
+  if (value === null || value === undefined || value === "") return "Chưa cập nhật";
+  const amount = Number(value);
+  return Number.isFinite(amount)
+    ? `${new Intl.NumberFormat("vi-VN").format(amount)} đ`
+    : "Chưa cập nhật";
 }
 
-function lifecycleLabel(value) {
+function discountLabel(promotion) {
+  if (promotion.discountType === "PERCENT") {
+    return promotion.discountValue === null || promotion.discountValue === undefined
+      ? "Chưa cập nhật"
+      : `${promotion.discountValue}%`;
+  }
+  if (promotion.discountType === "FIXED") return money(promotion.discountValue);
+  return "Kiểu giảm chưa xác định";
+}
+
+function formatDateTime(value) {
+  if (!value) return "Chưa cập nhật";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Chưa cập nhật";
+  return new Intl.DateTimeFormat("vi-VN", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function lifecycleMeta(value) {
   return {
-    ACTIVE: "Đang áp dụng",
-    SCHEDULED: "Sắp bắt đầu",
-    EXPIRED: "Đã kết thúc",
-    INACTIVE: "Tạm dừng",
-  }[value] ?? "Không xác định";
+    ACTIVE: { label: "Đang áp dụng", tone: "success" },
+    SCHEDULED: { label: "Sắp bắt đầu", tone: "info" },
+    EXPIRED: { label: "Đã kết thúc", tone: "neutral" },
+    INACTIVE: { label: "Tạm dừng", tone: "neutral" },
+    EXHAUSTED: { label: "Đã hết lượt", tone: "warning" },
+  }[value] ?? { label: "Trạng thái chưa xác định", tone: "neutral" };
+}
+
+function validatePromotion(form) {
+  const normalizedCode = form.code.trim().replace(/\s+/g, "").toUpperCase();
+  if (!/^[A-Z0-9_-]{3,40}$/.test(normalizedCode)) {
+    return "Mã ưu đãi phải có 3–40 ký tự, chỉ gồm chữ, số, dấu gạch dưới hoặc gạch ngang.";
+  }
+  if (!form.name.trim() || form.name.trim().length > 160) {
+    return "Tên chương trình phải có từ 1 đến 160 ký tự.";
+  }
+  if (form.description.length > 600) {
+    return "Mô tả không được vượt quá 600 ký tự.";
+  }
+
+  const discountValue = Number(form.discountValue);
+  if (!Number.isFinite(discountValue) || discountValue < 0.01) {
+    return "Mức giảm phải từ 0,01 trở lên.";
+  }
+  if (form.discountType === "PERCENT" && discountValue > 100) {
+    return "Mức giảm theo phần trăm không được vượt quá 100%.";
+  }
+  if (form.maxDiscount !== "" && Number(form.maxDiscount) < 0) {
+    return "Mức giảm tối đa không được âm.";
+  }
+  if (form.minBookingAmount !== "" && Number(form.minBookingAmount) < 0) {
+    return "Giá trị đơn tối thiểu không được âm.";
+  }
+
+  const startAt = new Date(form.startAt);
+  const endAt = new Date(form.endAt);
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+    return "Vui lòng chọn đầy đủ thời gian bắt đầu và kết thúc.";
+  }
+  if (endAt <= startAt) {
+    return "Thời gian kết thúc phải sau thời gian bắt đầu.";
+  }
+
+  if (form.usageLimit !== "" && (!Number.isInteger(Number(form.usageLimit)) || Number(form.usageLimit) < 1)) {
+    return "Tổng lượt dùng phải là số nguyên lớn hơn 0.";
+  }
+  if (
+    form.usagePerUser !== ""
+    && (!Number.isInteger(Number(form.usagePerUser)) || Number(form.usagePerUser) < 1)
+  ) {
+    return "Lượt dùng mỗi khách phải là số nguyên lớn hơn 0.";
+  }
+
+  return "";
 }
 
 export default function PromotionsPage() {
@@ -61,6 +130,8 @@ export default function PromotionsPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [hasLoadedData, setHasLoadedData] = useState(false);
+  const [workingPromotionId, setWorkingPromotionId] = useState("");
 
   const load = useCallback(async ({ quiet = false } = {}) => {
     if (!quiet) setRefreshing(true);
@@ -73,6 +144,7 @@ export default function PromotionsPage() {
       const safeHotels = Array.isArray(hotelData) ? hotelData : [];
       setHotels(safeHotels);
       setList(Array.isArray(promotionData) ? promotionData : []);
+      setHasLoadedData(true);
       setForm((current) => ({
         ...current,
         hotelId: current.hotelId || safeHotels[0]?.id || "",
@@ -102,8 +174,13 @@ export default function PromotionsPage() {
     total: list.length,
     active: list.filter((item) => item.lifecycle === "ACTIVE").length,
     scheduled: list.filter((item) => item.lifecycle === "SCHEDULED").length,
-    inactive: list.filter((item) => ["INACTIVE", "EXPIRED"].includes(item.lifecycle)).length,
+    unavailable: list.filter((item) => ["INACTIVE", "EXPIRED", "EXHAUSTED"].includes(item.lifecycle)).length,
   }), [list]);
+
+  const hotelNameMap = useMemo(
+    () => Object.fromEntries(hotels.map((hotel) => [hotel.id, hotel.name])),
+    [hotels],
+  );
 
   function change(event) {
     const { name, value } = event.target;
@@ -112,9 +189,16 @@ export default function PromotionsPage() {
 
   async function submit(event) {
     event.preventDefault();
-    setBusy(true);
     setError("");
     setMessage("");
+
+    const validationError = validatePromotion(form);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setBusy(true);
     try {
       await createHotelPromotion({
         ...form,
@@ -122,7 +206,7 @@ export default function PromotionsPage() {
         maxDiscount: form.maxDiscount ? Number(form.maxDiscount) : null,
         minBookingAmount: Number(form.minBookingAmount || 0),
         usageLimit: form.usageLimit ? Number(form.usageLimit) : null,
-        usagePerUser: Number(form.usagePerUser || 1),
+        usagePerUser: form.usagePerUser ? Number(form.usagePerUser) : null,
         startAt: new Date(form.startAt).toISOString(),
         endAt: new Date(form.endAt).toISOString(),
       });
@@ -130,8 +214,6 @@ export default function PromotionsPage() {
       setForm((current) => ({
         ...initial,
         hotelId: current.hotelId,
-        startAt: nowInput(),
-        endAt: nowInput(30),
       }));
       await load({ quiet: true });
     } catch (requestError) {
@@ -141,8 +223,23 @@ export default function PromotionsPage() {
     }
   }
 
+  async function handleToggle(promotion) {
+    setWorkingPromotionId(promotion.id);
+    setError("");
+    setMessage("");
+    try {
+      await setHotelPromotionActive(promotion.id, !promotion.active);
+      setMessage(promotion.active ? "Đã tạm dừng khuyến mãi." : "Đã bật lại khuyến mãi.");
+      await load({ quiet: true });
+    } catch (requestError) {
+      setError(requestError.response?.data?.message ?? "Không thể cập nhật khuyến mãi.");
+    } finally {
+      setWorkingPromotionId("");
+    }
+  }
+
   return (
-    <div className="promo-page hotel-admin-promo-v2">
+    <div className="promo-page hotel-admin-promo-v2 hotel-promotions-page">
       <section className="promo-hero hotel-admin-page-hero">
         <div>
           <span className="promo-kicker">KHUYẾN MÃI</span>
@@ -157,8 +254,19 @@ export default function PromotionsPage() {
         </button>
       </section>
 
-      {message ? <div className="promo-message">{message}</div> : null}
-      {error ? <div className="promo-message error">{error}</div> : null}
+      {message ? <div className="promo-message" role="status" aria-live="polite">{message}</div> : null}
+      {error && hasLoadedData ? <div className="promo-message error" role="alert">{error}</div> : null}
+
+      {!hasLoadedData && refreshing ? (
+        <LoadingState message="Đang tải khuyến mãi..." />
+      ) : !hasLoadedData && error ? (
+        <ErrorState
+          title="Chưa thể tải khuyến mãi"
+          message={error}
+          onRetry={() => void load()}
+        />
+      ) : (
+        <>
 
       <section className="hotel-admin-mini-stat-grid">
         <article>
@@ -175,7 +283,7 @@ export default function PromotionsPage() {
         </article>
         <article>
           <span><PauseCircle size={18} /></span>
-          <div><small>Tạm dừng / kết thúc</small><strong>{summary.inactive}</strong></div>
+          <div><small>Không còn áp dụng</small><strong>{summary.unavailable}</strong></div>
         </article>
       </section>
 
@@ -202,12 +310,20 @@ export default function PromotionsPage() {
 
             <label>
               Mã ưu đãi
-              <input name="code" value={form.code} onChange={change} placeholder="SUMMER10" required />
+              <input
+                name="code"
+                value={form.code}
+                onChange={change}
+                placeholder="Nhập mã ưu đãi"
+                maxLength="40"
+                autoCapitalize="characters"
+                required
+              />
             </label>
 
             <label className="full">
               Tên chương trình
-              <input name="name" value={form.name} onChange={change} required />
+              <input name="name" value={form.name} onChange={change} maxLength="160" required />
             </label>
 
             <label>
@@ -220,27 +336,27 @@ export default function PromotionsPage() {
 
             <label>
               Mức giảm
-              <input name="discountValue" type="number" min="0" value={form.discountValue} onChange={change} required />
+              <input name="discountValue" type="number" min="0.01" max={form.discountType === "PERCENT" ? "100" : undefined} step="0.01" value={form.discountValue} onChange={change} required />
             </label>
 
             <label>
               Giảm tối đa
-              <input name="maxDiscount" type="number" min="0" value={form.maxDiscount} onChange={change} placeholder="Không giới hạn" />
+              <input name="maxDiscount" type="number" min="0" step="0.01" value={form.maxDiscount} onChange={change} placeholder="Không giới hạn" />
             </label>
 
             <label>
               Đơn tối thiểu
-              <input name="minBookingAmount" type="number" min="0" value={form.minBookingAmount} onChange={change} />
+              <input name="minBookingAmount" type="number" min="0" step="0.01" value={form.minBookingAmount} onChange={change} placeholder="Không yêu cầu" />
             </label>
 
             <label>
               Bắt đầu
-              <input name="startAt" type="datetime-local" value={form.startAt} onChange={change} />
+              <input name="startAt" type="datetime-local" value={form.startAt} onChange={change} required />
             </label>
 
             <label>
               Kết thúc
-              <input name="endAt" type="datetime-local" value={form.endAt} onChange={change} />
+              <input name="endAt" type="datetime-local" value={form.endAt} min={form.startAt || undefined} onChange={change} required />
             </label>
 
             <label>
@@ -250,12 +366,12 @@ export default function PromotionsPage() {
 
             <label>
               Lượt / khách
-              <input name="usagePerUser" type="number" min="1" value={form.usagePerUser} onChange={change} />
+              <input name="usagePerUser" type="number" min="1" value={form.usagePerUser} onChange={change} placeholder="Chưa giới hạn" />
             </label>
 
             <label className="full">
               Mô tả
-              <textarea name="description" value={form.description} onChange={change} />
+              <textarea name="description" value={form.description} onChange={change} maxLength="600" />
             </label>
 
             <button className="promo-primary full" disabled={busy}>
@@ -276,32 +392,69 @@ export default function PromotionsPage() {
           <div className="promo-list">
             {list.length ? list.map((promotion) => (
               <article className="promo-item" key={promotion.id}>
-                <div>
-                  <span className="promo-code">{promotion.code}</span>
-                  <h3>{promotion.name}</h3>
-                  <div className="promo-discount">
-                    {promotion.discountType === "PERCENT"
-                      ? `${promotion.discountValue}%`
-                      : money(promotion.discountValue)}
+                <div className="hotel-promotion-item-main">
+                  <div className="hotel-promotion-item-heading">
+                    <div>
+                      <span className="promo-code">{promotion.code}</span>
+                      <h3>{promotion.name}</h3>
+                      <span className="hotel-promotion-hotel-name">
+                        {hotelNameMap[promotion.hotelId] ?? "Khách sạn không còn trong danh sách"}
+                      </span>
+                    </div>
+                    <div className="promo-discount">{discountLabel(promotion)}</div>
                   </div>
-                  <small>
-                    Đã dùng {promotion.usedCount}
-                    {promotion.usageLimit ? ` / ${promotion.usageLimit}` : ""}
-                  </small>
+
+                  {promotion.description ? <p>{promotion.description}</p> : null}
+
+                  <dl className="hotel-promotion-facts">
+                    <div>
+                      <dt>Thời gian</dt>
+                      <dd>{formatDateTime(promotion.startAt)} – {formatDateTime(promotion.endAt)}</dd>
+                    </div>
+                    <div>
+                      <dt>Lượt sử dụng</dt>
+                      <dd>
+                        {promotion.usedCount === null || promotion.usedCount === undefined
+                          ? "Chưa có dữ liệu"
+                          : `${promotion.usedCount}${promotion.usageLimit ? ` / ${promotion.usageLimit}` : " lượt"}`}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Điều kiện đơn</dt>
+                      <dd>
+                        {Number(promotion.minBookingAmount) > 0
+                          ? `Từ ${money(promotion.minBookingAmount)}`
+                          : "Không yêu cầu tối thiểu"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Giới hạn</dt>
+                      <dd>
+                        {promotion.maxDiscount !== null && promotion.maxDiscount !== undefined
+                          ? `Tối đa ${money(promotion.maxDiscount)}`
+                          : "Không giới hạn mức giảm"}
+                        {promotion.usagePerUser !== null && promotion.usagePerUser !== undefined
+                          ? ` · ${promotion.usagePerUser} lượt/khách`
+                          : " · Chưa cập nhật giới hạn mỗi khách"}
+                      </dd>
+                    </div>
+                  </dl>
                 </div>
-                <div>
-                  <span className={`promo-status ${promotion.lifecycle === "ACTIVE" ? "active" : ""}`}>
-                    {lifecycleLabel(promotion.lifecycle)}
-                  </span>
+                <div className="hotel-promotion-item-actions">
+                  <StatusBadge
+                    status={promotion.lifecycle}
+                    label={lifecycleMeta(promotion.lifecycle).label}
+                    tone={lifecycleMeta(promotion.lifecycle).tone}
+                  />
                   <button
                     className="promo-secondary"
                     type="button"
-                    onClick={async () => {
-                      await setHotelPromotionActive(promotion.id, !promotion.active);
-                      await load({ quiet: true });
-                    }}
+                    disabled={workingPromotionId === promotion.id}
+                    onClick={() => void handleToggle(promotion)}
                   >
-                    {promotion.active ? "Tạm dừng" : "Bật lại"}
+                    {workingPromotionId === promotion.id
+                      ? "Đang cập nhật..."
+                      : promotion.active ? "Tạm dừng" : "Bật lại"}
                   </button>
                 </div>
               </article>
@@ -315,6 +468,8 @@ export default function PromotionsPage() {
           </div>
         </section>
       </div>
+        </>
+      )}
     </div>
   );
 }

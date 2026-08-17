@@ -1,0 +1,170 @@
+.hotel-admin-experience .rooms-operations-page .room-operations-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.hotel-admin-experience .rooms-operations-page .room-admin-table-v2 {
+  width: 100%;
+  min-width: 980px;
+}
+
+.hotel-admin-experience .rooms-operations-page .room-admin-table-v2 th:nth-child(1) {
+  width: 10%;
+}
+
+.hotel-admin-experience .rooms-operations-page .room-admin-table-v2 th:nth-child(2) {
+  width: 22%;
+}
+
+.hotel-admin-experience .rooms-operations-page .room-admin-table-v2 th:nth-child(3) {
+  width: 8%;
+}
+
+.hotel-admin-experience .rooms-operations-page .room-admin-table-v2 th:nth-child(4) {
+  width: 21%;
+}
+
+.hotel-admin-experience .rooms-operations-page .room-admin-table-v2 th:nth-child(5) {
+  width: 17%;
+}
+
+.hotel-admin-experience .rooms-operations-page .room-admin-table-v2 th:nth-child(6) {
+  width: 22%;
+}
+
+.hotel-admin-experience .rooms-operations-page .room-operations-floor {
+  display: inline-flex;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-strong);
+  font-weight: var(--font-weight-bold);
+}
+
+.hotel-admin-experience .rooms-operations-page .room-admin-status-box small,
+.hotel-admin-experience .rooms-operations-page .room-operations-next-action small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+
+.hotel-admin-experience .rooms-operations-page .room-operations-next-action {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+}
+
+.hotel-admin-experience .rooms-operations-page .room-operations-next-action > strong,
+.hotel-admin-experience .rooms-operations-page .room-operations-next-action > span {
+  color: var(--color-text-strong);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+
+.hotel-admin-experience .rooms-operations-page .room-admin-cleaning-box {
+  min-width: 0;
+}
+
+.hotel-admin-experience .rooms-operations-page .room-admin-cleaning-box .cleaning-complete-button {
+  width: 100%;
+}
+
+.hotel-admin-experience .rooms-operations-page .catalog-modal {
+  max-height: calc(100dvh - 2.5rem);
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 760px) {
+  .hotel-admin-experience .rooms-operations-page .room-operations-table-wrap {
+    overflow: visible;
+  }
+
+  .hotel-admin-experience .rooms-operations-page .room-admin-table-v2 {
+    min-width: 0;
+    display: block;
+  }
+
+  .hotel-admin-experience .rooms-operations-page .room-admin-table-v2 thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .hotel-admin-experience .rooms-operations-page .room-admin-table-v2 tbody {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .hotel-admin-experience .rooms-operations-page .room-admin-table-v2 tbody tr {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-xs);
+  }
+
+  .hotel-admin-experience .rooms-operations-page .room-admin-table-v2 td {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(6.75rem, 34%) minmax(0, 1fr);
+    gap: var(--space-3);
+    align-items: start;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .hotel-admin-experience .rooms-operations-page .room-admin-table-v2 td:last-child {
+    border-bottom: 0;
+  }
+
+  .hotel-admin-experience .rooms-operations-page .room-admin-table-v2 td::before {
+    content: attr(data-label);
+    color: var(--color-text-muted);
+    font-size: 0.6875rem;
+    font-weight: var(--font-weight-extrabold);
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+  }
+
+  .hotel-admin-experience .rooms-operations-page .room-admin-table-v2 .room-operations-empty-cell {
+    display: block;
+    border: 0;
+  }
+
+  .hotel-admin-experience .rooms-operations-page .room-admin-table-v2 .room-operations-empty-cell::before {
+    content: none;
+  }
+
+  .hotel-admin-experience .rooms-operations-page .room-admin-status-box,
+  .hotel-admin-experience .rooms-operations-page .room-operations-next-action {
+    width: 100%;
+  }
+
+  .hotel-admin-experience .rooms-operations-page .catalog-modal-backdrop {
+    padding: 0;
+  }
+
+  .hotel-admin-experience .rooms-operations-page .catalog-modal {
+    width: 100%;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .hotel-admin-experience .rooms-operations-page .room-admin-table-v2 td {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+}

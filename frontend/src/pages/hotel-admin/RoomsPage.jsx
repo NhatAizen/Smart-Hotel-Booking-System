@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import Loading from "../../components/common/Loading";
+import { StatusBadge } from "../../components/ui";
 import {
   completeRoomCleaning,
   createRoomsBatch,
@@ -21,32 +22,84 @@ import {
   getRoomTypes,
   updateRoom,
 } from "../../services/hotelAdminService";
+import { bedTypeLabel } from "../../utils/presentation";
 
 import "./HotelCatalogAdmin.css";
+import "./RoomsOperationsPage.css";
 import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 
 const emptyBatch = {
   roomTypeId: "",
-  count: 1,
-  prefix: "1",
-  startNumber: 1,
-  floor: 1,
+  count: "",
+  prefix: "",
+  startNumber: "",
+  floor: "",
 };
 
 const ROOM_STATUS_META = {
-  AVAILABLE: { label: "Còn trống", className: "available", summaryIcon: DoorOpen },
-  OCCUPIED: { label: "Đang sử dụng", className: "occupied", summaryIcon: BedDouble },
-  CLEANING: { label: "Đang dọn phòng", className: "cleaning", summaryIcon: Sparkles },
-  MAINTENANCE: { label: "Bảo trì", className: "maintenance", summaryIcon: Wrench },
-  INACTIVE: { label: "Ngừng hoạt động", className: "inactive", summaryIcon: Building2 },
+  AVAILABLE: {
+    label: "Còn trống",
+    tone: "success",
+    nextAction: "Sẵn sàng nhận khách",
+    summaryIcon: DoorOpen,
+  },
+  OCCUPIED: {
+    label: "Đang sử dụng",
+    tone: "info",
+    nextAction: "Theo dõi kỳ lưu trú",
+    summaryIcon: BedDouble,
+  },
+  CLEANING: {
+    label: "Đang dọn phòng",
+    tone: "warning",
+    nextAction: "Xác nhận sau khi dọn xong",
+    summaryIcon: Sparkles,
+  },
+  MAINTENANCE: {
+    label: "Bảo trì",
+    tone: "danger",
+    nextAction: "Cập nhật khi bảo trì xong",
+    summaryIcon: Wrench,
+  },
+  INACTIVE: {
+    label: "Ngừng hoạt động",
+    tone: "neutral",
+    nextAction: "Kích hoạt khi sẵn sàng",
+    summaryIcon: Building2,
+  },
 };
+
+const UNKNOWN_ROOM_STATUS_META = {
+  label: "Trạng thái chưa xác định",
+  tone: "neutral",
+  nextAction: "Kiểm tra trạng thái với hệ thống",
+  summaryIcon: Building2,
+};
+
+function roomStatusMeta(status) {
+  return ROOM_STATUS_META[status] ?? UNKNOWN_ROOM_STATUS_META;
+}
 
 function errorMessage(error) {
   return error.response?.data?.message ?? "Không thể thực hiện thao tác.";
 }
 
 function formatMoney(value) {
-  return `${Number(value ?? 0).toLocaleString("vi-VN")} đ`;
+  if (value === null || value === undefined || value === "") return "Chưa cập nhật";
+  const amount = Number(value);
+  return Number.isFinite(amount)
+    ? `${amount.toLocaleString("vi-VN")} đ`
+    : "Chưa cập nhật";
+}
+
+function roomTypeCapacity(type) {
+  if (type.maxAdults === null || type.maxAdults === undefined) {
+    return "Chưa cập nhật sức chứa";
+  }
+  if (type.maxChildren === null || type.maxChildren === undefined) {
+    return `${type.maxAdults} người lớn · Chưa cập nhật số trẻ em`;
+  }
+  return `${type.maxAdults} người lớn${Number(type.maxChildren) > 0 ? ` · ${type.maxChildren} trẻ em` : ""}`;
 }
 
 function formatDateTime(value) {
@@ -103,6 +156,11 @@ export default function RoomsPage() {
 
   const roomTypeMap = useMemo(
     () => Object.fromEntries(roomTypes.map((type) => [type.id, type])),
+    [roomTypes],
+  );
+
+  const activeRoomTypes = useMemo(
+    () => roomTypes.filter((type) => type.status === "ACTIVE"),
     [roomTypes],
   );
 
@@ -239,13 +297,14 @@ export default function RoomsPage() {
       if (hotelDataRequestRef.current !== requestId) return;
 
       const safeTypes = Array.isArray(typeData) ? typeData : [];
+      const activeTypes = safeTypes.filter((type) => type.status === "ACTIVE");
       setRoomTypes(safeTypes);
       setRooms(Array.isArray(roomData) ? roomData : []);
       setBatch((current) => ({
         ...current,
-        roomTypeId: safeTypes.some((type) => type.id === current.roomTypeId)
+        roomTypeId: activeTypes.some((type) => type.id === current.roomTypeId)
           ? current.roomTypeId
-          : safeTypes[0]?.id ?? "",
+          : activeTypes[0]?.id ?? "",
       }));
     } catch (requestError) {
       if (hotelDataRequestRef.current === requestId) {
@@ -279,7 +338,9 @@ export default function RoomsPage() {
     const { name, value } = event.target;
     setBatch((current) => ({
       ...current,
-      [name]: ["count", "startNumber", "floor"].includes(name) ? Number(value) : value,
+      [name]: ["count", "startNumber", "floor"].includes(name)
+        ? (value === "" ? "" : Number(value))
+        : value,
     }));
   }
 
@@ -293,7 +354,7 @@ export default function RoomsPage() {
       return {
         roomTypeId: batch.roomTypeId,
         roomNumber,
-        floor: batch.floor,
+        floor: batch.floor === "" ? null : Number(batch.floor),
         customPrice: null,
         note: "",
       };
@@ -302,9 +363,33 @@ export default function RoomsPage() {
 
   async function handleCreateBatch(event) {
     event.preventDefault();
-    setSubmitting(true);
     setError("");
     setMessage("");
+
+    const count = Number(batch.count);
+    const startNumber = Number(batch.startNumber);
+    const selectedTypeIsActive = activeRoomTypes.some(
+      (type) => type.id === batch.roomTypeId,
+    );
+
+    if (!selectedTypeIsActive) {
+      setError("Vui lòng chọn một loại phòng đang hoạt động.");
+      return;
+    }
+    if (!Number.isInteger(count) || count < 1 || count > 200) {
+      setError("Số lượng phòng phải là số nguyên từ 1 đến 200.");
+      return;
+    }
+    if (!Number.isInteger(startNumber) || startNumber < 0) {
+      setError("Số phòng bắt đầu phải là số nguyên từ 0 trở lên.");
+      return;
+    }
+    if (batch.floor !== "" && !Number.isInteger(Number(batch.floor))) {
+      setError("Tầng phải là số nguyên hoặc để trống.");
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
       const created = await createRoomsBatch(hotelId, buildRooms());
@@ -369,7 +454,7 @@ export default function RoomsPage() {
   }
 
   return (
-    <div className="admin-page catalog-page room-admin-page-v2">
+    <div className="admin-page catalog-page room-admin-page-v2 rooms-operations-page">
       <section className="catalog-heading room-admin-heading">
         <div>
           <span className="catalog-kicker">PHÒNG</span>
@@ -394,7 +479,7 @@ export default function RoomsPage() {
             type="button"
             className="catalog-primary"
             onClick={() => setShowBatch(true)}
-            disabled={!hotelId || roomTypes.length === 0}
+            disabled={!hotelId || activeRoomTypes.length === 0}
           >
             <Plus size={18} />
             Thêm nhiều phòng
@@ -491,14 +576,15 @@ export default function RoomsPage() {
               <div className="room-admin-type-chip" key={type.id}>
                 <div>
                   <strong>{type.name}</strong>
-                  <span>
-                    {type.maxAdults ?? 0} người lớn
-                    {Number(type.maxChildren ?? 0) > 0 ? ` · ${type.maxChildren} trẻ em` : ""}
-                  </span>
+                  <span>{roomTypeCapacity(type)}</span>
                 </div>
                 <div className="room-admin-type-chip-meta">
                   <b>{type.count} phòng</b>
-                  <small>{type.basePrice ? formatMoney(type.basePrice) : "Chưa có giá"}</small>
+                  <small>
+                    {type.basePrice === null || type.basePrice === undefined
+                      ? "Chưa cập nhật giá"
+                      : formatMoney(type.basePrice)}
+                  </small>
                 </div>
               </div>
             ))}
@@ -523,26 +609,27 @@ export default function RoomsPage() {
             </div>
             <small>
               {statusFilter
-                ? `Đang lọc: ${ROOM_STATUS_META[statusFilter]?.label ?? statusFilter}`
+                ? `Đang lọc: ${roomStatusMeta(statusFilter).label}`
                 : "Đang hiển thị tất cả trạng thái"}
             </small>
           </div>
 
-          <div style={{ overflowX: "auto" }}>
+          <div className="room-operations-table-wrap">
             <table className="catalog-room-table room-admin-table-v2">
               <thead>
                 <tr>
                   <th>Phòng</th>
                   <th>Loại phòng</th>
-                  <th>Sức chứa / giá</th>
+                  <th>Tầng</th>
                   <th>Trạng thái</th>
-                  <th>Cập nhật</th>
+                  <th>Giá bán</th>
+                  <th>Hành động tiếp theo</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleRooms.length === 0 ? (
                   <tr>
-                    <td colSpan="5">
+                    <td className="room-operations-empty-cell" colSpan="6">
                       <div className="catalog-empty">
                         {statusFilter ? "Không có phòng ở trạng thái đã chọn." : "Chưa có phòng."}
                       </div>
@@ -551,47 +638,80 @@ export default function RoomsPage() {
                 ) : (
                   visibleRooms.map((room) => {
                     const type = roomTypeMap[room.roomTypeId];
-                    const statusMeta = ROOM_STATUS_META[room.status] ?? {
-                      label: room.status,
-                      className: "inactive",
-                    };
+                    const statusMeta = roomStatusMeta(room.status);
+                    const hasCustomPrice = room.customPrice !== null && room.customPrice !== undefined;
+                    const effectivePrice = hasCustomPrice ? room.customPrice : type?.basePrice;
+                    const hasKnownStatus = Boolean(ROOM_STATUS_META[room.status]);
                     return (
                       <tr key={room.id}>
-                        <td>
+                        <td data-label="Phòng">
                           <div className="room-admin-room-main">
-                            <strong>{room.roomNumber}</strong>
-                            <span>Tầng {room.floor ?? "-"}</span>
+                            <strong>{room.roomNumber || "Chưa cập nhật"}</strong>
                           </div>
                         </td>
-                        <td>
+                        <td data-label="Loại phòng">
                           <div className="room-admin-room-type">
-                            <strong>{type?.name ?? "Loại phòng"}</strong>
+                            <strong>{type?.name ?? "Không tìm thấy loại phòng"}</strong>
                             <span>
-                              {type?.bedType || "Chưa có thông tin giường"}
-                              {type?.size ? ` · ${type.size} m²` : ""}
+                              {type?.bedType ? bedTypeLabel(type.bedType) : "Chưa có thông tin giường"}
+                              {type?.areaSqm !== null && type?.areaSqm !== undefined
+                                ? ` · ${Number(type.areaSqm).toLocaleString("vi-VN")} m²`
+                                : ""}
                             </span>
                           </div>
                         </td>
-                        <td>
+                        <td data-label="Tầng">
+                          <span className="room-operations-floor">
+                            {room.floor ?? "Chưa cập nhật"}
+                          </span>
+                        </td>
+                        <td data-label="Trạng thái">
+                          <div className="room-admin-status-box">
+                            <StatusBadge
+                              status={room.status}
+                              label={statusMeta.label}
+                              tone={statusMeta.tone}
+                            />
+                            {room.status === "CLEANING" ? (
+                              <small>Chờ từ {formatDateTime(room.updatedAt)}</small>
+                            ) : (
+                              <select
+                                aria-label={`Cập nhật trạng thái phòng ${room.roomNumber}`}
+                                value={room.status}
+                                onChange={(event) => changeStatus(room, event.target.value)}
+                              >
+                                {!hasKnownStatus ? (
+                                  <option value={room.status} disabled>{statusMeta.label}</option>
+                                ) : null}
+                                <option value="AVAILABLE">Còn trống</option>
+                                <option value="OCCUPIED">Đang sử dụng</option>
+                                <option value="CLEANING">Đang dọn phòng</option>
+                                <option value="MAINTENANCE">Bảo trì</option>
+                                <option value="INACTIVE">Ngừng hoạt động</option>
+                              </select>
+                            )}
+                          </div>
+                        </td>
+                        <td data-label="Giá bán">
                           <div className="room-admin-room-price">
                             <strong>
-                              {room.customPrice ? formatMoney(room.customPrice) : "Theo loại phòng"}
+                              {effectivePrice !== null && effectivePrice !== undefined
+                                ? formatMoney(effectivePrice)
+                                : "Chưa có giá"}
                             </strong>
                             <span>
-                              {type
-                                ? `${type.maxAdults ?? 0} người lớn${Number(type.maxChildren ?? 0) > 0 ? ` · ${type.maxChildren} trẻ em` : ""}`
-                                : "Chưa có sức chứa"}
+                              {hasCustomPrice
+                                ? "Giá riêng của phòng"
+                                : type?.basePrice !== null && type?.basePrice !== undefined
+                                  ? "Theo giá loại phòng"
+                                  : "Chưa cấu hình giá"}
                             </span>
                           </div>
                         </td>
-                        <td>
+                        <td data-label="Tiếp theo">
                           {room.status === "CLEANING" ? (
-                            <div className="cleaning-room-actions room-admin-cleaning-box">
-                              <span className="cleaning-status-badge">
-                                <Sparkles size={15} />
-                                Đang dọn phòng
-                              </span>
-                              <small>Chờ từ {formatDateTime(room.updatedAt)}</small>
+                            <div className="cleaning-room-actions room-admin-cleaning-box room-operations-next-action">
+                              <span>{statusMeta.nextAction}</span>
                               <button
                                 type="button"
                                 className="cleaning-complete-button"
@@ -603,28 +723,11 @@ export default function RoomsPage() {
                               </button>
                             </div>
                           ) : (
-                            <div className="room-admin-status-box">
-                              <span className={`room-admin-status-pill ${statusMeta.className}`}>
-                                {statusMeta.label}
-                              </span>
-                              <select
-                                value={room.status}
-                                onChange={(event) => changeStatus(room, event.target.value)}
-                              >
-                                <option value="AVAILABLE">Còn trống</option>
-                                <option value="OCCUPIED">Đang sử dụng</option>
-                                <option value="CLEANING">Đang dọn phòng</option>
-                                <option value="MAINTENANCE">Bảo trì</option>
-                                <option value="INACTIVE">Ngừng hoạt động</option>
-                              </select>
+                            <div className="room-operations-next-action">
+                              <strong>{statusMeta.nextAction}</strong>
+                              <small>Cập nhật {formatDateTime(room.updatedAt)}</small>
                             </div>
                           )}
-                        </td>
-                        <td>
-                          <div className="room-admin-room-updated">
-                            <strong>{formatDateTime(room.updatedAt)}</strong>
-                            <span>ID: {String(room.id).slice(0, 8)}</span>
-                          </div>
                         </td>
                       </tr>
                     );
@@ -637,14 +740,32 @@ export default function RoomsPage() {
       )}
 
       {showBatch ? (
-        <div className="catalog-modal-backdrop">
-          <form className="catalog-modal" onSubmit={handleCreateBatch}>
+        <div
+          className="catalog-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !submitting) setShowBatch(false);
+          }}
+        >
+          <form
+            className="catalog-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-room-batch-title"
+            onSubmit={handleCreateBatch}
+          >
             <div className="catalog-modal-header">
               <div>
                 <span className="catalog-kicker">THÊM HÀNG LOẠT</span>
-                <h2>Tạo nhiều phòng</h2>
+                <h2 id="create-room-batch-title">Tạo nhiều phòng</h2>
               </div>
-              <button type="button" className="catalog-icon-button" onClick={() => setShowBatch(false)}>
+              <button
+                type="button"
+                className="catalog-icon-button"
+                aria-label="Đóng hộp thoại tạo phòng"
+                disabled={submitting}
+                onClick={() => setShowBatch(false)}
+              >
                 <X size={19} />
               </button>
             </div>
@@ -653,9 +774,7 @@ export default function RoomsPage() {
               <label className="catalog-field">
                 <span>Loại phòng *</span>
                 <select name="roomTypeId" value={batch.roomTypeId} onChange={handleBatchChange} required>
-                  {roomTypes
-                    .filter((type) => type.status === "ACTIVE")
-                    .map((type) => (
+                  {activeRoomTypes.map((type) => (
                       <option key={type.id} value={type.id}>
                         {type.name}
                       </option>
@@ -670,12 +789,12 @@ export default function RoomsPage() {
 
               <label className="catalog-field">
                 <span>Tiền tố</span>
-                <input name="prefix" value={batch.prefix} onChange={handleBatchChange} placeholder="2" />
+                <input name="prefix" value={batch.prefix} onChange={handleBatchChange} placeholder="Để trống nếu không dùng tiền tố" />
               </label>
 
               <label className="catalog-field">
-                <span>Bắt đầu từ</span>
-                <input name="startNumber" type="number" min="0" value={batch.startNumber} onChange={handleBatchChange} />
+                <span>Bắt đầu từ *</span>
+                <input name="startNumber" type="number" min="0" value={batch.startNumber} onChange={handleBatchChange} required />
               </label>
 
               <label className="catalog-field">
@@ -685,11 +804,11 @@ export default function RoomsPage() {
             </div>
 
             <p className="catalog-meta">
-              Ví dụ: tiền tố 2, bắt đầu 1, số lượng 4 → 201, 202, 203, 204.
+              Số phòng được tạo bằng cách ghép tiền tố (nếu có) với dãy số bắt đầu bạn chọn.
             </p>
 
             <div className="catalog-actions">
-              <button type="button" className="catalog-secondary" onClick={() => setShowBatch(false)}>
+              <button type="button" className="catalog-secondary" disabled={submitting} onClick={() => setShowBatch(false)}>
                 Hủy
               </button>
               <button type="submit" className="catalog-primary" disabled={submitting}>

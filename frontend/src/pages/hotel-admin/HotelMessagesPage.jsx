@@ -20,6 +20,12 @@ import {
   useState,
 } from "react";
 
+import ErrorMessage from "../../components/common/ErrorMessage";
+import {
+  EmptyState,
+  PageHeader,
+  StatusBadge,
+} from "../../components/ui";
 import { useRealtime } from "../../realtime/RealtimeContext";
 import {
   getHotelAdminChatConversations,
@@ -31,7 +37,7 @@ import {
 import "./HotelMessagesPage.css";
 
 function formatDate(value) {
-  if (!value) return "--";
+  if (!value) return "Chưa cập nhật";
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
@@ -85,12 +91,12 @@ function arrivalLabel(value, expectedArrivalTime) {
     return `Khách báo đến trễ${expectedArrivalTime ? ` · ${formatTime(expectedArrivalTime)}` : ""}`;
   }
   if (value === "NEEDS_HELP") return "Khách đang cần hỗ trợ";
-  if (value === "NO_SHOW_RISK") return "Nguy cơ no-show";
+  if (value === "NO_SHOW_RISK") return "Nguy cơ khách không đến";
   return "Chưa xác nhận kế hoạch đến";
 }
 
 function arrivalTone(value) {
-  if (value === "CONFIRMED") return "good";
+  if (value === "CONFIRMED") return "success";
   if (value === "ARRIVING_LATE") return "warning";
   if (value === "NO_SHOW_RISK") return "danger";
   if (value === "NEEDS_HELP") return "danger";
@@ -132,7 +138,10 @@ export default function HotelMessagesPage() {
   );
 
   const loadConversations = useCallback(async ({ quiet = false, keepSelection = true } = {}) => {
-    if (!quiet) setLoading(true);
+    if (!quiet) {
+      setLoading(true);
+      setError("");
+    }
     try {
       const data = await getHotelAdminChatConversations();
       setConversations(data);
@@ -156,7 +165,10 @@ export default function HotelMessagesPage() {
       setMessages([]);
       return;
     }
-    if (!quiet) setMessagesLoading(true);
+    if (!quiet) {
+      setMessagesLoading(true);
+      setError("");
+    }
     try {
       const data = await getHotelAdminChatMessages(conversationId);
       setMessages(data);
@@ -244,17 +256,21 @@ export default function HotelMessagesPage() {
 
   return (
     <main className="hotel-messages-page">
-      <section className="hotel-messages-heading">
-        <div>
-          <span>TIN NHẮN KHÁCH HÀNG</span>
-          <h1>Chat với khách hàng</h1>
-          <p>Trợ lý tự động xử lý câu hỏi thường gặp. Nhân viên chỉ cần tiếp quản khi khách cần quyết định thật.</p>
-        </div>
-        <button type="button" onClick={() => void loadConversations()}>
-          <RefreshCw size={17} />
-          Làm mới
-        </button>
-      </section>
+      <PageHeader
+        className="hotel-messages-heading"
+        eyebrow="Tin nhắn khách hàng"
+        title="Hộp thư vận hành"
+        description="Theo dõi hội thoại, ưu tiên khách cần hỗ trợ và tiếp quản trợ lý tự động khi cần quyết định trực tiếp."
+        icon={<MessageCircle size={22} />}
+        actions={(
+          <button type="button" onClick={() => void loadConversations()} disabled={loading}>
+            <RefreshCw size={17} className={loading ? "spin" : ""} />
+            Làm mới
+          </button>
+        )}
+      />
+
+      <ErrorMessage message={error} onRetry={() => void loadConversations()} />
 
       <section className="hotel-chat-workspace">
         <aside className="hotel-chat-list-panel">
@@ -269,9 +285,9 @@ export default function HotelMessagesPage() {
             </div>
             <div>
               <strong className={realtimeStatus === "connected" ? "online" : "offline"}>
-                {realtimeStatus === "connected" ? "Live" : "Offline"}
+                {realtimeStatus === "connected" ? "Đang kết nối" : "Mất kết nối"}
               </strong>
-              <span>Realtime</span>
+              <span>Trạng thái trực tuyến</span>
             </div>
           </div>
 
@@ -280,7 +296,8 @@ export default function HotelMessagesPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Tìm booking hoặc tin nhắn..."
+              placeholder="Tìm mã đặt phòng hoặc tin nhắn..."
+              aria-label="Tìm cuộc trò chuyện"
             />
           </label>
 
@@ -291,11 +308,13 @@ export default function HotelMessagesPage() {
                 Đang tải hội thoại...
               </div>
             ) : filtered.length === 0 ? (
-              <div className="hotel-chat-admin-empty">
-                <MessageCircle size={30} />
-                <strong>Chưa có hội thoại</strong>
-                <span>Khách có thể chat từ trang khách sạn; booking đã xác nhận sẽ tự gắn thêm lịch nhận/trả phòng.</span>
-              </div>
+              <EmptyState
+                compact
+                className="hotel-chat-admin-empty"
+                icon={<MessageCircle size={28} />}
+                title="Chưa có hội thoại"
+                description="Hội thoại sẽ xuất hiện khi khách liên hệ từ trang khách sạn hoặc đơn đặt phòng."
+              />
             ) : (
               filtered.map((item) => (
                 <button
@@ -303,6 +322,7 @@ export default function HotelMessagesPage() {
                   key={item.id}
                   className={`hotel-chat-conversation-item ${String(selectedId) === String(item.id) ? "active" : ""}`}
                   onClick={() => setSelectedId(item.id)}
+                  aria-pressed={String(selectedId) === String(item.id)}
                 >
                   <div className="hotel-chat-conversation-avatar">
                     <UserRound size={18} />
@@ -317,9 +337,12 @@ export default function HotelMessagesPage() {
                     </header>
                     <p>{item.lastMessage || "Cuộc trò chuyện mới"}</p>
                     <footer>
-                      <span className={arrivalTone(item.arrivalStatus)}>
-                        {arrivalLabel(item.arrivalStatus, item.expectedArrivalTime)}
-                      </span>
+                      <StatusBadge
+                        status={item.arrivalStatus}
+                        label={arrivalLabel(item.arrivalStatus, item.expectedArrivalTime)}
+                        tone={arrivalTone(item.arrivalStatus)}
+                        size="sm"
+                      />
                     </footer>
                   </div>
                 </button>
@@ -330,11 +353,12 @@ export default function HotelMessagesPage() {
 
         <section className="hotel-chat-thread-panel">
           {!selected ? (
-            <div className="hotel-chat-thread-empty">
-              <MessageCircle size={44} />
-              <h2>Chọn một cuộc trò chuyện</h2>
-              <p>Tin nhắn realtime của khách sẽ xuất hiện tại đây.</p>
-            </div>
+            <EmptyState
+              className="hotel-chat-thread-empty"
+              icon={<MessageCircle size={34} />}
+              title="Chọn một cuộc trò chuyện"
+              description="Tin nhắn mới của khách sẽ xuất hiện tại đây."
+            />
           ) : (
             <>
               <header className="hotel-chat-thread-header">
@@ -346,9 +370,9 @@ export default function HotelMessagesPage() {
                     <CalendarDays size={14} />
                     {selected.bookingId ? (
                       <>
-                        {formatDate(selected.checkIn)} {formatTime(selected.checkInTime, "14:00")}
+                        {formatDate(selected.checkIn)} {formatTime(selected.checkInTime, "Chưa cập nhật")}
                         <span>→</span>
-                        {formatDate(selected.checkOut)} {formatTime(selected.checkOutTime, "12:00")}
+                        {formatDate(selected.checkOut)} {formatTime(selected.checkOutTime, "Chưa cập nhật")}
                       </>
                     ) : (
                       <>Khách đang hỏi thông tin trước khi đặt phòng</>
@@ -356,10 +380,14 @@ export default function HotelMessagesPage() {
                   </p>
                 </div>
                 {selected.bookingId ? (
-                  <div className={`hotel-chat-arrival-badge ${arrivalTone(selected.arrivalStatus)}`}>
-                    <Clock3 size={15} />
-                    {arrivalLabel(selected.arrivalStatus, selected.expectedArrivalTime)}
-                  </div>
+                  <StatusBadge
+                    className="hotel-chat-arrival-badge"
+                    status={selected.arrivalStatus}
+                    label={arrivalLabel(selected.arrivalStatus, selected.expectedArrivalTime)}
+                    tone={arrivalTone(selected.arrivalStatus)}
+                    icon={<Clock3 size={15} />}
+                    size="sm"
+                  />
                 ) : (
                   <div className="hotel-chat-arrival-badge neutral">
                     <MessageCircle size={15} />
@@ -385,6 +413,7 @@ export default function HotelMessagesPage() {
                   disabled={toggleBusy}
                   className={selected.humanTakeover ? "enable-bot" : "takeover"}
                   onClick={() => void toggleTakeover()}
+                  aria-pressed={selected.humanTakeover}
                 >
                   {toggleBusy ? (
                     <LoaderCircle size={16} className="spin" />
@@ -397,7 +426,13 @@ export default function HotelMessagesPage() {
                 </button>
               </div>
 
-              <div className="hotel-chat-thread-messages" ref={messagesRef}>
+              <div
+                className="hotel-chat-thread-messages"
+                ref={messagesRef}
+                role="log"
+                aria-live="polite"
+                aria-relevant="additions text"
+              >
                 {messagesLoading ? (
                   <div className="hotel-chat-admin-empty">
                     <LoaderCircle size={24} className="spin" />
@@ -433,8 +468,6 @@ export default function HotelMessagesPage() {
                 )}
               </div>
 
-              {error ? <div className="hotel-chat-admin-error">{error}</div> : null}
-
               <form className="hotel-chat-admin-composer" onSubmit={sendMessage}>
                 <textarea
                   value={input}
@@ -448,8 +481,9 @@ export default function HotelMessagesPage() {
                   rows={1}
                   maxLength={1200}
                   placeholder="Nhắn trực tiếp cho khách..."
+                  aria-label="Nội dung tin nhắn cho khách"
                 />
-                <button type="submit" disabled={sending || !input.trim()}>
+                <button type="submit" disabled={sending || !input.trim()} aria-label="Gửi tin nhắn">
                   {sending ? <LoaderCircle size={19} className="spin" /> : <Send size={19} />}
                 </button>
               </form>

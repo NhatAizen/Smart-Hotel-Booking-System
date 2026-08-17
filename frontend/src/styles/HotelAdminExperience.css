@@ -978,6 +978,12 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .hotel-admin-experience .spin {
+    animation: none;
+  }
+}
+
 .hotel-admin-experience .refund-workflow-panel > .wallet-helper {
   margin: 18px 20px;
   border: 1px solid #d7e8f2;

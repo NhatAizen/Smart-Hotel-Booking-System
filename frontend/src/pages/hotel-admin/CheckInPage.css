@@ -97,7 +97,7 @@
 .checkin-input-row > button,
 .checkin-scan-actions button,
 .checkin-scan-actions label,
-.checkin-result-header > button,
+.checkin-result-header-actions > button,
 .checkin-action-bar button,
 .checkin-payos-order a {
   display: inline-flex;
@@ -205,7 +205,14 @@
   background: #e8f8f0;
 }
 
-.checkin-result-header > button {
+.checkin-result-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.checkin-result-header-actions > button {
   min-height: 40px;
   padding: 0 14px;
   color: #326078;
@@ -346,10 +353,10 @@
   background: #0878c8;
 }
 
-.checkin-cash-button {
+.checkin-action-bar .checkin-cash-button {
   color: #28566f;
   background: #eef6fb;
-  border: 1px solid #d4e4ed !important;
+  border: 1px solid #d4e4ed;
 }
 
 .checkin-complete-button {
@@ -398,9 +405,25 @@
 
   .checkin-scan-actions,
   .checkin-action-bar,
-  .checkin-payos-order {
+  .checkin-payos-order,
+  .checkin-result-header-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .checkin-result-header-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hotel-checkin-page *,
+  .hotel-checkin-page *::before,
+  .hotel-checkin-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

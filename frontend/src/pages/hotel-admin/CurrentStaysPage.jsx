@@ -20,6 +20,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
 import {
+  EmptyState,
+  PageHeader,
+  StatCard,
+  StatusBadge,
+} from "../../components/ui";
+import {
   assessLateCheckoutFee,
   checkOutBooking,
   getCurrentHotelStays,
@@ -35,22 +41,31 @@ import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 const HOTEL_PAYMENT_RETURN_KEY = "enziuroomsHotelPaymentReturn";
 
 function money(value) {
-  return `${Number(value ?? 0).toLocaleString("vi-VN")} ₫`;
+  if (value === null || value === undefined || value === "") return "—";
+  const amount = Number(value);
+  return Number.isFinite(amount) ? `${amount.toLocaleString("vi-VN")} ₫` : "—";
 }
 
 function formatDateTime(value) {
   if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Chưa xác định";
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function formatOverdueMinutes(minutes) {
-  const safeMinutes = Math.max(0, Number(minutes ?? 0));
+  if (minutes === null || minutes === undefined || minutes === "") {
+    return "chưa xác định thời lượng";
+  }
+  const parsedMinutes = Number(minutes);
+  if (!Number.isFinite(parsedMinutes)) return "chưa xác định thời lượng";
+  const safeMinutes = Math.max(0, parsedMinutes);
   const days = Math.floor(safeMinutes / 1440);
   const hours = Math.floor((safeMinutes % 1440) / 60);
   const mins = safeMinutes % 60;
@@ -67,6 +82,9 @@ function checkoutLabel(expectedCheckOutAt, now) {
   }
 
   const target = new Date(expectedCheckOutAt).getTime();
+  if (!Number.isFinite(target)) {
+    return { tone: "normal", label: "Chưa xác định giờ trả phòng" };
+  }
   const diff = target - now;
   const absoluteMinutes = Math.max(0, Math.round(Math.abs(diff) / 60_000));
   const duration = formatOverdueMinutes(absoluteMinutes);
@@ -140,6 +158,19 @@ function resolveGuestName(booking) {
   if (bookerFullName) return bookerFullName;
 
   return booking?.guestEmail || booking?.bookerEmail || "Khách chưa cập nhật tên";
+}
+
+function guestCountLabel(booking) {
+  const parts = [];
+  if (booking?.adults != null) parts.push(`${booking.adults} người lớn`);
+  if (booking?.children != null) parts.push(`${booking.children} trẻ em`);
+  return parts.length ? parts.join(" · ") : "Chưa có số lượng khách";
+}
+
+function deadlineTone(tone) {
+  if (tone === "overdue") return "danger";
+  if (tone === "soon") return "warning";
+  return "info";
 }
 
 function replaceStay(setStays, updated) {
@@ -237,7 +268,7 @@ export default function CurrentStaysPage() {
               clearPaymentReturnContext(synced.orderCode);
               await loadStays({ silent: true });
               setMessage(
-                `PayOS đã xác nhận ${money(synced.amount)}. Số tiền còn lại của booking đã được cập nhật tự động.`,
+                `PayOS đã xác nhận ${money(synced.amount)}. Số tiền còn lại của đơn đặt phòng đã được cập nhật tự động.`,
               );
             }
           } catch {
@@ -411,7 +442,7 @@ export default function CurrentStaysPage() {
 
     if (Number(booking.remainingAmount ?? 0) > 0) {
       setError(
-        `Booking còn phải thu ${money(booking.remainingAmount)}. Vui lòng thu đủ tiền trước khi xác nhận trả phòng.`,
+        `Đơn đặt phòng còn phải thu ${money(booking.remainingAmount)}. Vui lòng thu đủ tiền trước khi xác nhận trả phòng.`,
       );
       return;
     }
@@ -422,7 +453,7 @@ export default function CurrentStaysPage() {
     const isEarly = deadline != null && now > 0 && now < deadline;
 
     const confirmation = isEarly
-      ? `Booking ${booking.bookingCode} chưa tới giờ trả phòng.\n\nBạn vẫn muốn xác nhận khách trả phòng sớm?`
+      ? `Đơn đặt phòng ${booking.bookingCode} chưa tới giờ trả phòng.\n\nBạn vẫn muốn xác nhận khách trả phòng sớm?`
       : `Xác nhận khách đã trả phòng ${currentItem.roomNumber}?`;
 
     if (!window.confirm(confirmation)) return;
@@ -453,47 +484,62 @@ export default function CurrentStaysPage() {
 
   return (
     <main className="current-stays-page">
-      <section className="current-stays-heading">
-        <div>
-          <span>VẬN HÀNH LƯU TRÚ</span>
-          <h1>Khách đang lưu trú</h1>
-          <p>
-            Theo dõi khách đã check-in, giờ trả phòng, phụ thu trả trễ và xác nhận checkout tại quầy.
-          </p>
-        </div>
-        <button type="button" onClick={() => void loadStays()}>
-          <RefreshCw size={18} /> Làm mới
-        </button>
-      </section>
+      <PageHeader
+        className="current-stays-heading"
+        eyebrow="Vận hành lưu trú"
+        title="Khách đang lưu trú"
+        description="Theo dõi khách đã nhận phòng, thời hạn trả phòng, phụ thu trả trễ và các khoản cần thu tại quầy."
+        icon={<Users size={22} />}
+        actions={(
+          <button type="button" onClick={() => void loadStays()} disabled={loading}>
+            <RefreshCw size={18} className={loading ? "spin" : ""} /> Làm mới
+          </button>
+        )}
+      />
 
       <section className="current-stays-summary">
-        <article>
-          <span><BedDouble size={21} /></span>
-          <div><small>Đang lưu trú</small><strong>{summary.total}</strong></div>
-        </article>
-        <article>
-          <span><CalendarClock size={21} /></span>
-          <div><small>Trả trong 2 giờ</small><strong>{summary.dueSoon}</strong></div>
-        </article>
-        <article className={summary.overdue ? "danger" : ""}>
-          <span><TimerReset size={21} /></span>
-          <div><small>Đã quá giờ</small><strong>{summary.overdue}</strong></div>
-        </article>
+        <StatCard
+          className="current-stays-stat"
+          label="Đang lưu trú"
+          value={error && stays.length === 0 ? "—" : summary.total}
+          icon={<BedDouble size={21} />}
+          hint="Khách/phòng đang ở"
+          tone="info"
+        />
+        <StatCard
+          className="current-stays-stat"
+          label="Trả trong 2 giờ"
+          value={error && stays.length === 0 ? "—" : summary.dueSoon}
+          icon={<CalendarClock size={21} />}
+          hint="Cần ưu tiên chuẩn bị"
+          tone="warning"
+        />
+        <StatCard
+          className={`current-stays-stat ${summary.overdue ? "danger" : ""}`}
+          label="Đã quá giờ"
+          value={error && stays.length === 0 ? "—" : summary.overdue}
+          icon={<TimerReset size={21} />}
+          hint={summary.overdue ? "Cần kiểm tra phụ thu" : "Không có khách quá giờ"}
+          tone={summary.overdue ? "danger" : "success"}
+        />
       </section>
 
-      <ErrorMessage message={error} />
+      <ErrorMessage message={error} onRetry={() => void loadStays()} />
       {message ? (
-        <div className="current-stays-success">
+        <div className="current-stays-success" role="status">
           <CheckCircle2 size={19} /> {message}
         </div>
       ) : null}
 
       {stays.length === 0 ? (
-        <section className="current-stays-empty">
-          <DoorOpen size={48} />
-          <h2>Chưa có khách đang lưu trú</h2>
-          <p>Booking sẽ xuất hiện ở đây sau khi khách được xác nhận nhận phòng.</p>
-        </section>
+        <EmptyState
+          className="current-stays-empty"
+          icon={<DoorOpen size={34} />}
+          title={error ? "Chưa thể hiển thị khách đang lưu trú" : "Chưa có khách đang lưu trú"}
+          description={error
+            ? "Dữ liệu lưu trú chưa tải được. Hãy thử lại khi kết nối ổn định."
+            : "Đơn đặt phòng sẽ xuất hiện tại đây sau khi khách được xác nhận nhận phòng."}
+        />
       ) : (
         <section className="current-stays-list">
           {stays.map((item) => {
@@ -508,36 +554,41 @@ export default function CurrentStaysPage() {
             const lateFeeDelta = Math.max(0, estimatedLateFee - assessedLateFee);
             const currentLateFee = Math.max(assessedLateFee, estimatedLateFee);
             const remaining = persistedRemaining + lateFeeDelta;
-            const effectiveTotal = Number(booking.totalPrice ?? 0) + lateFeeDelta;
+            const baseTotal = booking.totalPrice == null ? null : Number(booking.totalPrice);
+            const effectiveTotal = Number.isFinite(baseTotal) ? baseTotal + lateFeeDelta : null;
             const backendLateFeeOutOfSync = lateFeeDelta > 0.01;
             const guestName = resolveGuestName(booking);
 
             return (
               <article key={booking.id} className={`current-stay-card ${checkout.tone}`}>
                 <div className="current-stay-top">
-                  <div>
-                    <span className="current-stay-code">{booking.bookingCode}</span>
+                  <div className="current-stay-guest">
+                    <span className="current-stay-code">{booking.bookingCode || "Chưa có mã đặt phòng"}</span>
+                    <span className="current-stay-guest-label">Khách lưu trú</span>
                     <h2>{guestName}</h2>
-                    <p><Hotel size={15} /> {item.hotelName} · Phòng {item.roomNumber}</p>
-                    <p><MapPin size={15} /> {item.hotelAddress}</p>
+                    <p><Hotel size={15} /> {item.hotelName || "Chưa có tên khách sạn"} · Phòng {item.roomNumber || "chưa xác định"}</p>
+                    <p><MapPin size={15} /> {item.hotelAddress || "Chưa có địa chỉ khách sạn"}</p>
                   </div>
-                  <span className={`current-stay-deadline ${checkout.tone}`}>
-                    <Clock3 size={16} /> {checkout.label}
-                  </span>
+                  <StatusBadge
+                    className="current-stay-deadline"
+                    status={checkout.tone}
+                    label={checkout.label}
+                    tone={deadlineTone(checkout.tone)}
+                    icon={<Clock3 size={16} />}
+                  />
                 </div>
 
                 <div className="current-stay-grid">
                   <div className="current-stay-info">
-                    <h3><UserRound size={18} /> Liên hệ khách</h3>
-                    <strong>{guestName}</strong>
-                    <span>{booking.guestPhone || booking.bookerPhone || "Chưa có số điện thoại"}</span>
-                    <span><Users size={15} /> {booking.adults} người lớn · {booking.children} trẻ em</span>
+                    <h3><UserRound size={18} /> Thông tin liên hệ</h3>
+                    <strong>{booking.guestPhone || booking.bookerPhone || "Chưa có số điện thoại"}</strong>
+                    <span><Users size={15} /> {guestCountLabel(booking)}</span>
                   </div>
 
                   <div className="current-stay-info">
                     <h3><Hotel size={18} /> Phòng đang ở</h3>
-                    <strong>{item.roomTypeName}</strong>
-                    <span>Phòng {item.roomNumber}</span>
+                    <strong>Phòng {item.roomNumber || "chưa xác định"}</strong>
+                    <span>{item.roomTypeName || "Chưa có thông tin loại phòng"}</span>
                     <span>Đã nhận phòng: {formatDateTime(item.actualCheckInAt)}</span>
                   </div>
 
@@ -579,12 +630,14 @@ export default function CurrentStaysPage() {
                     </div>
                     <div className="late-checkout-panel-copy">
                       <strong>Phụ thu trả trễ đang được tính</strong>
-                      <span>{late.policyLabel}</span>
+                      <span>{late.policyLabel || "Chính sách phụ thu chưa được cung cấp"}</span>
                       <small>
-                        Quá giờ {formatOverdueMinutes(late.overdueMinutes)} · Miễn phí {late.graceMinutes ?? 60} phút đầu
+                        Quá giờ {formatOverdueMinutes(late.overdueMinutes)} · {late.graceMinutes == null
+                          ? "Thời gian miễn phí chưa cập nhật"
+                          : `Miễn phí ${late.graceMinutes} phút đầu`}
                       </small>
                       {currentLateFee > 0 ? (
-                        <small>Phí tiếp tục tăng theo mốc thời gian cho đến khi checkout.</small>
+                        <small>Phí tiếp tục tăng theo mốc thời gian cho đến khi trả phòng.</small>
                       ) : null}
                     </div>
                     <div className="late-checkout-panel-amount">
@@ -609,7 +662,7 @@ export default function CurrentStaysPage() {
                 {remaining > 0 ? (
                   <div className="current-stay-collection-panel">
                     <div>
-                      <strong>Cần thu thêm {money(remaining)} trước khi checkout</strong>
+                      <strong>Cần thu thêm {money(remaining)} trước khi trả phòng</strong>
                       <span>
                         {paymentOrder?.status === "PENDING" || paymentOrder?.status === "PROCESSING"
                           ? `PayOS #${paymentOrder.orderCode} đang chờ xác nhận.`
@@ -639,8 +692,8 @@ export default function CurrentStaysPage() {
 
                 <div className="current-stay-actions">
                   <div>
-                    <span>Check-in dự kiến: {formatDateTime(item.expectedCheckInAt)}</span>
-                    <span>Checkout dự kiến: {formatDateTime(item.expectedCheckOutAt)}</span>
+                    <span>Nhận phòng dự kiến: {formatDateTime(item.expectedCheckInAt)}</span>
+                    <span>Trả phòng dự kiến: {formatDateTime(item.expectedCheckOutAt)}</span>
                   </div>
                   <button
                     type="button"

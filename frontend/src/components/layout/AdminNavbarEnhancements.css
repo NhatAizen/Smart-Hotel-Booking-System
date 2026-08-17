@@ -18,3 +18,38 @@
 .admin-navbar-hotel .admin-navbar-brand-icon.has-image {
   border-radius: 12px;
 }
+
+.admin-navbar-brand-icon.has-image.fit-contain img {
+  padding: 5px;
+  object-fit: contain;
+}
+
+.admin-navbar-group-button:focus-visible,
+.admin-navbar-account-button:focus-visible,
+.admin-navbar-mobile-toggle:focus-visible,
+.admin-navbar-dropdown-link:focus-visible,
+.admin-navbar-account-item:focus-visible,
+.admin-navbar-mobile-list .admin-navbar-link:focus-visible,
+.admin-navbar-mobile-account-actions button:focus-visible {
+  outline: 3px solid rgba(12, 140, 132, .25);
+  outline-offset: 2px;
+}
+
+.hotel-deactivation-modal .ui-modal__body {
+  overscroll-behavior: contain;
+}
+
+.hotel-deactivation-modal .admin-form-field textarea {
+  min-height: 116px;
+}
+
+@media (max-width: 520px) {
+  .hotel-deactivation-modal .admin-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .hotel-deactivation-modal .admin-modal-actions > button {
+    width: 100%;
+  }
+}

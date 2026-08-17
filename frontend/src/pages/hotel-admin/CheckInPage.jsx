@@ -29,6 +29,10 @@ import { useSearchParams } from "react-router-dom";
 
 import ErrorMessage from "../../components/common/ErrorMessage";
 import {
+  PageHeader,
+  StatusBadge,
+} from "../../components/ui";
+import {
   completeBookingCheckIn,
   verifyCheckInCode,
 } from "../../services/bookingService";
@@ -45,34 +49,72 @@ import {
 import "./CheckInPage.css";
 
 function money(value) {
-  return `${Number(value ?? 0).toLocaleString("vi-VN")} ₫`;
+  if (value === null || value === undefined || value === "") return "—";
+  const amount = Number(value);
+  return Number.isFinite(amount) ? `${amount.toLocaleString("vi-VN")} ₫` : "—";
 }
 
 function formatDate(value) {
-  if (!value) return "--";
+  if (!value) return "Chưa cập nhật";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "Chưa cập nhật";
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-  }).format(new Date(`${value}T00:00:00`));
+  }).format(date);
 }
 
 function formatDateTime(value) {
-  if (!value) return "--";
+  if (!value) return "Chưa cập nhật";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Chưa cập nhật";
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
+}
+
+function formatTimeFromDateTime(value) {
+  if (!value) return "Chưa cập nhật";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Chưa cập nhật";
+  return new Intl.DateTimeFormat("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function paymentOptionLabel(value, depositPercent) {
   if (value === "PAY_AT_HOTEL") return "Thanh toán tại khách sạn";
-  if (value === "DEPOSIT") return `Đặt cọc ${depositPercent ?? 30}%`;
+  if (value === "DEPOSIT") {
+    return depositPercent == null ? "Đặt cọc" : `Đặt cọc ${depositPercent}%`;
+  }
   if (value === "FULL_PAYMENT") return "Thanh toán toàn bộ";
-  return value;
+  return "Chưa xác định";
+}
+
+function guestName(booking) {
+  if (!booking) return "Chưa cập nhật tên khách";
+  const guest = [booking.guestLastName, booking.guestFirstName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const booker = [booking.bookerLastName, booking.bookerFirstName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return guest || booker || booking.bookerEmail || "Chưa cập nhật tên khách";
+}
+
+function guestSummary(booking) {
+  const parts = [];
+  if (booking?.adults != null) parts.push(`${booking.adults} người lớn`);
+  if (booking?.children != null) parts.push(`${booking.children} trẻ em`);
+  return parts.length ? parts.join(" · ") : "Chưa cập nhật số khách";
 }
 
 const CHECKIN_PAYMENT_CONTEXT_KEY = "enziuroomsHotelCheckInPayment";
@@ -161,7 +203,7 @@ export default function CheckInPage() {
   const verify = useCallback(async (rawCode, { silent = false } = {}) => {
     const normalized = String(rawCode ?? "").trim();
     if (!normalized) {
-      if (!silent) setError("Vui lòng quét hoặc nhập mã QR check-in.");
+      if (!silent) setError("Vui lòng quét hoặc nhập mã QR nhận phòng.");
       return null;
     }
 
@@ -178,7 +220,7 @@ export default function CheckInPage() {
         setError(
           requestError.response?.data?.message
             ?? requestError.response?.data?.detail
-            ?? "Không thể xác minh mã QR check-in.",
+            ?? "Không thể xác minh mã QR nhận phòng.",
         );
       }
       return null;
@@ -214,7 +256,7 @@ export default function CheckInPage() {
         setPaymentOrder(null);
         clearCheckInPaymentContext();
         setMessage(
-          "Thanh toán PayOS đã hoàn tất. Booking được khôi phục tự động, không cần quét lại QR.",
+          "Thanh toán PayOS đã hoàn tất. Đơn đặt phòng được khôi phục tự động, không cần quét lại QR.",
         );
       } else if (context.paidAt) {
         setMessage("Đang cập nhật giao dịch PayOS...");
@@ -262,10 +304,10 @@ export default function CheckInPage() {
           setPaymentOrder(null);
           clearCheckInPaymentContext();
           setMessage(
-            "PayOS đã xác nhận thanh toán đủ. Booking được cập nhật tự động và có thể nhận phòng ngay.",
+            "PayOS đã xác nhận thanh toán đủ. Đơn đặt phòng được cập nhật tự động và có thể nhận phòng ngay.",
           );
         } else {
-          setMessage("Đã nhận xác nhận PayOS, đang hoàn tất đối soát booking...");
+          setMessage("Đã nhận xác nhận PayOS, đang hoàn tất đối soát đơn đặt phòng...");
         }
       });
     };
@@ -311,10 +353,9 @@ export default function CheckInPage() {
           clearCheckInPaymentContext();
           setMessage("PayOS đã xác nhận khách thanh toán đủ. Có thể nhận phòng.");
         }
-      } catch (requestError) {
+      } catch {
         // Polling là best-effort. Không làm mất màn hình check-in chỉ vì một
         // lần gọi PayOS bị timeout; lần kế tiếp sẽ tự thử lại.
-        console.warn("EnziuRooms PayOS check-in reconciliation:", requestError);
       } finally {
         running = false;
       }
@@ -413,15 +454,13 @@ export default function CheckInPage() {
 
       if (!data) {
         throw new Error(
-          "Đã đọc được QR nhưng mã check-in không hợp lệ hoặc booking không tồn tại.",
+          "Đã đọc được QR nhưng mã nhận phòng không hợp lệ hoặc đơn đặt phòng không tồn tại.",
         );
       }
 
-      setMessage("Đã đọc mã QR và xác minh booking thành công.");
+      setMessage("Đã đọc mã QR và xác minh đơn đặt phòng thành công.");
     } catch (scanError) {
       setResult(null);
-
-      console.error("EnziuRooms QR image scan error:", scanError);
 
       const technicalMessage = String(scanError?.message ?? "");
 
@@ -461,11 +500,17 @@ export default function CheckInPage() {
         createdAt: Date.now(),
       });
 
-      if (order.checkoutUrl) {
-        window.open(order.checkoutUrl, "_blank", "noopener,noreferrer");
+      if (!order.checkoutUrl) {
+        throw new Error("PayOS không trả về đường dẫn thanh toán.");
       }
+
+      window.open(
+        order.checkoutUrl,
+        "_blank",
+        "noopener,noreferrer",
+      );
       setMessage(
-        "Đã mở PayOS ở tab mới. Sau khi thanh toán, màn hình này sẽ tự cập nhật; không cần quét lại QR.",
+        "Đã tạo giao dịch PayOS. Nếu tab thanh toán chưa xuất hiện, chọn “Mở lại trang QR PayOS” bên dưới để tiếp tục.",
       );
     } catch (requestError) {
       setError(
@@ -528,23 +573,23 @@ export default function CheckInPage() {
 
   return (
     <main className="hotel-checkin-page">
-      <div className="hotel-checkin-heading">
-        <span>VẬN HÀNH LƯU TRÚ</span>
-        <h1>Nhận phòng bằng QR</h1>
-        <p>
-          Quét mã của khách, kiểm tra thanh toán và xác nhận check-in ngay tại quầy.
-        </p>
-      </div>
+      <PageHeader
+        className="hotel-checkin-heading"
+        eyebrow="Vận hành lưu trú"
+        title="Nhận phòng bằng QR"
+        description="Quét mã của khách, đối chiếu thông tin và xác nhận nhận phòng ngay tại quầy."
+        icon={<ScanLine size={22} />}
+      />
 
-      <ErrorMessage message={error} />
-      {message ? <div className="checkin-success-message"><CheckCircle2 size={19} />{message}</div> : null}
+      <ErrorMessage message={error} onRetry={code ? () => void verify(code) : undefined} />
+      {message ? <div className="checkin-success-message" role="status"><CheckCircle2 size={19} />{message}</div> : null}
 
       <section className="checkin-scanner-card">
         <div className="checkin-scanner-copy">
           <span><ScanLine size={22} /></span>
           <div>
             <h2>Quét mã của khách</h2>
-            <p>Cho phép camera, tải ảnh QR hoặc dán mã check-in thủ công.</p>
+            <p>Cho phép camera, tải ảnh QR hoặc dán mã nhận phòng thủ công.</p>
           </div>
         </div>
 
@@ -555,6 +600,7 @@ export default function CheckInPage() {
               value={code}
               onChange={(event) => setCode(event.target.value)}
               placeholder="ENZIU-CHECKIN:..."
+              aria-label="Mã QR nhận phòng"
               onKeyDown={(event) => {
                 if (event.key === "Enter") void verify(code);
               }}
@@ -580,7 +626,7 @@ export default function CheckInPage() {
 
         {cameraActive ? (
           <div className="checkin-camera-frame">
-            <video ref={videoRef} muted playsInline />
+            <video ref={videoRef} muted playsInline aria-label="Camera quét mã QR" />
             <div className="checkin-camera-guide"><span /></div>
           </div>
         ) : null}
@@ -593,48 +639,51 @@ export default function CheckInPage() {
               {isDone ? <CheckCircle2 size={30} /> : result.canCheckIn ? <BadgeCheck size={30} /> : <ShieldAlert size={30} />}
             </div>
             <div>
-              <span>BOOKING ĐÃ XÁC MINH</span>
-              <h2>{booking.bookingCode}</h2>
+              <span>ĐƠN ĐẶT PHÒNG ĐÃ XÁC MINH</span>
+              <h2>{booking.bookingCode || "Chưa có mã đặt phòng"}</h2>
               <p>{result.actionMessage}</p>
             </div>
-            <button type="button" onClick={() => void verify(code)}>
-              <RefreshCw size={17} /> Kiểm tra lại
-            </button>
+            <div className="checkin-result-header-actions">
+              <StatusBadge status={booking.status} size="sm" />
+              <button type="button" onClick={() => void verify(code)}>
+                <RefreshCw size={17} /> Kiểm tra lại
+              </button>
+            </div>
           </div>
 
           <div className="checkin-result-grid">
             <div className="checkin-guest-card">
               <h3><UserRound size={19} /> Thông tin khách</h3>
-              <strong>{booking.guestLastName} {booking.guestFirstName}</strong>
-              <span>{booking.guestPhone || booking.bookerPhone}</span>
-              <span>{booking.bookerEmail}</span>
+              <strong>{guestName(booking)}</strong>
+              {booking.guestPhone || booking.bookerPhone ? <span>{booking.guestPhone || booking.bookerPhone}</span> : null}
+              {booking.bookerEmail ? <span>{booking.bookerEmail}</span> : null}
               <div>
                 <Users size={17} />
-                {booking.adults} người lớn · {booking.children} trẻ em
+                {guestSummary(booking)}
               </div>
             </div>
 
             <div className="checkin-stay-card">
               <h3><Hotel size={19} /> Thông tin lưu trú</h3>
-              <strong>{result.hotelName}</strong>
-              <span><MapPin size={15} /> {result.hotelAddress}</span>
+              <strong>{result.hotelName || "Chưa cập nhật tên khách sạn"}</strong>
+              {result.hotelAddress ? <span><MapPin size={15} /> {result.hotelAddress}</span> : null}
               <div className="checkin-stay-room">
                 <BedDouble size={18} />
                 <div>
-                  <small>{result.roomTypeName}</small>
-                  <strong>Phòng {result.roomNumber}</strong>
+                  <small>{result.roomTypeName || "Chưa cập nhật loại phòng"}</small>
+                  <strong>{result.roomNumber ? `Phòng ${result.roomNumber}` : "Chưa cập nhật số phòng"}</strong>
                 </div>
               </div>
               <div className="checkin-date-row">
                 <span>
                   <small>Nhận phòng</small>
                   <strong>{formatDate(booking.checkIn)}</strong>
-                  <em>Từ {formatDateTime(result.expectedCheckInAt).split(" ").slice(-1)[0]}</em>
+                  <em>Từ {formatTimeFromDateTime(result.expectedCheckInAt)}</em>
                 </span>
                 <span>
                   <small>Trả phòng</small>
                   <strong>{formatDate(booking.checkOut)}</strong>
-                  <em>Trước {formatDateTime(result.expectedCheckOutAt).split(" ").slice(-1)[0]}</em>
+                  <em>Trước {formatTimeFromDateTime(result.expectedCheckOutAt)}</em>
                 </span>
               </div>
               {isDone ? (
@@ -651,7 +700,7 @@ export default function CheckInPage() {
             <div className="checkin-payment-card">
               <h3><WalletCards size={19} /> Thanh toán</h3>
               <div><span>Hình thức</span><strong>{paymentOptionLabel(booking.paymentOption, booking.depositPercent)}</strong></div>
-              <div><span>Tổng booking</span><strong>{money(booking.totalPrice)}</strong></div>
+              <div><span>Tổng đơn</span><strong>{money(booking.totalPrice)}</strong></div>
               <div><span>Đã thanh toán</span><strong className="paid">{money(booking.paidAmount)}</strong></div>
               <div><span>Còn phải thu</span><strong className="remaining">{money(booking.remainingAmount)}</strong></div>
             </div>
@@ -707,7 +756,7 @@ export default function CheckInPage() {
                 title={!result.canCheckIn ? result.actionMessage : "Xác nhận khách nhận phòng"}
               >
                 <CheckCircle2 size={19} />
-                {working === "CHECK_IN" ? "Đang check-in..." : "Xác nhận nhận phòng"}
+                {working === "CHECK_IN" ? "Đang xác nhận..." : "Xác nhận nhận phòng"}
               </button>
             ) : (
               <div className="checkin-completed-badge">

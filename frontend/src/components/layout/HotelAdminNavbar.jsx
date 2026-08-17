@@ -18,11 +18,12 @@ import {
   Tags,
   UserRound,
   WalletCards,
-  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import enziuLogo from "../../assets/enziu-logo.png";
 import { useAuth } from "../../auth/AuthContext";
+import { Modal } from "../ui";
 import { getMyHotels } from "../../services/hotelAdminService";
 import {
   getMyPartnerDeactivationEligibility,
@@ -127,13 +128,13 @@ const ELIGIBILITY_CHECKS = [
   },
   {
     key: "actionableBookingCount",
-    label: "Booking sắp tới cần xử lý",
-    clearText: "Không còn booking sắp tới cần xử lý",
+    label: "Đơn đặt phòng sắp tới cần xử lý",
+    clearText: "Không còn đơn đặt phòng sắp tới cần xử lý",
   },
   {
     key: "pendingWithdrawalCount",
-    label: "Withdrawal đang chờ",
-    clearText: "Không còn withdrawal đang chờ",
+    label: "Yêu cầu rút tiền đang chờ",
+    clearText: "Không còn yêu cầu rút tiền đang chờ",
   },
   {
     key: "financialIssueCount",
@@ -147,13 +148,25 @@ function normalizeStatus(value) {
 }
 
 function eligibilityCount(eligibility, key) {
-  const value = Number(eligibility?.[key] ?? 0);
-  return Number.isFinite(value) ? value : 0;
+  const rawValue = eligibility?.[key];
+  if (rawValue === null || rawValue === undefined || rawValue === "") return null;
+  const value = Number(rawValue);
+  return Number.isFinite(value) ? value : null;
+}
+
+function friendlyOperationalText(value) {
+  return String(value ?? "")
+    .replace(/\bwithdrawals?\b/gi, "yêu cầu rút tiền")
+    .replace(/\bbookings?\b/gi, "đơn đặt phòng");
 }
 
 function blockerText(blocker) {
-  if (typeof blocker === "string") return blocker;
-  return blocker?.message ?? blocker?.label ?? blocker?.code ?? "Điều kiện chưa đáp ứng";
+  const message = typeof blocker === "string"
+    ? blocker
+    : blocker?.message ?? blocker?.label;
+  return message
+    ? friendlyOperationalText(message)
+    : "Điều kiện chưa đáp ứng";
 }
 
 function resolveHotelImage(hotel) {
@@ -343,7 +356,7 @@ export default function HotelAdminNavbar() {
   }
 
   const accountActionLabel = requestStatus === "PENDING"
-    ? "Đang chờ ngừng đối tác"
+    ? "Yêu cầu ngừng hợp tác đang chờ"
     : "Ngừng làm đối tác";
   const accountActionDescription = requestStatus === "PENDING"
     ? "Xem trạng thái yêu cầu đã gửi"
@@ -357,8 +370,9 @@ export default function HotelAdminNavbar() {
         roleDescription={brandedHotel?.name ? `Quản lý ${brandedHotel.name}` : "Quản lý khách sạn"}
         homePath="/hotel-admin"
         brandIcon={Hotel}
-        brandImageUrl={hotelBrandImageUrl}
-        brandImageAlt={brandedHotel?.name ? `Ảnh ${brandedHotel.name}` : "Ảnh khách sạn"}
+        brandImageUrl={hotelBrandImageUrl || enziuLogo}
+        brandImageAlt={brandedHotel?.name ? `Ảnh ${brandedHotel.name}` : "Logo EnziuRooms"}
+        brandImageFit={hotelBrandImageUrl ? "cover" : "contain"}
         accountAvatarUrl={hotelBrandImageUrl}
         items={items}
         desktopNavigation={desktopNavigation}
@@ -376,39 +390,23 @@ export default function HotelAdminNavbar() {
         ]}
       />
 
-      {modalOpen ? (
-        <div
-          className="admin-modal-layer admin-confirm-layer"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeDeactivationModal();
-          }}
-        >
-          <section
-            className="admin-modal small hotel-deactivation-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="hotel-deactivation-title"
-          >
-            <div className="admin-modal-header">
-              <div>
-                <span>TÀI KHOẢN ĐỐI TÁC</span>
-                <h2 id="hotel-deactivation-title">Ngừng làm đối tác</h2>
-              </div>
-              <button
-                type="button"
-                onClick={closeDeactivationModal}
-                disabled={submitting}
-                aria-label="Đóng"
-              >
-                <X size={19} />
-              </button>
-            </div>
+      <Modal
+        open={modalOpen}
+        onClose={closeDeactivationModal}
+        title="Ngừng làm đối tác"
+        description="Kiểm tra các công việc cần hoàn tất trước khi gửi yêu cầu."
+        size="lg"
+        className="hotel-deactivation-modal"
+        closeLabel="Đóng yêu cầu ngừng làm đối tác"
+        closeOnBackdrop={!submitting}
+        closeOnEscape={!submitting}
+        hideCloseButton={submitting}
+      >
 
             {modalError ? (
               <div className="hotel-deactivation-message error" role="alert">
                 <AlertTriangle size={18} />
-                <span>{modalError}</span>
+                <span>{friendlyOperationalText(modalError)}</span>
               </div>
             ) : null}
 
@@ -421,7 +419,7 @@ export default function HotelAdminNavbar() {
 
             {statusLoading ? (
               <div className="hotel-deactivation-loading">
-                <span className="admin-spinner" /> Đang tải trạng thái yêu cầu...
+                <span className="admin-spinner" aria-hidden="true" /> Đang tải trạng thái yêu cầu...
               </div>
             ) : requestStatus === "PENDING" ? (
               <div className="hotel-deactivation-status pending">
@@ -456,31 +454,36 @@ export default function HotelAdminNavbar() {
                       <p>
                         {requestStatus === "HISTORICAL_APPROVED"
                           ? "Yêu cầu đã duyệt trước đây được giữ làm lịch sử. Bạn có thể gửi yêu cầu mới."
-                          : request?.rejectionReason ?? "Bạn có thể kiểm tra điều kiện và gửi lại yêu cầu."}
+                          : friendlyOperationalText(request?.rejectionReason) || "Bạn có thể kiểm tra điều kiện và gửi lại yêu cầu."}
                       </p>
                     </div>
                   </div>
                 ) : null}
 
                 <p className="hotel-deactivation-intro">
-                  Bạn có thể ngừng làm đối tác sau khi các booking, khách lưu trú và khoản tài chính còn lại đã được xử lý.
+                  Bạn có thể ngừng làm đối tác sau khi các đơn đặt phòng, khách lưu trú và khoản tài chính còn lại đã được xử lý.
                 </p>
 
                 {eligibilityLoading ? (
                   <div className="hotel-deactivation-loading">
-                    <span className="admin-spinner" /> Đang kiểm tra điều kiện...
+                    <span className="admin-spinner" aria-hidden="true" /> Đang kiểm tra điều kiện...
                   </div>
                 ) : eligibility ? (
                   <div className="role-eligibility-list">
                     {ELIGIBILITY_CHECKS.map((check) => {
                       const count = eligibilityCount(eligibility, check.key);
                       const clear = count === 0;
+                      const known = count !== null;
                       return (
-                        <div className={clear ? "clear" : "blocked"} key={check.key}>
+                        <div className={known && clear ? "clear" : "blocked"} key={check.key}>
                           {clear ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
                           <span>
-                            <strong>{clear ? check.clearText : check.label}</strong>
-                            <small>{clear ? "Đã đáp ứng" : `${count} mục cần xử lý`}</small>
+                            <strong>
+                              {!known ? `${check.label}: chưa có dữ liệu` : clear ? check.clearText : check.label}
+                            </strong>
+                            <small>
+                              {!known ? "Chưa xác định" : clear ? "Đã đáp ứng" : `${count} mục cần xử lý`}
+                            </small>
                           </span>
                         </div>
                       );
@@ -501,6 +504,7 @@ export default function HotelAdminNavbar() {
                   <textarea
                     rows={4}
                     maxLength={500}
+                    required
                     value={reason}
                     onChange={(event) => {
                       setReason(event.target.value);
@@ -548,9 +552,7 @@ export default function HotelAdminNavbar() {
                 </button>
               </div>
             ) : null}
-          </section>
-        </div>
-      ) : null}
+      </Modal>
     </>
   );
 }

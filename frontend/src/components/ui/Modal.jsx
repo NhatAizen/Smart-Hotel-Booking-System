@@ -35,8 +35,13 @@ export default function Modal({
   bodyClassName = "",
 }) {
   const modalRef = useRef(null);
+  const onCloseRef = useRef(onClose);
   const titleId = useId();
   const descriptionId = useId();
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open || typeof document === "undefined") return undefined;
@@ -54,7 +59,7 @@ export default function Modal({
     function handleKeyDown(event) {
       if (event.key === "Escape" && closeOnEscape) {
         event.preventDefault();
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
 
@@ -87,7 +92,7 @@ export default function Modal({
       document.body.style.overflow = previousOverflow;
       if (previousFocus instanceof HTMLElement) previousFocus.focus();
     };
-  }, [closeOnEscape, initialFocusRef, onClose, open]);
+  }, [closeOnEscape, initialFocusRef, open]);
 
   if (!open || typeof document === "undefined") return null;
 

@@ -7,10 +7,11 @@ import {
   MapPin,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import HotelLocationPicker from "../../components/map/HotelLocationPicker";
+import { PageHeader } from "../../components/ui";
 import {
   createHotel,
   uploadHotelImages,
@@ -21,6 +22,7 @@ import {
 } from "./hotelCatalogOptions";
 
 import "./HotelCatalogAdmin.css";
+import "./HotelCatalogExperience.css";
 
 const initialForm = {
   name: "",
@@ -28,14 +30,14 @@ const initialForm = {
   address: "",
   ward: "",
   district: "",
-  city: "Hồ Chí Minh",
+  city: "",
   latitude: null,
   longitude: null,
   phone: "",
   email: "",
-  starRating: 3,
-  checkInTime: "14:00",
-  checkOutTime: "12:00",
+  starRating: 0,
+  checkInTime: null,
+  checkOutTime: null,
   amenities: [],
 };
 
@@ -61,6 +63,11 @@ export default function CreateHotelPage() {
         url: URL.createObjectURL(file),
       })),
     [files],
+  );
+
+  useEffect(
+    () => () => previews.forEach((preview) => URL.revokeObjectURL(preview.url)),
+    [previews],
   );
 
   function handleChange(event) {
@@ -133,21 +140,19 @@ export default function CreateHotelPage() {
   }
 
   return (
-    <div className="admin-page catalog-page">
-      <section className="catalog-heading">
-        <div>
+    <div className="admin-page catalog-page catalog-experience catalog-create-hotel-page">
+      <PageHeader
+        className="catalog-heading catalog-experience__header"
+        eyebrow="HỒ SƠ KHÁCH SẠN"
+        title="Đăng ký khách sạn mới"
+        description="Tạo hồ sơ nháp bằng thông tin vận hành thực tế, tải ảnh của cơ sở, rồi thiết lập loại phòng trước khi gửi xét duyệt."
+        actions={(
           <Link to="/hotel-admin/hotels" className="hotel-back-link">
             <ArrowLeft size={17} />
-            Quay lại
+            Quay lại danh sách
           </Link>
-          <span className="catalog-kicker">HỒ SƠ KHÁCH SẠN</span>
-          <h1>Đăng ký khách sạn mới</h1>
-          <p>
-            Tạo hồ sơ nháp, tải ảnh, sau đó thêm loại phòng và số
-            phòng trước khi gửi xét duyệt.
-          </p>
-        </div>
-      </section>
+        )}
+      />
 
       {error ? <div className="catalog-notice error">{error}</div> : null}
 
@@ -168,7 +173,7 @@ export default function CreateHotelPage() {
                 name="name"
                 value={form.name}
                 onChange={handleChange}
-                placeholder="Ví dụ: EnziuRooms Saigon Hotel"
+                placeholder="Nhập tên đúng theo hồ sơ đăng ký kinh doanh"
                 required
                 maxLength={150}
               />
@@ -181,7 +186,7 @@ export default function CreateHotelPage() {
                 type="tel"
                 value={form.phone}
                 onChange={handleChange}
-                placeholder="0909123456"
+                placeholder="Nhập số điện thoại lễ tân hoặc bộ phận đặt phòng"
                 required
                 maxLength={30}
               />
@@ -194,7 +199,7 @@ export default function CreateHotelPage() {
                 type="email"
                 value={form.email}
                 onChange={handleChange}
-                placeholder="hotel@enziurooms.vn"
+                placeholder="Nhập email nhận thông tin đặt phòng"
                 required
                 maxLength={150}
               />
@@ -223,6 +228,7 @@ export default function CreateHotelPage() {
                 onChange={handleChange}
                 required
               >
+                <option value="" disabled>Chọn tỉnh hoặc thành phố</option>
                 {cities.map((city) => (
                   <option key={city} value={city}>{city}</option>
                 ))}
@@ -260,7 +266,7 @@ export default function CreateHotelPage() {
                 name="address"
                 value={form.address}
                 onChange={handleChange}
-                placeholder="25 Nguyễn Huệ"
+                placeholder="Nhập số nhà và tên đường"
                 required
                 maxLength={255}
               />
@@ -272,7 +278,7 @@ export default function CreateHotelPage() {
                 name="ward"
                 value={form.ward}
                 onChange={handleChange}
-                placeholder="Phường Bến Nghé"
+                placeholder="Nhập phường hoặc xã"
                 maxLength={100}
               />
             </label>
@@ -283,7 +289,7 @@ export default function CreateHotelPage() {
                 name="district"
                 value={form.district}
                 onChange={handleChange}
-                placeholder="Quận 1"
+                placeholder="Nhập quận hoặc huyện"
                 maxLength={100}
               />
             </label>
@@ -320,9 +326,10 @@ export default function CreateHotelPage() {
               <input
                 name="checkInTime"
                 type="time"
-                value={form.checkInTime}
+                value={form.checkInTime ?? ""}
                 onChange={handleChange}
               />
+              <small>Để trống nếu cơ sở chưa ban hành giờ nhận phòng.</small>
             </label>
 
             <label className="catalog-field">
@@ -330,9 +337,10 @@ export default function CreateHotelPage() {
               <input
                 name="checkOutTime"
                 type="time"
-                value={form.checkOutTime}
+                value={form.checkOutTime ?? ""}
                 onChange={handleChange}
               />
+              <small>Để trống nếu cơ sở chưa ban hành giờ trả phòng.</small>
             </label>
 
             <div className="catalog-field catalog-field-full">

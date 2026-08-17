@@ -5,7 +5,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   Link,
   NavLink,
@@ -49,6 +49,7 @@ export default function AdminNavbar({
   brandIcon: BrandIcon,
   brandImageUrl,
   brandImageAlt,
+  brandImageFit = "cover",
   accountAvatarUrl,
   items,
   desktopNavigation,
@@ -58,20 +59,34 @@ export default function AdminNavbar({
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const generatedId = useId();
   const headerRef = useRef(null);
+  const mobileMenuRef = useRef(null);
+  const mobileToggleRef = useRef(null);
+  const accountButtonRef = useRef(null);
+  const restoreFocusRef = useRef(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState(null);
+  const baseId = `admin-navbar${generatedId}`;
+  const mobileMenuId = `${baseId}-navigation`;
+  const accountMenuId = `${baseId}-account-menu`;
+  const accountButtonId = `${baseId}-account-button`;
 
   const avatarUrl = accountAvatarUrl ?? user?.avatarUrl ?? user?.avatar ?? null;
   const avatarText = user?.fullName?.trim()?.charAt(0)?.toUpperCase() ??
     (variant === "hotel" ? "H" : "A");
 
-  const closeMenus = useCallback(() => {
+  const closeMenus = useCallback((options = {}) => {
+    const shouldRestoreFocus = options?.restoreFocus === true;
+    const focusTarget = restoreFocusRef.current;
     setMobileOpen(false);
     setAccountOpen(false);
     setOpenGroup(null);
-  }, []);
+    if (shouldRestoreFocus && focusTarget) {
+      window.requestAnimationFrame(() => focusTarget.focus?.());
+    }
+  }, [setAccountOpen, setMobileOpen, setOpenGroup]);
 
   function handleLogout() {
     logout();
@@ -79,8 +94,13 @@ export default function AdminNavbar({
     navigate("/login", { replace: true });
   }
 
-  function handleAccountAction(action) {
+  function handleAccountAction(action, source) {
     if (action.disabled) return;
+    const persistentTrigger = source === "mobile"
+      ? mobileToggleRef.current
+      : accountButtonRef.current;
+    persistentTrigger?.focus();
+    restoreFocusRef.current = persistentTrigger;
     closeMenus();
     action.onClick?.();
   }
@@ -96,18 +116,46 @@ export default function AdminNavbar({
       }
     }
 
-    function handleEscape(event) {
-      if (event.key === "Escape") closeMenus();
+    function handleKeyDown(event) {
+      if (event.key === "Escape" && (mobileOpen || accountOpen || openGroup)) {
+        event.preventDefault();
+        closeMenus({ restoreFocus: true });
+        return;
+      }
+
+      if (event.key !== "Tab" || !mobileOpen || !headerRef.current) return;
+      const focusable = [...headerRef.current.querySelectorAll(
+        "a[href], button:not([disabled]):not(.admin-navbar-backdrop), [tabindex]:not([tabindex='-1'])",
+      )].filter((element) => element.offsetParent !== null);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
 
     document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
       document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [closeMenus]);
+  }, [accountOpen, closeMenus, mobileOpen, openGroup]);
+
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileOpen]);
 
   return (
     <header
@@ -121,7 +169,7 @@ export default function AdminNavbar({
           onClick={closeMenus}
           aria-label={`EnziuRooms ${roleLabel} - Tổng quan`}
         >
-          <span className={`admin-navbar-brand-icon ${brandImageUrl ? "has-image" : ""}`}>
+          <span className={`admin-navbar-brand-icon ${brandImageUrl ? `has-image fit-${brandImageFit}` : ""}`}>
             {brandImageUrl ? (
               <img
                 src={brandImageUrl}
@@ -142,11 +190,13 @@ export default function AdminNavbar({
         </Link>
 
         <nav
+          ref={mobileMenuRef}
+          id={mobileMenuId}
           className={`admin-navbar-menu ${mobileOpen ? "open" : ""}`}
           aria-label={roleDescription}
         >
           <div className="admin-navbar-desktop-menu">
-            {desktopNavigation.map((entry) => {
+            {desktopNavigation.map((entry, entryIndex) => {
               if (entry.type === "link") {
                 return (
                   <NavbarLink
@@ -162,15 +212,19 @@ export default function AdminNavbar({
                 itemMatchesPath(item, location.pathname),
               );
               const isOpen = openGroup === entry.label;
+              const groupButtonId = `${baseId}-group-button-${entryIndex}`;
+              const groupMenuId = `${baseId}-group-menu-${entryIndex}`;
 
               return (
                 <div className="admin-navbar-group" key={entry.label}>
                   <button
+                    id={groupButtonId}
                     type="button"
                     className={`admin-navbar-group-button ${
                       isActive ? "active" : ""
                     }`}
-                    onClick={() => {
+                    onClick={(event) => {
+                      restoreFocusRef.current = event.currentTarget;
                       setOpenGroup((current) =>
                         current === entry.label ? null : entry.label,
                       );
@@ -178,6 +232,7 @@ export default function AdminNavbar({
                     }}
                     aria-expanded={isOpen}
                     aria-haspopup="menu"
+                    aria-controls={groupMenuId}
                   >
                     <GroupIcon size={17} aria-hidden="true" />
                     <span>{entry.label}</span>
@@ -189,7 +244,12 @@ export default function AdminNavbar({
                   </button>
 
                   {isOpen ? (
-                    <div className="admin-navbar-dropdown" role="menu">
+                    <div
+                      className="admin-navbar-dropdown"
+                      id={groupMenuId}
+                      role="menu"
+                      aria-labelledby={groupButtonId}
+                    >
                       {entry.items.map((item) => (
                         <NavbarLink
                           key={item.to}
@@ -242,7 +302,7 @@ export default function AdminNavbar({
                     className={action.tone ?? ""}
                     disabled={action.disabled}
                     key={action.key ?? action.label}
-                    onClick={() => handleAccountAction(action)}
+                    onClick={() => handleAccountAction(action, "mobile")}
                   >
                     {ActionIcon ? <ActionIcon size={18} aria-hidden="true" /> : null}
                     {action.label}
@@ -270,17 +330,21 @@ export default function AdminNavbar({
 
           <div className="admin-navbar-account">
             <button
+              ref={accountButtonRef}
+              id={accountButtonId}
               type="button"
               className={`admin-navbar-account-button ${
                 accountOpen ? "active" : ""
               }`}
-              onClick={() => {
+              onClick={(event) => {
+                restoreFocusRef.current = event.currentTarget;
                 setAccountOpen((current) => !current);
                 setMobileOpen(false);
                 setOpenGroup(null);
               }}
               aria-expanded={accountOpen}
               aria-haspopup="menu"
+              aria-controls={accountMenuId}
             >
               <span className="admin-navbar-avatar">
                 {avatarUrl ? (
@@ -304,7 +368,12 @@ export default function AdminNavbar({
             </button>
 
             {accountOpen ? (
-              <div className="admin-navbar-account-dropdown" role="menu">
+              <div
+                className="admin-navbar-account-dropdown"
+                id={accountMenuId}
+                role="menu"
+                aria-labelledby={accountButtonId}
+              >
                 <div className="admin-navbar-account-header">
                   <span className="admin-navbar-avatar large">
                     {avatarUrl ? (
@@ -348,7 +417,7 @@ export default function AdminNavbar({
                       disabled={action.disabled}
                       key={action.key ?? action.label}
                       role="menuitem"
-                      onClick={() => handleAccountAction(action)}
+                      onClick={() => handleAccountAction(action, "desktop")}
                     >
                       {ActionIcon ? <ActionIcon size={18} aria-hidden="true" /> : null}
                       <span>
@@ -380,17 +449,30 @@ export default function AdminNavbar({
           </div>
 
           <button
+            ref={mobileToggleRef}
             type="button"
             className="admin-navbar-mobile-toggle"
-            onClick={() => {
-              setMobileOpen((current) => !current);
+            onClick={(event) => {
+              const willOpen = !mobileOpen;
+              restoreFocusRef.current = event.currentTarget;
+              setMobileOpen(willOpen);
               setAccountOpen(false);
               setOpenGroup(null);
+              if (willOpen) {
+                window.requestAnimationFrame(() => {
+                  mobileMenuRef.current
+                    ?.querySelector(".admin-navbar-mobile-list a[href]")
+                    ?.focus();
+                });
+              }
             }}
             aria-expanded={mobileOpen}
+            aria-controls={mobileMenuId}
             aria-label={mobileOpen ? "Đóng menu" : `Mở menu ${roleDescription}`}
           >
-            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+            {mobileOpen
+              ? <X size={22} aria-hidden="true" />
+              : <Menu size={22} aria-hidden="true" />}
           </button>
         </div>
       </div>

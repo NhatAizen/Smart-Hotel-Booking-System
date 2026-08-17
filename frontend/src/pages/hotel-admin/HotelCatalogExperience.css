@@ -1,0 +1,199 @@
+.catalog-experience {
+  width: min(1240px, 100%);
+}
+
+.catalog-experience__header {
+  align-items: center;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--color-border, #e1e8ef);
+}
+
+.catalog-experience__header .ui-page-header__main,
+.catalog-experience__header .ui-page-header__copy {
+  min-width: 0;
+}
+
+.catalog-experience__header .ui-page-header__description {
+  max-width: 720px;
+}
+
+.catalog-experience .catalog-card,
+.catalog-experience .catalog-hotel-card,
+.catalog-experience .catalog-type-card {
+  box-shadow: 0 12px 34px rgba(24, 48, 75, 0.055);
+}
+
+.catalog-experience .catalog-meta > svg {
+  flex: 0 0 auto;
+}
+
+.catalog-stay-times span {
+  min-width: 0;
+  line-height: 1.55;
+}
+
+.catalog-stay-times strong {
+  color: #304b65;
+  font-weight: 800;
+}
+
+.catalog-rejection-callout {
+  display: grid;
+  gap: 4px;
+  margin: 13px 0;
+  padding: 12px 14px;
+  color: #8f2635;
+  border: 1px solid #f0c7ce;
+  border-radius: 12px;
+  background: #fff5f6;
+  line-height: 1.5;
+}
+
+.catalog-rejection-callout strong {
+  font-size: 12px;
+}
+
+.catalog-rejection-callout span {
+  overflow-wrap: anywhere;
+  color: #79424b;
+  font-size: 13px;
+}
+
+.catalog-rejection-callout.compact {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+}
+
+.catalog-type-info .catalog-status {
+  position: static;
+  width: max-content;
+  max-width: 100%;
+  margin-top: 10px;
+}
+
+.room-detail-approval {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  margin: 12px 0 18px;
+}
+
+.room-detail-approval .catalog-rejection-callout {
+  width: 100%;
+}
+
+.catalog-experience .catalog-notice {
+  border-radius: 13px;
+  line-height: 1.55;
+}
+
+.catalog-experience .catalog-primary:focus-visible,
+.catalog-experience .catalog-secondary:focus-visible,
+.catalog-experience .catalog-danger:focus-visible,
+.catalog-experience .catalog-link-button:focus-visible,
+.catalog-experience .catalog-icon-button:focus-visible,
+.catalog-experience .hotel-cover-manager-close:focus-visible,
+.catalog-experience .catalog-image button:focus-visible,
+.catalog-experience .hotel-back-link:focus-visible {
+  outline: 3px solid rgba(7, 139, 215, 0.24);
+  outline-offset: 3px;
+}
+
+.catalog-experience .catalog-danger:disabled,
+.catalog-experience .catalog-link-button:disabled,
+.catalog-experience .catalog-image button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.catalog-experience .catalog-modal,
+.catalog-experience .hotel-location-manager,
+.catalog-experience .hotel-stay-time-manager,
+.catalog-experience .hotel-cover-manager,
+.catalog-experience .room-detail-modal {
+  overscroll-behavior: contain;
+}
+
+.catalog-experience .catalog-modal,
+.catalog-experience .room-detail-modal {
+  max-height: calc(100dvh - 40px);
+}
+
+@media (max-width: 720px) {
+  .catalog-experience__header {
+    align-items: stretch;
+  }
+
+  .catalog-experience__header .ui-page-header__actions,
+  .catalog-experience__header .catalog-primary,
+  .catalog-experience__header .hotel-back-link {
+    width: 100%;
+  }
+
+  .catalog-experience__header .catalog-primary,
+  .catalog-experience__header .hotel-back-link {
+    justify-content: center;
+  }
+
+  .catalog-hotels-page .catalog-card-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .catalog-hotels-page .catalog-card-actions > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .catalog-experience .catalog-modal-backdrop,
+  .catalog-experience .room-detail-backdrop {
+    padding: 0;
+  }
+
+  .catalog-experience .hotel-location-manager,
+  .catalog-experience .hotel-stay-time-manager,
+  .catalog-experience .hotel-cover-manager {
+    width: 100%;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .catalog-experience .catalog-modal,
+  .catalog-experience .room-detail-modal {
+    width: 100%;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .catalog-experience .room-detail-modal {
+    height: 100dvh;
+  }
+}
+
+@media (max-width: 440px) {
+  .catalog-hotels-page .catalog-card-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-hotels-page .catalog-card-actions > :last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+
+  .catalog-experience .catalog-counts {
+    gap: 6px;
+  }
+
+  .catalog-experience .catalog-counts div {
+    padding: 9px 5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-experience *,
+  .catalog-experience *::before,
+  .catalog-experience *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -2,7 +2,6 @@ import {
   BedDouble,
   Building2,
   Check,
-  CheckCircle2,
   Clock3,
   DoorOpen,
   Edit3,
@@ -14,13 +13,17 @@ import {
   Star,
   Trash2,
   X,
-  XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import Loading from "../../components/common/Loading";
 import HotelLocationPicker from "../../components/map/HotelLocationPicker";
+import {
+  EmptyState,
+  PageHeader,
+  StatusBadge,
+} from "../../components/ui";
 import {
   deleteHotel,
   deleteHotelImage,
@@ -31,17 +34,20 @@ import {
   updateHotel,
   uploadHotelImages,
 } from "../../services/hotelAdminService";
+import {
+  statusLabel,
+  statusTone,
+} from "../../utils/presentation";
 
 import "./HotelCatalogAdmin.css";
+import "./HotelCatalogExperience.css";
 import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 
 const HOTEL_CATALOG_CHANGED_KEY = "enziu:hotel-catalog-changed";
 
-const labels = {
-  DRAFT: "Bản nháp",
+const APPROVAL_LABELS = {
   PENDING: "Chờ duyệt",
-  APPROVED: "Đã duyệt",
-  REJECTED: "Bị từ chối",
+  REJECTED: "Đã từ chối",
 };
 
 function errorMessage(error) {
@@ -52,6 +58,19 @@ function resolveImageUrl(image) {
   if (!image) return "";
   if (typeof image === "string") return image;
   return image.imageUrl ?? image.url ?? image.fileUrl ?? image.publicUrl ?? "";
+}
+
+function approvalLabel(value) {
+  if (!value) return "Chưa cập nhật";
+  return statusLabel(value, APPROVAL_LABELS);
+}
+
+function stayTime(value) {
+  return value ? String(value).slice(0, 5) : "Chưa cập nhật";
+}
+
+function countValue(value) {
+  return value === null || value === undefined ? "—" : value;
 }
 
 
@@ -86,7 +105,7 @@ export default function MyHotelsPage() {
   const [timeHotel, setTimeHotel] = useState(null);
   const [locationHotel, setLocationHotel] = useState(null);
   const [locationDraft, setLocationDraft] = useState({ latitude: null, longitude: null });
-  const [timeForm, setTimeForm] = useState({ checkInTime: "14:00", checkOutTime: "12:00" });
+  const [timeForm, setTimeForm] = useState({ checkInTime: "", checkOutTime: "" });
   const [newFiles, setNewFiles] = useState([]);
 
   const previews = useMemo(
@@ -138,7 +157,7 @@ export default function MyHotelsPage() {
 
   async function handleDeleteHotel(hotel) {
     const confirmed = window.confirm(
-      `Xóa khách sạn "${hotel.name}" khỏi danh sách?\n\nKhách sạn sẽ ngừng hoạt động và không còn hiển thị cho khách hàng.`,
+      `Ngừng hoạt động khách sạn "${hotel.name}"?\n\nKhách sạn sẽ không còn hiển thị cho khách hàng.`,
     );
     if (!confirmed) return;
 
@@ -150,7 +169,7 @@ export default function MyHotelsPage() {
       await deleteHotel(hotel.id);
       window.localStorage.setItem(HOTEL_CATALOG_CHANGED_KEY, String(Date.now()));
       setHotels((current) => current.filter((item) => item.id !== hotel.id));
-      setMessage(`Đã xóa khách sạn "${hotel.name}" khỏi danh sách.`);
+      setMessage(`Đã ngừng hoạt động khách sạn "${hotel.name}".`);
     } catch (requestError) {
       setError(errorMessage(requestError));
     } finally {
@@ -184,8 +203,8 @@ export default function MyHotelsPage() {
   function openTimeManager(hotel) {
     setTimeHotel(hotel);
     setTimeForm({
-      checkInTime: String(hotel.checkInTime ?? "14:00").slice(0, 5),
-      checkOutTime: String(hotel.checkOutTime ?? "12:00").slice(0, 5),
+      checkInTime: hotel.checkInTime ? String(hotel.checkInTime).slice(0, 5) : "",
+      checkOutTime: hotel.checkOutTime ? String(hotel.checkOutTime).slice(0, 5) : "",
     });
     setError("");
     setMessage("");
@@ -225,8 +244,12 @@ export default function MyHotelsPage() {
         phone: locationHotel.phone ?? "",
         email: locationHotel.email ?? "",
         starRating: Number(locationHotel.starRating ?? 0),
-        checkInTime: String(locationHotel.checkInTime ?? "14:00").slice(0, 5),
-        checkOutTime: String(locationHotel.checkOutTime ?? "12:00").slice(0, 5),
+        checkInTime: locationHotel.checkInTime
+          ? String(locationHotel.checkInTime).slice(0, 5)
+          : null,
+        checkOutTime: locationHotel.checkOutTime
+          ? String(locationHotel.checkOutTime).slice(0, 5)
+          : null,
         amenities: Array.from(locationHotel.amenities ?? []),
         status: locationHotel.status ?? "ACTIVE",
       });
@@ -328,27 +351,34 @@ export default function MyHotelsPage() {
   if (loading) return <Loading message="Đang tải khách sạn của bạn..." />;
 
   return (
-    <div className="admin-page catalog-page">
-      <section className="catalog-heading">
-        <div>
-          <span className="catalog-kicker">QUẢN LÝ CƠ SỞ LƯU TRÚ</span>
-          <h1>Khách sạn của tôi</h1>
-          <p>Quản lý thông tin, hình ảnh, loại phòng và danh sách phòng.</p>
-        </div>
-        <Link to="/hotel-admin/hotels/create" className="catalog-primary">
-          <Plus size={18} /> Đăng ký khách sạn
-        </Link>
-      </section>
+    <div className="admin-page catalog-page catalog-experience catalog-hotels-page">
+      <PageHeader
+        className="catalog-heading catalog-experience__header"
+        eyebrow="QUẢN LÝ CƠ SỞ LƯU TRÚ"
+        title="Khách sạn của tôi"
+        description="Quản lý hồ sơ, hình ảnh, vị trí, loại phòng và trạng thái xét duyệt của từng cơ sở."
+        actions={(
+          <Link to="/hotel-admin/hotels/create" className="catalog-primary">
+            <Plus size={18} /> Đăng ký khách sạn
+          </Link>
+        )}
+      />
 
       {error ? <div className="catalog-notice error">{error}</div> : null}
       {message ? <div className="catalog-notice success">{message}</div> : null}
 
       {hotels.length === 0 ? (
-        <section className="catalog-card catalog-empty">
-          <Building2 size={48} />
-          <h2>Bạn chưa có khách sạn</h2>
-          <p>Hãy tạo hồ sơ khách sạn đầu tiên để bắt đầu kinh doanh.</p>
-        </section>
+        <EmptyState
+          className="catalog-card catalog-empty"
+          icon={<Building2 size={48} />}
+          title="Bạn chưa có khách sạn"
+          description="Tạo hồ sơ cơ sở lưu trú đầu tiên để bắt đầu thiết lập loại phòng và vận hành."
+          actions={(
+            <Link to="/hotel-admin/hotels/create" className="catalog-primary">
+              <Plus size={18} /> Đăng ký khách sạn
+            </Link>
+          )}
+        />
       ) : (
         <section className="catalog-hotel-grid">
           {hotels.map((hotel) => (
@@ -357,21 +387,33 @@ export default function MyHotelsPage() {
                 {hotel.coverImageUrl ? <img src={hotel.coverImageUrl} alt={hotel.name} /> : (
                   <div className="catalog-hotel-cover-empty"><ImageIcon size={44} /></div>
                 )}
-                <span className={`catalog-status ${hotel.approvalStatus?.toLowerCase() ?? "draft"}`}>
-                  {hotel.approvalStatus === "APPROVED" ? <CheckCircle2 size={13} /> : hotel.approvalStatus === "REJECTED" ? <XCircle size={13} /> : <Clock3 size={13} />}
-                  {" "}{labels[hotel.approvalStatus] ?? hotel.approvalStatus}
-                </span>
+                <StatusBadge
+                  className="catalog-status"
+                  status={hotel.approvalStatus}
+                  label={approvalLabel(hotel.approvalStatus)}
+                  tone={statusTone(hotel.approvalStatus)}
+                  size="sm"
+                />
               </div>
 
               <div className="catalog-hotel-body">
                 <h2>{hotel.name}</h2>
-                <div className="catalog-meta"><MapPin size={16} />{[hotel.address, hotel.ward, hotel.district, hotel.city].filter(Boolean).join(", ")}</div>
+                <div className="catalog-meta"><MapPin size={16} />{[hotel.address, hotel.ward, hotel.district, hotel.city].filter(Boolean).join(", ") || "Chưa cập nhật địa chỉ"}</div>
                 <div className="catalog-meta"><Star size={16} />{hotel.starRating ? `${hotel.starRating} sao` : "Chưa xếp hạng"}</div>
-                <div className="catalog-meta"><Clock3 size={16} />Nhận từ {String(hotel.checkInTime ?? "14:00").slice(0, 5)} · Trả trước {String(hotel.checkOutTime ?? "12:00").slice(0, 5)}</div>
+                <div className="catalog-meta catalog-stay-times">
+                  <Clock3 size={16} />
+                  <span>Nhận phòng: <strong>{stayTime(hotel.checkInTime)}</strong> · Trả phòng: <strong>{stayTime(hotel.checkOutTime)}</strong></span>
+                </div>
+                {hotel.approvalStatus === "REJECTED" ? (
+                  <div className="catalog-rejection-callout" role="status">
+                    <strong>Lý do từ chối</strong>
+                    <span>{hotel.rejectionReason || "Chưa cập nhật"}</span>
+                  </div>
+                ) : null}
                 <div className="catalog-counts">
-                  <div><strong>{hotel.images?.length ?? 0}</strong><small>Hình ảnh</small></div>
-                  <div><strong>{hotel.roomTypeCount ?? 0}</strong><small>Loại phòng</small></div>
-                  <div><strong>{hotel.roomCount ?? 0}</strong><small>Phòng</small></div>
+                  <div><strong>{Array.isArray(hotel.images) ? hotel.images.length : "—"}</strong><small>Hình ảnh</small></div>
+                  <div><strong>{countValue(hotel.roomTypeCount)}</strong><small>Loại phòng</small></div>
+                  <div><strong>{countValue(hotel.roomCount)}</strong><small>Phòng</small></div>
                 </div>
                 <div className="catalog-card-actions">
                   <button type="button" className="catalog-link-button" onClick={() => openImageManager(hotel.id)} disabled={busyId === hotel.id}>
@@ -388,7 +430,7 @@ export default function MyHotelsPage() {
                     disabled={busyId === `delete-${hotel.id}`}
                   >
                     <Trash2 size={16} />
-                    {busyId === `delete-${hotel.id}` ? "Đang xóa..." : "Xóa"}
+                    {busyId === `delete-${hotel.id}` ? "Đang xử lý..." : "Ngừng hoạt động"}
                   </button>
                   {["DRAFT", "REJECTED"].includes(hotel.approvalStatus) ? (
                     <button type="button" className="catalog-primary" onClick={() => handleSubmit(hotel.id)} disabled={busyId === hotel.id}>
@@ -403,14 +445,14 @@ export default function MyHotelsPage() {
       )}
 
       {locationHotel ? (
-        <div className="room-detail-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setLocationHotel(null)}>
-          <form className="catalog-card hotel-location-manager" onSubmit={saveLocation}>
-            <button type="button" className="hotel-cover-manager-close" onClick={() => setLocationHotel(null)}><X size={20} /></button>
+        <div className="room-detail-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setLocationHotel(null)}>
+          <form className="catalog-card hotel-location-manager" onSubmit={saveLocation} role="dialog" aria-modal="true" aria-labelledby="hotel-location-title">
+            <button type="button" className="hotel-cover-manager-close" onClick={() => setLocationHotel(null)} aria-label="Đóng hộp thoại vị trí"><X size={20} /></button>
             <div className="catalog-section-title">
               <span><MapPin size={22} /></span>
               <div>
-                <h2>Vị trí bản đồ của {locationHotel.name}</h2>
-                <p>Không tự tin vào kết quả định vị thì hãy bấm trực tiếp đúng vị trí. Tọa độ bạn xác nhận sẽ được ưu tiên tuyệt đối.</p>
+                <h2 id="hotel-location-title">Vị trí bản đồ của {locationHotel.name}</h2>
+                <p>Nếu kết quả định vị chưa chính xác, hãy chọn trực tiếp đúng vị trí trên bản đồ trước khi lưu.</p>
               </div>
             </div>
 
@@ -436,12 +478,12 @@ export default function MyHotelsPage() {
       ) : null}
 
       {timeHotel ? (
-        <div className="room-detail-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setTimeHotel(null)}>
-          <form className="catalog-card hotel-stay-time-manager" onSubmit={saveStayTimes}>
-            <button type="button" className="hotel-cover-manager-close" onClick={() => setTimeHotel(null)}><X size={20} /></button>
+        <div className="room-detail-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setTimeHotel(null)}>
+          <form className="catalog-card hotel-stay-time-manager" onSubmit={saveStayTimes} role="dialog" aria-modal="true" aria-labelledby="hotel-stay-time-title">
+            <button type="button" className="hotel-cover-manager-close" onClick={() => setTimeHotel(null)} aria-label="Đóng hộp thoại giờ nhận trả phòng"><X size={20} /></button>
             <div className="catalog-section-title">
               <span><Clock3 size={22} /></span>
-              <div><h2>Giờ nhận và trả phòng</h2><p>{timeHotel.name}</p></div>
+              <div><h2 id="hotel-stay-time-title">Giờ nhận và trả phòng</h2><p>{timeHotel.name}</p></div>
             </div>
             <div className="hotel-stay-time-grid">
               <label className="catalog-field">
@@ -463,12 +505,12 @@ export default function MyHotelsPage() {
       ) : null}
 
       {editingHotel ? (
-        <div className="room-detail-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setEditingHotel(null)}>
-          <section className="catalog-card hotel-cover-manager">
-            <button type="button" className="hotel-cover-manager-close" onClick={() => setEditingHotel(null)}><X size={20} /></button>
+        <div className="room-detail-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditingHotel(null)}>
+          <section className="catalog-card hotel-cover-manager" role="dialog" aria-modal="true" aria-labelledby="hotel-cover-manager-title">
+            <button type="button" className="hotel-cover-manager-close" onClick={() => setEditingHotel(null)} aria-label="Đóng trình quản lý ảnh"><X size={20} /></button>
             <div className="catalog-section-title">
               <span><ImageIcon size={22} /></span>
-              <div><h2>Chọn ảnh đại diện cho {editingHotel.name}</h2><p>Ảnh được đánh dấu “Ảnh bìa” sẽ xuất hiện ngoài trang danh sách khách sạn.</p></div>
+              <div><h2 id="hotel-cover-manager-title">Chọn ảnh đại diện cho {editingHotel.name}</h2><p>Ảnh được đánh dấu “Ảnh bìa” sẽ xuất hiện ngoài trang danh sách khách sạn.</p></div>
             </div>
 
             <div className="catalog-image-grid">
@@ -478,7 +520,7 @@ export default function MyHotelsPage() {
                   {image.isCover ? <span className="catalog-image-cover"><Check size={13} /> Ảnh bìa</span> : (
                     <button type="button" className="catalog-set-cover" onClick={() => chooseCover(image.id)} disabled={busyId === image.id}>Đặt làm ảnh bìa</button>
                   )}
-                  <button type="button" className="catalog-delete-image" onClick={() => removeImage(image.id)} disabled={busyId === image.id}><Trash2 size={15} /></button>
+                  <button type="button" className="catalog-delete-image" onClick={() => removeImage(image.id)} disabled={busyId === image.id} aria-label={`Xóa ảnh của ${editingHotel.name}`}><Trash2 size={15} /></button>
                 </div>
               ))}
             </div>
