@@ -14,6 +14,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 import { resolveNotificationTarget } from "../../utils/notificationNavigation";
+import { normalizeEnum } from "../../utils/presentation";
 import {
   getMyNotifications,
   markAllNotificationsRead,
@@ -55,6 +56,7 @@ export default function NotificationBell({ admin = false }) {
   const navigate = useNavigate();
   const location = useLocation();
   const rootRef = useRef(null);
+  const triggerRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -90,9 +92,23 @@ export default function NotificationBell({ admin = false }) {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function closeOnEscape(event) {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      triggerRef.current?.focus();
+    }
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [open]);
+
   const unread = useMemo(() => items.filter((item) => !item.read).length, [items]);
   const preview = items.slice(0, 5);
-  const page = ROLE_PAGE[userRole] ?? "/";
+  const normalizedRole = normalizeEnum(userRole);
+  const page = ROLE_PAGE[normalizedRole] ?? "/";
 
   async function openItem(item) {
     if (!item.read) {
@@ -104,7 +120,7 @@ export default function NotificationBell({ admin = false }) {
       }
     }
     setOpen(false);
-    const target = resolveNotificationTarget(item, userRole);
+    const target = resolveNotificationTarget(item, normalizedRole);
     if (target) navigate(target);
   }
 
@@ -122,10 +138,14 @@ export default function NotificationBell({ admin = false }) {
   return (
     <div className={`notification-bell-root ${admin ? "admin" : ""}`} ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         className={admin ? "admin-notification-button notification-bell-button" : "nav-icon-button notification-bell-button"}
         title="Thông báo"
         aria-label={`Thông báo${unread ? `, ${unread} chưa đọc` : ""}`}
+        aria-expanded={open}
+        aria-controls="notification-popover"
+        aria-haspopup="dialog"
         onClick={() => setOpen((current) => !current)}
       >
         <Bell size={20} />
@@ -133,7 +153,12 @@ export default function NotificationBell({ admin = false }) {
       </button>
 
       {open ? (
-        <section className="notification-popover">
+        <section
+          className="notification-popover"
+          id="notification-popover"
+          role="dialog"
+          aria-label="Thông báo gần đây"
+        >
           <header>
             <div>
               <strong>Thông báo</strong>

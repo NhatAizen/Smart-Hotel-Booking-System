@@ -169,7 +169,7 @@ export default function RegisterPage() {
               <span>Họ và tên</span>
               <div className="auth-input-wrap">
                 <UserRound size={19} />
-                <input type="text" name="fullName" value={form.fullName} onChange={handleChange} placeholder="Nguyễn Văn A" autoComplete="name" required />
+                <input type="text" name="fullName" value={form.fullName} onChange={handleChange} placeholder="Nhập họ và tên" autoComplete="name" required />
               </div>
             </label>
 

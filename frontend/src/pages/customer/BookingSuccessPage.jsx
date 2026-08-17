@@ -11,6 +11,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
+import { StatusBadge } from "../../components/ui";
 import {
   getBooking,
   getBookingQrBlob,
@@ -145,9 +146,16 @@ export default function BookingSuccessPage() {
                 <div>
                   <small>Mã booking</small>
                   <strong>{booking.bookingCode}</strong>
-                  <span>
-                    {booking.checkIn} → {booking.checkOut} · {booking.status}
-                  </span>
+                  <div className="booking-success-booking-meta">
+                    <span className="booking-success-stay-dates">
+                      {booking.checkIn} → {booking.checkOut}
+                    </span>
+                    <StatusBadge
+                      status={booking.status}
+                      size="sm"
+                      className="booking-success-status"
+                    />
+                  </div>
                 </div>
                 <div className="booking-checkin-qr">
                   <BookingQrImage booking={booking} />

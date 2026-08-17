@@ -32,7 +32,7 @@ import {
 import "./CustomerHotelChat.css";
 
 function formatDate(value) {
-  if (!value) return "--";
+  if (!value) return "Chưa cập nhật";
 
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
@@ -381,7 +381,7 @@ export default function CustomerHotelChat({
       className="hotel-chat-box"
       role="dialog"
       aria-modal="false"
-      aria-label={`Chat với ${conversation?.hotelName ?? hotel?.name ?? "khách sạn"}`}
+      aria-labelledby="hotel-chat-title"
     >
       <header className="hotel-chat-header">
         <div className="hotel-chat-avatar">
@@ -389,9 +389,9 @@ export default function CustomerHotelChat({
         </div>
 
         <div className="hotel-chat-header-copy">
-          <h2>{conversation?.hotelName ?? hotel?.name ?? "Khách sạn"}</h2>
+          <h2 id="hotel-chat-title">{conversation?.hotelName ?? hotel?.name ?? "Khách sạn"}</h2>
           <p>
-            <span className="hotel-chat-online-dot" />
+            <span className="hotel-chat-online-dot" aria-hidden="true" />
             {conversation?.humanTakeover
               ? "Nhân viên đang hỗ trợ trực tiếp"
               : "Trợ lý tự động đang trực tuyến"}
@@ -412,20 +412,20 @@ export default function CustomerHotelChat({
         <div className="hotel-chat-booking-strip">
           <div>
             <small>Booking</small>
-            <strong>{conversation?.bookingCode ?? booking?.bookingCode ?? "--"}</strong>
+            <strong>{conversation?.bookingCode ?? booking?.bookingCode ?? "Chưa có mã"}</strong>
           </div>
           <div>
             <small>Nhận phòng</small>
             <strong>
               {formatDate(conversation?.checkIn ?? booking?.checkIn)} ·{" "}
-              {formatTime(conversation?.checkInTime, "14:00")}
+              {formatTime(conversation?.checkInTime, "Chưa cập nhật")}
             </strong>
           </div>
           <div>
             <small>Trả phòng</small>
             <strong>
               {formatDate(conversation?.checkOut ?? booking?.checkOut)} ·{" "}
-              {formatTime(conversation?.checkOutTime, "12:00")}
+              {formatTime(conversation?.checkOutTime, "Chưa cập nhật")}
             </strong>
           </div>
         </div>
@@ -436,7 +436,13 @@ export default function CustomerHotelChat({
         </div>
       )}
 
-      <div className="hotel-chat-messages" ref={scrollRef}>
+      <div
+        className="hotel-chat-messages"
+        ref={scrollRef}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
+      >
         {loading ? (
           <div className="hotel-chat-loading">
             <LoaderCircle size={24} className="spin" />
@@ -507,6 +513,7 @@ export default function CustomerHotelChat({
               type="button"
               disabled={actionBusy}
               onClick={() => setArrivalLateOpen((current) => !current)}
+              aria-expanded={arrivalLateOpen}
             >
               Đến trễ
             </button>
@@ -514,6 +521,7 @@ export default function CustomerHotelChat({
               type="button"
               disabled={actionBusy}
               onClick={() => setLateCheckoutOpen((current) => !current)}
+              aria-expanded={lateCheckoutOpen}
             >
               Trả muộn
             </button>
@@ -532,6 +540,7 @@ export default function CustomerHotelChat({
                 type="time"
                 value={expectedArrivalTime}
                 onChange={(event) => setExpectedArrivalTime(event.target.value)}
+                aria-label="Giờ dự kiến đến khách sạn"
                 required
               />
               <button type="submit" disabled={actionBusy}>
@@ -546,6 +555,7 @@ export default function CustomerHotelChat({
                 type="time"
                 value={lateCheckoutTime}
                 onChange={(event) => setLateCheckoutTime(event.target.value)}
+                aria-label="Giờ trả phòng muộn mong muốn"
                 required
               />
               <input
@@ -553,6 +563,7 @@ export default function CustomerHotelChat({
                 value={lateCheckoutNote}
                 onChange={(event) => setLateCheckoutNote(event.target.value)}
                 placeholder="Lý do (không bắt buộc)"
+                aria-label="Lý do xin trả phòng muộn"
                 maxLength={240}
               />
               <button type="submit" disabled={actionBusy}>
@@ -576,7 +587,7 @@ export default function CustomerHotelChat({
         ))}
       </div>
 
-      {error ? <div className="hotel-chat-error">{error}</div> : null}
+      {error ? <div className="hotel-chat-error" role="alert">{error}</div> : null}
 
       <form className="hotel-chat-composer" onSubmit={sendMessage}>
         <textarea
@@ -589,6 +600,7 @@ export default function CustomerHotelChat({
             }
           }}
           placeholder="Nhắn tin cho khách sạn..."
+          aria-label="Nội dung tin nhắn"
           rows={1}
           maxLength={1200}
           disabled={!conversationId || sending}

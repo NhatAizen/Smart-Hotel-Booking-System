@@ -1,0 +1,210 @@
+.customer-account-page .ui-page-header,
+.customer-wallet-page .ui-page-header {
+  margin-bottom: var(--space-6, 24px);
+}
+
+.customer-payment-panel {
+  overflow: hidden;
+}
+
+.customer-payment-panel .ui-panel__header {
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--color-border-subtle, #e7edf3);
+}
+
+.customer-payment-panel .ui-panel__body {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.customer-payment-panel .ui-panel__footer {
+  padding: 4px 16px 18px;
+}
+
+.customer-payment-row {
+  min-width: 0;
+  background: var(--color-surface, #fff);
+  transition: border-color var(--transition-fast, 160ms ease),
+    box-shadow var(--transition-fast, 160ms ease),
+    transform var(--transition-fast, 160ms ease);
+}
+
+.customer-payment-row:hover {
+  border-color: var(--color-border-strong, #cbd9e6);
+  box-shadow: var(--shadow-xs, 0 4px 14px rgba(18, 43, 68, 0.06));
+  transform: translateY(-1px);
+}
+
+.customer-payment-row__icon {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--color-primary-700, #0874bc);
+  background: var(--color-primary-50, #eef8ff);
+}
+
+.customer-payment-row__copy {
+  min-width: 0;
+}
+
+.customer-payment-row__copy span,
+.customer-payment-row__copy small {
+  overflow-wrap: anywhere;
+}
+
+.customer-payment-row > .ui-badge,
+.customer-payment-row > .ui-badge span {
+  flex: 0 0 auto;
+  color: inherit;
+}
+
+.customer-wallet-page .wallet-panel > .ui-pagination {
+  padding: 14px 16px 16px;
+}
+
+.customer-wallet-page .ui-empty-state {
+  margin-top: 22px;
+  border: 1px solid var(--color-border-subtle, #e7edf3);
+  background: var(--color-surface, #fff);
+}
+
+.favorite-stars-unavailable {
+  color: var(--color-text-muted, #74869a);
+  font-size: 0.75rem;
+}
+
+.review-lightbox-modal {
+  width: min(960px, calc(100vw - 32px));
+}
+
+.review-lightbox-modal__body {
+  display: grid;
+  max-height: calc(100vh - 190px);
+  place-items: center;
+  padding: 0;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.review-lightbox-modal__body img {
+  display: block;
+  width: 100%;
+  max-height: calc(100vh - 190px);
+  object-fit: contain;
+}
+
+.booking-v2-content > .ui-pagination,
+.customer-collection-page .ui-pagination,
+.notification-center > .ui-pagination {
+  margin-top: 20px;
+}
+
+@media (max-width: 720px) {
+  .customer-payment-panel .ui-panel__header {
+    padding: 18px;
+  }
+
+  .customer-payment-panel .ui-panel__body {
+    padding: 12px;
+  }
+
+  .customer-payment-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .customer-payment-row > .ui-badge {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .customer-wallet-page .wallet-table-wrap {
+    overflow: visible;
+  }
+
+  .customer-wallet-page .wallet-table {
+    min-width: 0;
+  }
+
+  .customer-wallet-page .wallet-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .customer-wallet-page .wallet-table tbody,
+  .customer-wallet-page .wallet-table tr,
+  .customer-wallet-page .wallet-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .customer-wallet-page .wallet-table tbody {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .customer-wallet-page .wallet-table tr {
+    overflow: hidden;
+    border: 1px solid var(--color-border-subtle, #e4ebf2);
+    border-radius: 14px;
+    background: #fff;
+  }
+
+  .customer-wallet-page .wallet-table td {
+    display: grid;
+    grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 11px 13px;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .customer-wallet-page .wallet-table td::before {
+    content: attr(data-label);
+    color: var(--color-text-muted, #6d7f92);
+    font-size: 0.75rem;
+    font-weight: 750;
+    text-align: left;
+  }
+
+  .customer-wallet-page .wallet-table td.wallet-empty {
+    display: block;
+    text-align: center;
+  }
+
+  .customer-wallet-page .wallet-table td.wallet-empty::before {
+    content: none;
+  }
+
+  .review-lightbox-modal {
+    width: min(100% - 16px, 960px);
+  }
+
+  .review-lightbox-modal__body,
+  .review-lightbox-modal__body img {
+    max-height: calc(100vh - 160px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-payment-row {
+    transition: none;
+  }
+
+  .customer-payment-row:hover {
+    transform: none;
+  }
+}

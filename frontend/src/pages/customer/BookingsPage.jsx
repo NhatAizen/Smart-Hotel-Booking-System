@@ -33,6 +33,12 @@ import { useAuth } from "../../auth/AuthContext";
 import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
+import {
+  ConfirmDialog,
+  EmptyState,
+  Pagination,
+  StatusBadge,
+} from "../../components/ui";
 import ReviewFormModal from "../../components/review/ReviewFormModal";
 import CustomerHotelChat from "../../components/chat/CustomerHotelChat";
 import {
@@ -55,7 +61,11 @@ import {
 } from "../../services/paymentService";
 import { getCustomerConversations } from "../../services/chatService";
 import { scrollToHashTarget } from "../../utils/notificationNavigation";
+import { normalizeEnum, STATUS_LABELS } from "../../utils/presentation";
+import "./CustomerAccountExperience.css";
 import "./BookingsPage.css";
+
+const PAGE_SIZE = 6;
 
 const FILTERS = [
   { value: "ALL", label: "Tất cả" },
@@ -67,13 +77,16 @@ const FILTERS = [
 ];
 
 function money(value) {
-  return `${Number(value ?? 0).toLocaleString("vi-VN")} ₫`;
+  if (value === null || value === undefined || value === "") return "—";
+  const amount = Number(value);
+  return Number.isFinite(amount) ? `${amount.toLocaleString("vi-VN")} ₫` : "—";
 }
 
 function formatDate(value) {
   if (!value) return "--";
 
   const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "Chưa xác định";
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
@@ -83,14 +96,15 @@ function formatDate(value) {
 
 function formatDateTime(value) {
   if (!value) return "--";
-
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Chưa xác định";
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function formatTime(value, fallback) {
@@ -99,47 +113,36 @@ function formatTime(value, fallback) {
 }
 
 function nightsBetween(checkIn, checkOut) {
-  if (!checkIn || !checkOut) return 0;
+  if (!checkIn || !checkOut) return null;
   const start = new Date(`${checkIn}T00:00:00`).getTime();
   const end = new Date(`${checkOut}T00:00:00`).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
   return Math.max(0, Math.round((end - start) / 86_400_000));
 }
 
 function paymentOptionLabel(value, depositPercent) {
   if (value === "PAY_AT_HOTEL") return "Thanh toán tại khách sạn";
-  if (value === "DEPOSIT") return `Đặt cọc ${depositPercent ?? 30}%`;
+  if (value === "DEPOSIT") {
+    return depositPercent == null ? "Đặt cọc" : `Đặt cọc ${depositPercent}%`;
+  }
   if (value === "FULL_PAYMENT") return "Thanh toán toàn bộ";
-  return value ?? "Chưa xác định";
+  return "Chưa xác định";
 }
 
 function statusLabel(value) {
-  return (
-    {
-      PENDING: "Chờ xác nhận",
-      PENDING_PAYMENT: "Chờ thanh toán",
-      CONFIRMED: "Đã xác nhận",
-      CHECKED_IN: "Đang lưu trú",
-      CHECKED_OUT: "Đã trả phòng",
-      NO_SHOW: "Không đến nhận phòng",
-      CANCELLED: "Đã hủy",
-    }[value] ?? value
-  );
-}
-
-function statusTone(value) {
-  if (value === "CONFIRMED") return "confirmed";
-  if (value === "CHECKED_IN") return "staying";
-  if (value === "CHECKED_OUT") return "completed";
-  if (value === "NO_SHOW") return "no-show";
-  if (value === "CANCELLED") return "cancelled";
-  return "pending";
+  const normalized = normalizeEnum(value);
+  if (normalized === "PENDING") return "Chờ xác nhận";
+  if (normalized === "NO_SHOW") return "Không đến nhận phòng";
+  return STATUS_LABELS[normalized] ?? "Chưa xác định";
 }
 
 function paymentStatusLabel(value, booking = null) {
   if (value === "PARTIALLY_PAID") {
     // Chỉ gọi là "Đã đặt cọc" khi booking thực sự chọn hình thức đặt cọc.
     if (booking?.paymentOption === "DEPOSIT") {
-      return `Đã đặt cọc ${booking.depositPercent ?? 30}%`;
+      return booking.depositPercent == null
+        ? "Đã đặt cọc"
+        : `Đã đặt cọc ${booking.depositPercent}%`;
     }
 
     // Các khoản còn thiếu phát sinh sau đó (ví dụ trả phòng trễ/ở thêm)
@@ -157,7 +160,7 @@ function paymentStatusLabel(value, booking = null) {
       PAID: "Đã thanh toán đủ",
       FAILED: "Thanh toán thất bại",
       REFUNDED: "Đã hoàn tiền",
-    }[value] ?? value
+    }[normalizeEnum(value)] ?? "Chưa xác định"
   );
 }
 
@@ -222,7 +225,14 @@ function refundStatusLabel(value) {
     PARTIALLY_COMPLETED: "Đã hoàn một phần",
     COMPLETED: "Đã hoàn tất",
     REJECTED: "Bị từ chối",
-  }[value] ?? value);
+  }[normalizeEnum(value)] ?? "Chưa xác định");
+}
+
+function guestSummary(adults, children) {
+  const parts = [];
+  if (adults != null) parts.push(`${adults} người lớn`);
+  if (children != null) parts.push(`${children} trẻ em`);
+  return parts.length ? parts.join(" · ") : "Chưa cập nhật";
 }
 
 export default function BookingsPage() {
@@ -247,6 +257,8 @@ export default function BookingsPage() {
   const [refundBooking, setRefundBooking] = useState(null);
   const [refundBusy, setRefundBusy] = useState(false);
   const [refundProofUrl, setRefundProofUrl] = useState("");
+  const [page, setPage] = useState(1);
+  const [pendingAction, setPendingAction] = useState(null);
   const [refundForm, setRefundForm] = useState({
     reasonCode: "CANNOT_ARRIVE",
     note: "",
@@ -298,7 +310,11 @@ export default function BookingsPage() {
   }, []);
 
   const loadBookings = useCallback(async () => {
-    if (!customerId) return;
+    if (!customerId) {
+      setLoading(false);
+      setError("Không xác định được tài khoản để tải đơn đặt phòng.");
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -470,18 +486,30 @@ export default function BookingsPage() {
     () => bookings.filter((booking) => bookingMatchesFilter(booking, filter)),
     [bookings, filter],
   );
+  const totalPages = Math.max(1, Math.ceil(filteredBookings.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const visibleBookings = useMemo(
+    () => filteredBookings.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filteredBookings, safePage],
+  );
 
-  const summary = useMemo(() => ({
-    total: bookings.length,
-    upcoming: bookings.filter((booking) =>
-      ["PENDING", "PENDING_PAYMENT", "CONFIRMED"].includes(booking.status),
-    ).length,
-    staying: bookings.filter((booking) => booking.status === "CHECKED_IN").length,
-    remaining: bookings.reduce(
-      (total, booking) => total + Number(booking.remainingAmount ?? 0),
-      0,
-    ),
-  }), [bookings]);
+  const summary = useMemo(() => {
+    const remainingAmounts = bookings.map((booking) => (
+      booking.remainingAmount == null ? null : Number(booking.remainingAmount)
+    ));
+    const hasCompleteRemainingData = remainingAmounts.every(Number.isFinite);
+
+    return {
+      total: bookings.length,
+      upcoming: bookings.filter((booking) =>
+        ["PENDING", "PENDING_PAYMENT", "CONFIRMED"].includes(booking.status),
+      ).length,
+      staying: bookings.filter((booking) => booking.status === "CHECKED_IN").length,
+      remaining: hasCompleteRemainingData
+        ? remainingAmounts.reduce((total, amount) => total + amount, 0)
+        : null,
+    };
+  }, [bookings]);
 
   async function openDetails(booking) {
     setSelectedBooking(booking);
@@ -531,17 +559,13 @@ export default function BookingsPage() {
   }
 
   async function handleCancel(booking) {
-    const accepted = window.confirm(
-      `Bạn có chắc muốn hủy booking ${booking.bookingCode}?`,
-    );
-    if (!accepted) return;
-
     setWorkingId(booking.id);
     setError("");
 
     try {
       await cancelBooking(booking.id);
       await loadBookings();
+      setPendingAction(null);
     } catch (requestError) {
       setError(
         requestError.response?.data?.message ?? "Không thể hủy booking.",
@@ -552,11 +576,6 @@ export default function BookingsPage() {
   }
 
   async function handleHide(booking) {
-    const accepted = window.confirm(
-      "Ẩn đơn này khỏi danh sách của bạn? Đơn vẫn được lưu trong lịch sử để tra cứu khi cần.",
-    );
-    if (!accepted) return;
-
     setWorkingId(booking.id);
     setError("");
 
@@ -568,6 +587,7 @@ export default function BookingsPage() {
         delete next[booking.id];
         return next;
       });
+      setPendingAction(null);
     } catch (requestError) {
       setError(
         requestError.response?.data?.message
@@ -630,7 +650,7 @@ export default function BookingsPage() {
           </button>
         </section>
 
-        <section className="booking-v2-summary">
+        {!error || bookings.length > 0 ? <section className="booking-v2-summary">
           <article>
             <span><ReceiptText size={21} /></span>
             <div><small>Tổng booking</small><strong>{summary.total}</strong></div>
@@ -647,9 +667,9 @@ export default function BookingsPage() {
             <span><CircleDollarSign size={21} /></span>
             <div><small>Còn phải thanh toán</small><strong>{money(summary.remaining)}</strong></div>
           </article>
-        </section>
+        </section> : null}
 
-        <ErrorMessage message={error} />
+        <ErrorMessage message={error} onRetry={() => void loadBookings()} />
 
         <section className="booking-v2-content" id="booking-list">
           <div className="booking-v2-toolbar">
@@ -663,13 +683,19 @@ export default function BookingsPage() {
             </div>
           </div>
 
-          <div className="booking-v2-filters" role="tablist">
+          <div className="booking-v2-filters" role="tablist" aria-label="Lọc đơn đặt phòng">
             {FILTERS.map((item) => (
               <button
                 key={item.value}
                 type="button"
                 className={filter === item.value ? "active" : ""}
-                onClick={() => setFilter(item.value)}
+                onClick={() => {
+                  setFilter(item.value);
+                  setPage(1);
+                }}
+                role="tab"
+                aria-selected={filter === item.value}
+                aria-controls="booking-results"
               >
                 {item.label}
               </button>
@@ -677,15 +703,22 @@ export default function BookingsPage() {
           </div>
 
           {filteredBookings.length === 0 ? (
-            <div className="booking-v2-empty">
-              <Hotel size={48} />
-              <h2>Chưa có đơn phù hợp</h2>
-              <p>Thử chọn trạng thái khác hoặc tìm một khách sạn cho chuyến đi mới.</p>
-              <Link to="/hotels">Tìm khách sạn</Link>
-            </div>
+            <EmptyState
+              className="booking-v2-empty"
+              icon={<Hotel size={32} />}
+              title={error && bookings.length === 0
+                ? "Chưa thể hiển thị đơn đặt phòng"
+                : "Chưa có đơn phù hợp"}
+              description={error && bookings.length === 0
+                ? "Dữ liệu đơn đặt phòng chưa tải được. Hãy thử lại khi kết nối ổn định."
+                : "Thử chọn trạng thái khác hoặc tìm một khách sạn cho chuyến đi mới."}
+              actions={!(error && bookings.length === 0)
+                ? <Link to="/hotels">Tìm khách sạn</Link>
+                : undefined}
+            />
           ) : (
-            <div className="booking-v2-list">
-              {filteredBookings.map((booking) => {
+            <div className="booking-v2-list" id="booking-results" role="tabpanel">
+              {visibleBookings.map((booking) => {
                 const itemMeta = metadata[booking.id] ?? {};
                 const hotel = itemMeta.hotel;
                 const room = itemMeta.room;
@@ -705,49 +738,55 @@ export default function BookingsPage() {
                         </div>
                       )}
 
-                      <span className={`booking-v2-status ${statusTone(booking.status)}`}>
-                        {statusLabel(booking.status)}
-                      </span>
+                      <StatusBadge
+                        className="booking-v2-status"
+                        status={booking.status}
+                        label={statusLabel(booking.status)}
+                        size="sm"
+                      />
                     </div>
 
                     <div className="booking-v2-main">
                       <div className="booking-v2-title-row">
                         <div>
                           <span className="booking-v2-code">
-                            {booking.bookingCode ?? booking.id}
+                            {booking.bookingCode ?? "Chưa có mã đặt phòng"}
                           </span>
-                          <h3>{hotel?.name ?? "Khách sạn EnziuRooms"}</h3>
+                          <h3>{hotel?.name ?? "Không thể tải thông tin khách sạn"}</h3>
                           <p>
                             <MapPin size={15} />
                             {hotel?.city ?? hotel?.address ?? "Thông tin địa điểm đang cập nhật"}
                           </p>
                         </div>
 
-                        <span className={`booking-v2-payment-state ${booking.paymentStatus?.toLowerCase()}`}>
-                          {paymentStatusLabel(booking.paymentStatus, booking)}
-                        </span>
+                        <StatusBadge
+                          className="booking-v2-payment-state"
+                          status={booking.paymentStatus}
+                          label={paymentStatusLabel(booking.paymentStatus, booking)}
+                          size="sm"
+                        />
                       </div>
 
                       <div className="booking-v2-facts">
                         <div>
                           <CalendarDays size={17} />
-                          <span>Nhận phòng từ {formatTime(hotel?.checkInTime, "14:00")}</span>
+                          <span>Nhận phòng từ {formatTime(hotel?.checkInTime, "Chưa cập nhật")}</span>
                           <strong>{formatDate(booking.checkIn)}</strong>
                         </div>
                         <div>
                           <CalendarDays size={17} />
-                          <span>Trả phòng trước {formatTime(hotel?.checkOutTime, "12:00")}</span>
+                          <span>Trả phòng trước {formatTime(hotel?.checkOutTime, "Chưa cập nhật")}</span>
                           <strong>{formatDate(booking.checkOut)}</strong>
                         </div>
                         <div>
                           <BedDouble size={17} />
                           <span>Phòng</span>
-                          <strong>{roomType?.name ?? room?.roomNumber ?? "Đang cập nhật"}</strong>
+                          <strong>{roomType?.name ?? room?.roomNumber ?? "Không thể tải thông tin phòng"}</strong>
                         </div>
                         <div>
                           <Users size={17} />
                           <span>Khách</span>
-                          <strong>{booking.adults ?? 1} người lớn · {booking.children ?? 0} trẻ em</strong>
+                          <strong>{guestSummary(booking.adults, booking.children)}</strong>
                         </div>
                       </div>
 
@@ -818,7 +857,7 @@ export default function BookingsPage() {
                           type="button"
                           className="booking-v2-cancel-action"
                           disabled={working}
-                          onClick={() => void handleCancel(booking)}
+                          onClick={() => setPendingAction({ type: "cancel", booking })}
                         >
                           <XCircle size={17} />
                           Hủy booking
@@ -866,7 +905,7 @@ export default function BookingsPage() {
                           type="button"
                           className="booking-v2-delete-action"
                           disabled={working}
-                          onClick={() => void handleHide(booking)}
+                          onClick={() => setPendingAction({ type: "hide", booking })}
                         >
                           <Trash2 size={17} />
                           Xóa khỏi danh sách
@@ -878,6 +917,14 @@ export default function BookingsPage() {
               })}
             </div>
           )}
+          {filteredBookings.length > 0 ? (
+            <Pagination
+              currentPage={safePage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              ariaLabel="Phân trang đơn đặt phòng"
+            />
+          ) : null}
         </section>
       </div>
 
@@ -907,12 +954,14 @@ export default function BookingsPage() {
             <div className="booking-v2-modal-header">
               <div>
                 <span>CHI TIẾT ĐƠN ĐẶT PHÒNG</span>
-                <h2>{selectedBooking.bookingCode}</h2>
+                <h2>{selectedBooking.bookingCode || "Chưa có mã đặt phòng"}</h2>
                 <p>Đặt lúc {formatDateTime(selectedBooking.createdAt)}</p>
               </div>
-              <span className={`booking-v2-status ${statusTone(selectedBooking.status)}`}>
-                {statusLabel(selectedBooking.status)}
-              </span>
+              <StatusBadge
+                className="booking-v2-status"
+                status={selectedBooking.status}
+                label={statusLabel(selectedBooking.status)}
+              />
             </div>
 
             <div className="booking-v2-modal-grid">
@@ -921,7 +970,7 @@ export default function BookingsPage() {
                   <span><Building2 size={22} /></span>
                   <div>
                     <small>Khách sạn</small>
-                    <h3>{metadata[selectedBooking.id]?.hotel?.name ?? "Khách sạn EnziuRooms"}</h3>
+                    <h3>{metadata[selectedBooking.id]?.hotel?.name ?? "Không thể tải thông tin khách sạn"}</h3>
                     <p>
                       <MapPin size={15} />
                       {metadata[selectedBooking.id]?.hotel?.address
@@ -934,28 +983,32 @@ export default function BookingsPage() {
                 <div className="booking-v2-modal-info-grid">
                   <div>
                     <CalendarDays size={18} />
-                    <span>Nhận phòng từ {formatTime(metadata[selectedBooking.id]?.hotel?.checkInTime, "14:00")}</span>
+                    <span>Nhận phòng từ {formatTime(metadata[selectedBooking.id]?.hotel?.checkInTime, "Chưa cập nhật")}</span>
                     <strong>{formatDate(selectedBooking.checkIn)}</strong>
                   </div>
                   <div>
                     <CalendarDays size={18} />
-                    <span>Trả phòng trước {formatTime(metadata[selectedBooking.id]?.hotel?.checkOutTime, "12:00")}</span>
+                    <span>Trả phòng trước {formatTime(metadata[selectedBooking.id]?.hotel?.checkOutTime, "Chưa cập nhật")}</span>
                     <strong>{formatDate(selectedBooking.checkOut)}</strong>
                   </div>
                   <div>
                     <Clock3 size={18} />
                     <span>Thời gian lưu trú</span>
-                    <strong>{nightsBetween(selectedBooking.checkIn, selectedBooking.checkOut)} đêm</strong>
+                    <strong>
+                      {nightsBetween(selectedBooking.checkIn, selectedBooking.checkOut) == null
+                        ? "Chưa cập nhật"
+                        : `${nightsBetween(selectedBooking.checkIn, selectedBooking.checkOut)} đêm`}
+                    </strong>
                   </div>
                   <div>
                     <Users size={18} />
                     <span>Khách lưu trú</span>
-                    <strong>{selectedBooking.adults ?? 1} người lớn · {selectedBooking.children ?? 0} trẻ em</strong>
+                    <strong>{guestSummary(selectedBooking.adults, selectedBooking.children)}</strong>
                   </div>
                   <div>
                     <BedDouble size={18} />
                     <span>Loại phòng</span>
-                    <strong>{metadata[selectedBooking.id]?.roomType?.name ?? "Đang cập nhật"}</strong>
+                    <strong>{metadata[selectedBooking.id]?.roomType?.name ?? "Không thể tải loại phòng"}</strong>
                   </div>
                   <div>
                     <ShieldCheck size={18} />
@@ -1041,8 +1094,18 @@ export default function BookingsPage() {
             if (event.target === event.currentTarget) closeRefundRequest();
           }}
         >
-          <section className="booking-v2-refund-modal" role="dialog" aria-modal="true">
-            <button type="button" className="booking-v2-modal-close" onClick={closeRefundRequest}>
+          <section
+            className="booking-v2-refund-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Yêu cầu hoàn tiền booking"
+          >
+            <button
+              type="button"
+              className="booking-v2-modal-close"
+              onClick={closeRefundRequest}
+              aria-label="Đóng yêu cầu hoàn tiền"
+            >
               <X size={22} />
             </button>
             <div className="booking-v2-modal-header">
@@ -1057,9 +1120,11 @@ export default function BookingsPage() {
               const item = refundByBooking[String(refundBooking.id)];
               return (
                 <div className="booking-v2-refund-status-view">
-                  <div className={`booking-v2-refund-state ${String(item.status).toLowerCase()}`}>
-                    {refundStatusLabel(item.status)}
-                  </div>
+                  <StatusBadge
+                    className="booking-v2-refund-state"
+                    status={item.status}
+                    label={refundStatusLabel(item.status)}
+                  />
                   <div className="booking-v2-refund-policy">
                     <strong>Chính sách áp dụng</strong>
                     <p>{item.policyMessage}</p>
@@ -1124,6 +1189,25 @@ export default function BookingsPage() {
           </section>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(pendingAction)}
+        title={pendingAction?.type === "cancel" ? "Hủy đơn đặt phòng?" : "Ẩn đơn khỏi danh sách?"}
+        description={pendingAction?.type === "cancel"
+          ? `Bạn sắp hủy ${pendingAction?.booking?.bookingCode ? `đơn ${pendingAction.booking.bookingCode}` : "đơn đặt phòng này"}. Chính sách hủy hiện tại vẫn được áp dụng.`
+          : "Đơn sẽ được ẩn khỏi danh sách của bạn nhưng vẫn được lưu trong hệ thống để tra cứu khi cần."}
+        confirmLabel={pendingAction?.type === "cancel" ? "Xác nhận hủy" : "Ẩn đơn"}
+        busy={workingId === pendingAction?.booking?.id}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          if (!pendingAction?.booking) return;
+          if (pendingAction.type === "cancel") {
+            void handleCancel(pendingAction.booking);
+          } else {
+            void handleHide(pendingAction.booking);
+          }
+        }}
+      />
 
       {chatBooking ? (
         <CustomerHotelChat

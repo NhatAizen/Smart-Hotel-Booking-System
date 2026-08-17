@@ -635,8 +635,15 @@
 }
 
 .booking-success-list small,
-.booking-success-list span {
+.booking-success-stay-dates {
   color: #64748b;
+}
+
+.booking-success-booking-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .booking-checkin-qr {
@@ -1154,4 +1161,84 @@
   border-top: 1px dashed #cfdbe6;
   color: #102c48;
   font-size: 1.03rem;
+}
+
+/* Scoped overflow safeguards for checkout and booking confirmation. */
+.checkout-page,
+.booking-success-page {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.checkout-shell,
+.checkout-grid,
+.checkout-main-column,
+.checkout-card,
+.checkout-summary-card,
+.booking-success-shell,
+.booking-success-card,
+.booking-success-list article,
+.booking-success-list article > div {
+  min-width: 0;
+}
+
+.checkout-card input,
+.checkout-card textarea,
+.checkout-promo-inputs input {
+  max-width: 100%;
+}
+
+.checkout-summary-hotel strong,
+.checkout-room-price-main span,
+.checkout-total-lines span,
+.booking-success-list strong,
+.booking-success-stay-dates {
+  overflow-wrap: anywhere;
+}
+
+.checkout-nightly-price-list > span {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 520px) {
+  .checkout-page,
+  .booking-success-page {
+    padding-top: 16px;
+  }
+
+  .checkout-card,
+  .checkout-summary-card,
+  .booking-success-card {
+    padding: 16px;
+  }
+
+  .checkout-date-row {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+
+  .checkout-date-row > svg {
+    display: none;
+  }
+
+  .checkout-date-row > div:last-child {
+    text-align: right;
+  }
+
+  .checkout-room-price-main,
+  .checkout-total-lines > div {
+    flex-wrap: wrap;
+  }
+
+  .checkout-room-price-main > strong,
+  .checkout-total-lines > div > strong {
+    margin-left: auto;
+  }
+
+  .booking-success-list article {
+    padding: 16px 12px;
+  }
+
+  .booking-success-booking-meta {
+    justify-content: center;
+  }
 }

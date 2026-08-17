@@ -32,24 +32,8 @@ import {
 
 import { useAiAssistant } from "../../ai/AiAssistantContext";
 import { useAuth } from "../../auth/AuthContext";
+import { statusLabel } from "../../utils/presentation";
 import "./FloatingAiAssistant.css";
-
-const STATUS_LABEL = {
-  PENDING: "Chờ xử lý",
-  PENDING_PAYMENT: "Chờ thanh toán",
-  CONFIRMED: "Đã xác nhận",
-  CHECKED_IN: "Đang lưu trú",
-  CHECKED_OUT: "Đã trả phòng",
-  CANCELLED: "Đã hủy",
-};
-
-const PAYMENT_LABEL = {
-  UNPAID: "Chưa thanh toán",
-  PARTIALLY_PAID: "Đã đặt cọc",
-  PAID: "Đã thanh toán",
-  REFUNDED: "Đã hoàn tiền",
-  FAILED: "Thanh toán lỗi",
-};
 
 function money(value) {
   if (value === null || value === undefined) return "—";
@@ -71,6 +55,13 @@ function formatDate(value) {
 function formatTime(value) {
   if (!value) return "—";
   return String(value).slice(0, 5);
+}
+
+function localDateValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function hotelUrl(hotel, context) {
@@ -379,7 +370,7 @@ function BookingResultCard({ booking, onNavigate }) {
           <span>{booking.bookingCode}</span>
           <strong>{booking.hotelName}</strong>
         </div>
-        <em>{STATUS_LABEL[booking.bookingStatus] ?? booking.bookingStatus}</em>
+        <em>{statusLabel(booking.bookingStatus)}</em>
       </div>
 
       <p>{booking.roomTypeName || "Loại phòng"}</p>
@@ -388,7 +379,7 @@ function BookingResultCard({ booking, onNavigate }) {
         <span><CalendarDays size={12} /> {formatDate(booking.checkIn)}</span>
         <span><CalendarDays size={12} /> {formatDate(booking.checkOut)}</span>
         <span><Clock3 size={12} /> {formatTime(booking.hotelCheckInTime)} / {formatTime(booking.hotelCheckOutTime)}</span>
-        <span><CreditCard size={12} /> {PAYMENT_LABEL[booking.paymentStatus] ?? booking.paymentStatus}</span>
+        <span><CreditCard size={12} /> {statusLabel(booking.paymentStatus)}</span>
       </div>
 
       <div className="enziu-fai-payment-row">
@@ -551,12 +542,25 @@ export default function FloatingAiAssistant() {
     [location.pathname],
   );
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(() => localDateValue(), []);
 
   useEffect(() => {
     if (!isOpen) return;
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    bottomRef.current?.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "end",
+    });
   }, [isOpen, messages, sending]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    function handleEscape(event) {
+      if (event.key === "Escape") closeAssistant();
+    }
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [closeAssistant, isOpen]);
 
   if (!isCustomer || hiddenForFlow) {
     return null;
@@ -575,14 +579,17 @@ export default function FloatingAiAssistant() {
     <div className="enziu-fai-root">
       {isOpen ? (
         <section
+          id="enziu-ai-panel"
           className="enziu-fai-panel"
-          aria-label="Enziu AI Assistant"
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="enziu-ai-title"
         >
           <header className="enziu-fai-header">
             <div className="enziu-fai-brand">
               <span className="enziu-fai-bot-mark"><Bot size={20} /></span>
               <div>
-                <strong>Enziu AI Copilot</strong>
+                <strong id="enziu-ai-title">Enziu AI Copilot</strong>
                 <span><i /> Tìm · so sánh · kiểm tra phòng thật</span>
               </div>
             </div>
@@ -633,6 +640,8 @@ export default function FloatingAiAssistant() {
               type="button"
               className="enziu-fai-trip-toggle"
               onClick={() => setTripOpen((current) => !current)}
+              aria-expanded={tripOpen}
+              aria-controls="enziu-ai-trip-fields"
             >
               <span>
                 <CalendarDays size={14} />
@@ -647,7 +656,7 @@ export default function FloatingAiAssistant() {
             </button>
 
             {tripOpen ? (
-              <div className="enziu-fai-trip-fields">
+              <div className="enziu-fai-trip-fields" id="enziu-ai-trip-fields">
                 <label>
                   <span>Nhận phòng</span>
                   <input
@@ -716,7 +725,12 @@ export default function FloatingAiAssistant() {
             ) : null}
           </div>
 
-          <div className="enziu-fai-messages">
+          <div
+            className="enziu-fai-messages"
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions text"
+          >
             {messages.map((message, index) => (
               message.role === "assistant" ? (
                 <AssistantMessage
@@ -796,6 +810,8 @@ export default function FloatingAiAssistant() {
         className={`enziu-fai-launcher ${isOpen ? "open" : ""}`}
         onClick={toggleAssistant}
         aria-label={isOpen ? "Đóng Enziu AI" : "Mở Enziu AI"}
+        aria-expanded={isOpen}
+        aria-controls="enziu-ai-panel"
       >
         {isOpen ? <X size={23} /> : <Bot size={24} />}
         {!isOpen ? <span>Hỏi Enziu AI</span> : null}

@@ -833,7 +833,7 @@ export default function BookingCheckoutPage() {
                     name="bookerLastName"
                     value={form.bookerLastName}
                     onChange={handleChange}
-                    placeholder="Trần"
+                    placeholder="Nhập họ"
                     required
                   />
                 </label>
@@ -843,7 +843,7 @@ export default function BookingCheckoutPage() {
                     name="bookerFirstName"
                     value={form.bookerFirstName}
                     onChange={handleChange}
-                    placeholder="Nhật"
+                    placeholder="Nhập tên"
                     required
                   />
                 </label>
@@ -870,7 +870,7 @@ export default function BookingCheckoutPage() {
                       minLength="8"
                       value={form.bookerPhone}
                       onChange={handleChange}
-                      placeholder="0912345678"
+                      placeholder="Nhập số điện thoại"
                       required
                     />
                   </div>
@@ -1217,15 +1217,23 @@ export default function BookingCheckoutPage() {
               {pricingLoading ? (
                 <span>Đang tính giá chính xác theo từng ngày...</span>
               ) : (
-                <span>Thứ 2–6 giá thường · Thứ 7/CN +10% · Ngày đặc biệt ưu tiên mức phụ thu đã cấu hình.</span>
+                <span>Giá từng đêm và mọi khoản phụ thu được lấy từ báo giá hiện tại của hệ thống.</span>
               )}
             </div>
 
             <div className="checkout-promo-box">
-              <div className="checkout-membership-note">
-                <span>Hạng thành viên</span>
-                <strong>{discountPreview?.membershipName ?? "Cấp 1"} · giảm {Number(discountPreview?.membershipPercent ?? 0)}%</strong>
-              </div>
+              {discountPreview?.membershipName
+                || discountPreview?.membershipPercent != null ? (
+                  <div className="checkout-membership-note">
+                    <span>Hạng thành viên</span>
+                    <strong>
+                      {discountPreview?.membershipName ?? "Thành viên"}
+                      {Number(discountPreview?.membershipPercent ?? 0) > 0
+                        ? ` · giảm ${Number(discountPreview.membershipPercent)}%`
+                        : ""}
+                    </strong>
+                  </div>
+                ) : null}
               <div className="checkout-promo-inputs">
                 <input
                   value={hotelPromotionCode}
@@ -1314,7 +1322,7 @@ export default function BookingCheckoutPage() {
               </div>
               {totals.weekendSurchargeAmount > 0 ? (
                 <div className="surcharge">
-                  <span>Phụ thu cuối tuần (+10%)</span>
+                  <span>Phụ thu cuối tuần</span>
                   <strong>+{money(totals.weekendSurchargeAmount)}</strong>
                 </div>
               ) : null}

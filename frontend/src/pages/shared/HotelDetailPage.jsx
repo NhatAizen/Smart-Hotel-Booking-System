@@ -68,6 +68,7 @@ import {
   getFavoriteState,
   removeFavoriteHotel,
 } from "../../services/favoriteService";
+import { bedTypeLabel } from "../../utils/presentation";
 import {
   getAvailablePromotions,
   getSavedPromotions,
@@ -76,14 +77,6 @@ import {
 import { useRealtime } from "../../realtime/RealtimeContext";
 import "./PromotionCenter.css";
 import "./HotelDetailPage.css";
-
-const FALLBACK_IMAGES = [
-  "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1500&q=84",
-  "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1000&q=84",
-  "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=84",
-  "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1000&q=84",
-  "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1000&q=84",
-];
 
 function toDateInput(date) {
   return date.toISOString().slice(0, 10);
@@ -132,17 +125,23 @@ function formatTime(value, fallback) {
   return String(value).slice(0, 5);
 }
 
-function resolveRoomTypeImageUrl(image) {
+function resolveImageUrl(image) {
   if (!image) return "";
   if (typeof image === "string") return image;
   return image.imageUrl ?? image.url ?? image.fileUrl ?? image.publicUrl ?? image.path ?? "";
 }
 
-function roomTypeImageUrls(roomType, fallback = "") {
-  if (!roomType) return fallback ? [fallback] : [];
-  const cover = roomType.coverImageUrl ?? "";
+function roomTypeImageUrls(roomType) {
+  if (!roomType) return [];
   const raw = Array.isArray(roomType.images) ? roomType.images : [];
-  const urls = [cover, ...raw.map(resolveRoomTypeImageUrl), fallback].filter(Boolean);
+  const uploadedCover = raw.find((image) => image?.cover || image?.isCover);
+  const urls = [
+    resolveImageUrl(roomType.coverImageUrl),
+    resolveImageUrl(roomType.imageUrl),
+    resolveImageUrl(roomType.coverImage),
+    resolveImageUrl(uploadedCover),
+    ...raw.map(resolveImageUrl),
+  ].filter(Boolean);
   return [...new Set(urls)];
 }
 
@@ -170,12 +169,13 @@ function holdCountdown(expiresAt, nowMs) {
 
 function dedupeImages(items) {
   const seen = new Set();
-  return items.filter((item) => {
-    const url = typeof item === "string" ? item : item?.url;
-    if (!url || seen.has(url)) return false;
+  return items.reduce((urls, item) => {
+    const url = resolveImageUrl(item);
+    if (!url || seen.has(url)) return urls;
     seen.add(url);
-    return true;
-  });
+    urls.push(url);
+    return urls;
+  }, []);
 }
 
 
@@ -346,13 +346,23 @@ export default function HotelDetailPage() {
 
   const galleryImages = useMemo(() => {
     const hotelImages = Array.isArray(hotel?.images) ? hotel.images : [];
-    const roomImages = roomTypes.flatMap((type) =>
-      Array.isArray(type.images) ? type.images : [],
+    const hotelUploadedCover = hotelImages.find(
+      (image) => image?.cover || image?.isCover,
     );
-    const actual = dedupeImages([...hotelImages, ...roomImages]).map(
-      (item) => (typeof item === "string" ? item : item.url),
-    );
-    return actual.length > 0 ? actual : FALLBACK_IMAGES;
+    const roomImages = roomTypes.flatMap((type) => [
+      type?.coverImageUrl,
+      type?.imageUrl,
+      type?.coverImage,
+      ...(Array.isArray(type?.images) ? type.images : []),
+    ]);
+    return dedupeImages([
+      hotel?.coverImageUrl,
+      hotel?.imageUrl,
+      hotel?.coverImage,
+      hotelUploadedCover,
+      ...hotelImages,
+      ...roomImages,
+    ]);
   }, [hotel, roomTypes]);
 
   const loadAvailability = useCallback(
@@ -491,36 +501,37 @@ export default function HotelDetailPage() {
   }, [hotel, roomTypes.length, reviews.length]);
 
   useEffect(() => {
-    if (!galleryOpen) return undefined;
+    if (!galleryOpen || galleryImages.length === 0) return undefined;
 
     function handleKeyDown(event) {
       if (event.key === "Escape") setGalleryOpen(false);
-      if (event.key === "ArrowLeft") {
+      if (event.key === "ArrowLeft" && galleryImages.length > 1) {
         setGalleryIndex((current) =>
           current === 0 ? galleryImages.length - 1 : current - 1,
         );
       }
-      if (event.key === "ArrowRight") {
+      if (event.key === "ArrowRight" && galleryImages.length > 1) {
         setGalleryIndex((current) =>
           current === galleryImages.length - 1 ? 0 : current + 1,
         );
       }
     }
 
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
     };
-  });
+  }, [galleryOpen, galleryImages.length]);
 
   useEffect(() => {
     if (!roomTypeDetail) return undefined;
 
     function handleRoomTypeDetailKeyDown(event) {
       if (event.key === "Escape") setRoomTypeDetail(null);
-      const images = roomTypeImageUrls(roomTypeDetail, galleryImages[1]);
+      const images = roomTypeImageUrls(roomTypeDetail);
       if (event.key === "ArrowLeft" && images.length > 1) {
         setRoomTypeDetailImageIndex((current) =>
           current === 0 ? images.length - 1 : current - 1,
@@ -540,7 +551,23 @@ export default function HotelDetailPage() {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleRoomTypeDetailKeyDown);
     };
-  }, [roomTypeDetail, galleryImages]);
+  }, [roomTypeDetail]);
+
+  useEffect(() => {
+    if (!mobileSelectionOpen) return undefined;
+
+    function handleMobileSelectionKeyDown(event) {
+      if (event.key === "Escape") setMobileSelectionOpen(false);
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleMobileSelectionKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleMobileSelectionKeyDown);
+    };
+  }, [mobileSelectionOpen]);
 
   useEffect(() => {
     if (!heldRooms.length) return undefined;
@@ -1120,64 +1147,92 @@ export default function HotelDetailPage() {
           </header>
 
           <div className="hotel-visual-showcase">
-            <div className="hotel-gallery-v2">
-              <button
-                type="button"
-                className="hotel-gallery-main"
-                onClick={() => {
-                  setGalleryIndex(0);
-                  setGalleryOpen(true);
-                }}
+            {galleryImages.length > 0 ? (
+              <div
+                className={`hotel-gallery-v2 ${
+                  galleryImages.length === 1
+                    ? "is-single"
+                    : galleryImages.length < 4
+                      ? "without-thumbs"
+                      : ""
+                }`}
               >
-                <img src={galleryImages[0]} alt={hotel.name} />
-              </button>
+                <button
+                  type="button"
+                  className="hotel-gallery-main"
+                  onClick={() => {
+                    setGalleryIndex(0);
+                    setGalleryOpen(true);
+                  }}
+                  aria-label={`Mở bộ ảnh ${hotel.name}`}
+                >
+                  <img src={galleryImages[0]} alt={hotel.name} />
+                </button>
 
-              <div className="hotel-gallery-side">
-                {[1, 2].map((index) => (
-                  <button
-                    type="button"
-                    key={index}
-                    onClick={() => {
-                      setGalleryIndex(index % galleryImages.length);
-                      setGalleryOpen(true);
-                    }}
+                {galleryImages.length > 1 ? (
+                  <div
+                    className={`hotel-gallery-side ${galleryImages.length === 2 ? "is-single" : ""}`}
                   >
-                    <img
-                      src={galleryImages[index % galleryImages.length]}
-                      alt={`Không gian ${hotel.name} ${index + 1}`}
-                    />
-                  </button>
-                ))}
-              </div>
+                    {galleryImages.slice(1, 3).map((image, itemIndex) => {
+                      const imageIndex = itemIndex + 1;
+                      return (
+                        <button
+                          type="button"
+                          key={image}
+                          onClick={() => {
+                            setGalleryIndex(imageIndex);
+                            setGalleryOpen(true);
+                          }}
+                          aria-label={`Mở ảnh ${imageIndex + 1} của ${hotel.name}`}
+                        >
+                          <img
+                            src={image}
+                            alt={`Không gian ${hotel.name} ${imageIndex + 1}`}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
 
-              <div className="hotel-gallery-thumbs">
-                {[3, 4, 5, 6, 7].map((sourceIndex, itemIndex) => {
-                  const imageIndex = sourceIndex % galleryImages.length;
-                  const isLast = itemIndex === 4;
-                  return (
-                    <button
-                      type="button"
-                      key={`${sourceIndex}-${galleryImages[imageIndex]}`}
-                      onClick={() => {
-                        setGalleryIndex(imageIndex);
-                        setGalleryOpen(true);
-                      }}
-                    >
-                      <img
-                        src={galleryImages[imageIndex]}
-                        alt={`Ảnh khách sạn ${sourceIndex + 1}`}
-                      />
-                      {isLast ? (
-                        <span>
-                          <Images size={18} />
-                          Xem {galleryImages.length} ảnh
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
+                {galleryImages.length > 3 ? (
+                  <div className="hotel-gallery-thumbs">
+                    {galleryImages.slice(3, 8).map((image, itemIndex, images) => {
+                      const imageIndex = itemIndex + 3;
+                      const isLast = itemIndex === images.length - 1;
+                      return (
+                        <button
+                          type="button"
+                          key={image}
+                          onClick={() => {
+                            setGalleryIndex(imageIndex);
+                            setGalleryOpen(true);
+                          }}
+                          aria-label={`Mở ảnh ${imageIndex + 1} của ${hotel.name}`}
+                        >
+                          <img
+                            src={image}
+                            alt={`Ảnh ${hotel.name} ${imageIndex + 1}`}
+                          />
+                          {isLast ? (
+                            <span>
+                              <Images size={18} />
+                              Xem {galleryImages.length} ảnh
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
-            </div>
+            ) : (
+              <div className="hotel-gallery-empty" role="status">
+                <Images size={42} aria-hidden="true" />
+                <strong>Khách sạn chưa cập nhật hình ảnh</strong>
+                <span>Bạn vẫn có thể xem thông tin và tình trạng phòng bên dưới.</span>
+              </div>
+            )}
 
             <aside className="hotel-showcase-side">
               {reviewSummary.reviewCount > 0 ? (
@@ -1201,12 +1256,15 @@ export default function HotelDetailPage() {
                       onClick={() => setReviewModalOpen(true)}
                     >
                       <strong>Khách lưu trú ở đây thích điều gì?</strong>
-                      <p>
-                        “{reviews[0].positiveComment
-                          || reviews[0].title
-                          || reviews[0].negativeComment
-                          || "Khách đã chia sẻ trải nghiệm sau kỳ nghỉ."}”
-                      </p>
+                      {reviews[0].positiveComment
+                        || reviews[0].title
+                        || reviews[0].negativeComment ? (
+                          <p>
+                            “{reviews[0].positiveComment
+                              || reviews[0].title
+                              || reviews[0].negativeComment}”
+                          </p>
+                        ) : null}
                       <footer>
                         <span className="hotel-showcase-review-avatar">
                           {reviews[0].customerAvatarUrl ? (
@@ -1223,8 +1281,10 @@ export default function HotelDetailPage() {
                           )}
                         </span>
                         <div>
-                          <b>{reviews[0].customerName ?? "Khách EnziuRooms"}</b>
-                          <small>{Number(reviews[0].rating ?? 0).toFixed(1)} điểm</small>
+                          <b>{reviews[0].customerName ?? "Khách lưu trú"}</b>
+                          {reviews[0].rating != null ? (
+                            <small>{Number(reviews[0].rating).toFixed(1)} điểm</small>
+                          ) : null}
                         </div>
                         <ChevronRight size={19} />
                       </footer>
@@ -1285,21 +1345,23 @@ export default function HotelDetailPage() {
           <div className="hotel-overview-grid">
             <article className="hotel-info-card">
               <h2>Giới thiệu khách sạn</h2>
-              <p>
-                {hotel.description ||
-                  "Khách sạn mang đến không gian lưu trú tiện nghi, phù hợp cho chuyến công tác và kỳ nghỉ của bạn."}
-              </p>
-              <div className="hotel-highlight-list">
-                {(allAmenities.length > 0
-                  ? allAmenities.slice(0, 8)
-                  : ["WiFi miễn phí", "Điều hòa", "Đã được kiểm duyệt"]
-                ).map((amenity) => (
-                  <span key={amenity}>
-                    {amenityIcon(amenity)}
-                    {amenity}
-                  </span>
-                ))}
-              </div>
+              {hotel.description ? (
+                <p>{hotel.description}</p>
+              ) : (
+                <p className="hotel-empty-copy">Khách sạn chưa cập nhật phần giới thiệu.</p>
+              )}
+              {allAmenities.length > 0 ? (
+                <div className="hotel-highlight-list">
+                  {allAmenities.slice(0, 8).map((amenity) => (
+                    <span key={amenity}>
+                      {amenityIcon(amenity)}
+                      {amenity}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="hotel-empty-copy">Khách sạn chưa cập nhật tiện nghi nổi bật.</p>
+              )}
             </article>
 
             <div className="hotel-detail-side-stack">
@@ -1524,8 +1586,7 @@ export default function HotelDetailPage() {
                   nearestHoldExpiresAt,
                 }) => {
                   const maxSelectable = Math.min(availableRooms.length, 10);
-                  const roomImage =
-                    type.coverImageUrl || type.images?.[0]?.url || galleryImages[1];
+                  const roomImage = roomTypeImageUrls(type)[0] ?? "";
                   const typeQuote = roomTypePriceMap[String(type.id)] ?? null;
                   const baseStayAmount = Number(
                     typeQuote?.baseAmount ??
@@ -1555,7 +1616,13 @@ export default function HotelDetailPage() {
                           }}
                           aria-label={`Xem chi tiết ${type.name}`}
                         >
-                          <img src={roomImage} alt={type.name} />
+                          {roomImage ? (
+                            <img src={roomImage} alt={type.name} />
+                          ) : (
+                            <span className="hotel-room-type-image-empty" aria-hidden="true">
+                              <Images size={25} />
+                            </span>
+                          )}
                         </button>
                         <div>
                           <button
@@ -1568,10 +1635,15 @@ export default function HotelDetailPage() {
                           >
                             {type.name}
                           </button>
-                          <p>
-                            {type.bedCount ?? 1} {type.bedType || "giường"}
-                            {type.areaSqm ? ` · ${type.areaSqm} m²` : ""}
-                          </p>
+                          {type.bedCount != null || type.bedType || type.areaSqm ? (
+                            <p>
+                              {type.bedCount != null ? `${type.bedCount} × ` : ""}
+                              {type.bedType ? bedTypeLabel(type.bedType) : ""}
+                              {type.areaSqm
+                                ? `${type.bedCount != null || type.bedType ? " · " : ""}${type.areaSqm} m²`
+                                : ""}
+                            </p>
+                          ) : null}
                           <div className="hotel-room-tags">
                             {(type.amenities ?? []).slice(0, 6).map((amenity) => (
                               <span key={amenity}>{amenity}</span>
@@ -1591,14 +1663,18 @@ export default function HotelDetailPage() {
                       </div>
 
                       <div className="hotel-room-capacity-cell" data-mobile-label="Sức chứa">
-                        <span>
-                          <Users size={18} />
-                          Tối đa {type.maxAdults ?? 2} người lớn
-                        </span>
-                        <span>
-                          <Baby size={18} />
-                          {type.maxChildren ?? 0} trẻ em
-                        </span>
+                        {type.maxAdults != null ? (
+                          <span>
+                            <Users size={18} />
+                            Tối đa {type.maxAdults} người lớn
+                          </span>
+                        ) : null}
+                        {type.maxChildren != null ? (
+                          <span>
+                            <Baby size={18} />
+                            {type.maxChildren} trẻ em
+                          </span>
+                        ) : null}
                         {!requestedCapacityFits ? (
                           <small>Không đủ sức chứa cho tìm kiếm này</small>
                         ) : null}
@@ -1623,13 +1699,13 @@ export default function HotelDetailPage() {
 
                             {weekendSurchargeAmount > 0 ? (
                               <span className="weekend">
-                                Cuối tuần +10% · +{formatMoney(weekendSurchargeAmount)}
+                                Phụ thu cuối tuần · +{formatMoney(weekendSurchargeAmount)}
                               </span>
                             ) : null}
 
                             {specialDateSurchargeAmount > 0 ? (
                               <span className="special">
-                                Ngày đặc biệt +20% · +{formatMoney(specialDateSurchargeAmount)}
+                                Phụ thu ngày đặc biệt · +{formatMoney(specialDateSurchargeAmount)}
                               </span>
                             ) : null}
 
@@ -1641,7 +1717,7 @@ export default function HotelDetailPage() {
                           </div>
                         ) : (
                           <small>
-                            Giá cơ bản · Phụ thu cuối tuần/ngày đặc biệt được tính theo ngày
+                            Giá từng đêm và phụ thu (nếu có) được xác nhận từ báo giá hiện tại.
                           </small>
                         )}
                         {availableRooms.length > 0 ? (
@@ -1681,7 +1757,9 @@ export default function HotelDetailPage() {
                               ? "Trả tại khách sạn"
                               : null,
                             type.depositAllowed !== false
-                              ? `Cọc ${type.depositPercent ?? 30}%`
+                              ? type.depositPercent != null
+                                ? `Cọc ${type.depositPercent}%`
+                                : "Đặt cọc"
                               : null,
                             type.fullPaymentAllowed !== false
                               ? "Trả toàn bộ"
@@ -1753,7 +1831,7 @@ export default function HotelDetailPage() {
                     <div className="hotel-selection-pricing-note">
                       <span>Giá thường: {formatMoney(selectionPricing.baseAmount)}</span>
                       {Number(selectionPricing.weekendSurchargeAmount ?? 0) > 0 ? (
-                        <span>Cuối tuần +10%: +{formatMoney(selectionPricing.weekendSurchargeAmount)}</span>
+                        <span>Phụ thu cuối tuần: +{formatMoney(selectionPricing.weekendSurchargeAmount)}</span>
                       ) : null}
                       {Number(selectionPricing.specialDateSurchargeAmount ?? 0) > 0 ? (
                         <span>Ngày đặc biệt: +{formatMoney(selectionPricing.specialDateSurchargeAmount)}</span>
@@ -1790,22 +1868,18 @@ export default function HotelDetailPage() {
             <span>TIỆN NGHI</span>
             <h2>Tiện nghi được khách hàng quan tâm</h2>
           </div>
-          <div className="hotel-amenities-grid-v2">
-            {(allAmenities.length > 0
-              ? allAmenities
-              : [
-                  "WiFi miễn phí",
-                  "Máy điều hòa",
-                  "Phòng tắm riêng",
-                  "Dọn phòng hằng ngày",
-                ]
-            ).map((amenity) => (
-              <div key={amenity}>
-                {amenityIcon(amenity)}
-                <span>{amenity}</span>
-              </div>
-            ))}
-          </div>
+          {allAmenities.length > 0 ? (
+            <div className="hotel-amenities-grid-v2">
+              {allAmenities.map((amenity) => (
+                <div key={amenity}>
+                  {amenityIcon(amenity)}
+                  <span>{amenity}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="hotel-empty-copy">Khách sạn chưa cập nhật danh sách tiện nghi.</p>
+          )}
         </section>
 
         <section
@@ -1823,8 +1897,8 @@ export default function HotelDetailPage() {
               <div>
                 <h3>Nhận và trả phòng</h3>
                 <p>
-                  Nhận phòng từ {formatTime(hotel.checkInTime, "14:00")} · Trả phòng trước{" "}
-                  {formatTime(hotel.checkOutTime, "12:00")}
+                  Nhận phòng từ {formatTime(hotel.checkInTime, "Chưa cập nhật")} · Trả phòng trước{" "}
+                  {formatTime(hotel.checkOutTime, "Chưa cập nhật")}
                 </p>
               </div>
             </article>
@@ -2008,7 +2082,7 @@ export default function HotelDetailPage() {
             className="hotel-mobile-selection-sheet"
             role="dialog"
             aria-modal="true"
-            aria-label="Lựa chọn phòng của bạn"
+            aria-labelledby="hotel-mobile-selection-title"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="hotel-mobile-selection-handle" aria-hidden="true" />
@@ -2016,7 +2090,7 @@ export default function HotelDetailPage() {
             <header className="hotel-mobile-selection-header">
               <div>
                 <span>LỰA CHỌN CỦA BẠN</span>
-                <h3>
+                <h3 id="hotel-mobile-selection-title">
                   {selectedBooking.totalRooms} phòng · {selectedBooking.nights} đêm
                 </h3>
               </div>
@@ -2053,7 +2127,7 @@ export default function HotelDetailPage() {
                 </span>
                 {Number(selectionPricing.weekendSurchargeAmount ?? 0) > 0 ? (
                   <span>
-                    Cuối tuần +10%
+                    Phụ thu cuối tuần
                     <strong>
                       +{formatMoney(selectionPricing.weekendSurchargeAmount)}
                     </strong>
@@ -2061,7 +2135,7 @@ export default function HotelDetailPage() {
                 ) : null}
                 {Number(selectionPricing.specialDateSurchargeAmount ?? 0) > 0 ? (
                   <span>
-                    Ngày đặc biệt +20%
+                    Phụ thu ngày đặc biệt
                     <strong>
                       +{formatMoney(selectionPricing.specialDateSurchargeAmount)}
                     </strong>
@@ -2095,20 +2169,24 @@ export default function HotelDetailPage() {
       ) : null}
 
       {roomTypeDetail ? (() => {
-        const images = roomTypeImageUrls(roomTypeDetail, galleryImages[1]);
+        const images = roomTypeImageUrls(roomTypeDetail);
         const safeIndex = Math.min(roomTypeDetailImageIndex, Math.max(images.length - 1, 0));
-        const selectedImage = images[safeIndex] ?? galleryImages[1];
+        const selectedImage = images[safeIndex] ?? "";
         return (
           <div
             className="hotel-room-type-detail-backdrop"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Chi tiết loại phòng ${roomTypeDetail.name}`}
+            role="presentation"
             onMouseDown={(event) => {
               if (event.target === event.currentTarget) setRoomTypeDetail(null);
             }}
           >
-            <div className="hotel-room-type-detail-modal">
+            <div
+              className="hotel-room-type-detail-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="hotel-room-type-detail-title"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
               <button
                 type="button"
                 className="hotel-room-type-detail-close"
@@ -2120,7 +2198,14 @@ export default function HotelDetailPage() {
 
               <div className="hotel-room-type-detail-gallery">
                 <div className="hotel-room-type-detail-main-image">
-                  <img src={selectedImage} alt={roomTypeDetail.name} />
+                  {selectedImage ? (
+                    <img src={selectedImage} alt={roomTypeDetail.name} />
+                  ) : (
+                    <div className="hotel-room-type-detail-image-empty" role="status">
+                      <Images size={38} aria-hidden="true" />
+                      <span>Loại phòng chưa có hình ảnh.</span>
+                    </div>
+                  )}
                   {images.length > 1 ? (
                     <>
                       <button
@@ -2168,18 +2253,30 @@ export default function HotelDetailPage() {
 
               <div className="hotel-room-type-detail-copy">
                 <span className="hotel-room-type-detail-kicker">CHI TIẾT LOẠI PHÒNG</span>
-                <h2>{roomTypeDetail.name}</h2>
-                <strong className="hotel-room-type-detail-price">
-                  {formatMoney(Number(roomTypeDetail.basePrice ?? 0))} / đêm
-                </strong>
+                <h2 id="hotel-room-type-detail-title">{roomTypeDetail.name}</h2>
+                {roomTypeDetail.basePrice != null ? (
+                  <strong className="hotel-room-type-detail-price">
+                    {formatMoney(Number(roomTypeDetail.basePrice))} / đêm
+                  </strong>
+                ) : null}
                 <p className="hotel-room-type-detail-description">
                   {roomTypeDetail.description || "Khách sạn chưa cập nhật mô tả chi tiết cho loại phòng này."}
                 </p>
 
                 <div className="hotel-room-type-detail-facts">
-                  <span><Users size={17} /> Tối đa {roomTypeDetail.maxAdults ?? 2} người lớn</span>
-                  <span><Baby size={17} /> {roomTypeDetail.maxChildren ?? 0} trẻ em</span>
-                  <span><BedDouble size={17} /> {roomTypeDetail.bedCount ?? 1} {roomTypeDetail.bedType || "giường"}</span>
+                  {roomTypeDetail.maxAdults != null ? (
+                    <span><Users size={17} /> Tối đa {roomTypeDetail.maxAdults} người lớn</span>
+                  ) : null}
+                  {roomTypeDetail.maxChildren != null ? (
+                    <span><Baby size={17} /> {roomTypeDetail.maxChildren} trẻ em</span>
+                  ) : null}
+                  {roomTypeDetail.bedCount != null || roomTypeDetail.bedType ? (
+                    <span>
+                      <BedDouble size={17} />
+                      {roomTypeDetail.bedCount != null ? `${roomTypeDetail.bedCount} × ` : ""}
+                      {roomTypeDetail.bedType ? bedTypeLabel(roomTypeDetail.bedType) : ""}
+                    </span>
+                  ) : null}
                   {roomTypeDetail.areaSqm ? <span><Bath size={17} /> {roomTypeDetail.areaSqm} m²</span> : null}
                 </div>
 
@@ -2215,16 +2312,16 @@ export default function HotelDetailPage() {
         );
       })() : null}
 
-      {galleryOpen ? (
+      {galleryOpen && galleryImages.length > 0 ? (
         <div
           className="hotel-gallery-modal"
           role="dialog"
           aria-modal="true"
-          aria-label={`Bộ ảnh ${hotel.name}`}
+          aria-labelledby="hotel-gallery-title"
         >
           <header className="hotel-gallery-modal-header">
             <div className="hotel-gallery-modal-title">
-              <strong>{hotel.name}</strong>
+              <strong id="hotel-gallery-title">{hotel.name}</strong>
               <button
                 type="button"
                 className="hotel-gallery-modal-book"
@@ -2278,12 +2375,15 @@ export default function HotelDetailPage() {
                     <h3>Khách lưu trú nói gì?</h3>
                     {reviews.slice(0, 4).map((review) => (
                       <article key={review.id}>
-                        <p>
-                          {review.positiveComment
-                            || review.title
-                            || review.negativeComment
-                            || "Khách đã chia sẻ trải nghiệm sau kỳ nghỉ."}
-                        </p>
+                        {review.positiveComment
+                          || review.title
+                          || review.negativeComment ? (
+                            <p>
+                              {review.positiveComment
+                                || review.title
+                                || review.negativeComment}
+                            </p>
+                          ) : null}
                         <footer>
                           <span className="hotel-gallery-review-avatar">
                             {review.customerAvatarUrl ? (
@@ -2300,8 +2400,10 @@ export default function HotelDetailPage() {
                             )}
                           </span>
                           <div>
-                            <strong>{review.customerName ?? "Khách EnziuRooms"}</strong>
-                            <small>{Number(review.rating ?? 0).toFixed(1)} điểm</small>
+                            <strong>{review.customerName ?? "Khách lưu trú"}</strong>
+                            {review.rating != null ? (
+                              <small>{Number(review.rating).toFixed(1)} điểm</small>
+                            ) : null}
                           </div>
                         </footer>
                       </article>

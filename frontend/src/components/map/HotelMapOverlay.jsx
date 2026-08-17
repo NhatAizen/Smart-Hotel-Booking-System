@@ -36,6 +36,11 @@ function normalizeText(value) {
     .trim();
 }
 
+function amenityLabel(amenity) {
+  if (typeof amenity === "string") return amenity.trim();
+  return String(amenity?.name ?? amenity?.label ?? "").trim();
+}
+
 function ratingLabel(summary) {
   if (summary?.averageRating == null) return "Chưa có đánh giá";
   const rating = Number(summary.averageRating);
@@ -820,6 +825,29 @@ export default function HotelMapOverlay({
     [allHotels],
   );
 
+  const amenityOptions = useMemo(() => {
+    const values = new Map();
+
+    allHotels.forEach((hotel) => {
+      (Array.isArray(hotel?.amenities) ? hotel.amenities : []).forEach((amenity) => {
+        const label = amenityLabel(amenity);
+        const id = normalizeText(label);
+        if (!id) return;
+
+        const current = values.get(id);
+        values.set(id, {
+          id,
+          label: current?.label ?? label,
+          count: (current?.count ?? 0) + 1,
+        });
+      });
+    });
+
+    return [...values.values()].sort((a, b) =>
+      a.label.localeCompare(b.label, "vi"),
+    );
+  }, [allHotels]);
+
   const mapHotels = useMemo(() => {
     const normalizedQuery = normalizeText(query);
 
@@ -862,6 +890,17 @@ export default function HotelMapOverlay({
     );
   }
 
+  function toggleAmenity(amenityId) {
+    setSelectedHotelId(null);
+    setHoveredHotelId(null);
+    setFilters((current) => ({
+      ...current,
+      amenities: (current.amenities ?? []).includes(amenityId)
+        ? current.amenities.filter((item) => item !== amenityId)
+        : [...(current.amenities ?? []), amenityId],
+    }));
+  }
+
   return (
     <div className="customer-google-map-overlay" role="dialog" aria-modal="true" aria-label="Bản đồ khách sạn">
       <div className="customer-map-filter-pane">
@@ -873,7 +912,7 @@ export default function HotelMapOverlay({
               setSelectedRegions([]);
               setSelectedHotelId(null);
               setHoveredHotelId(null);
-              setFilters({ stars: [], maxPrice: 10000000, sort: "recommended" });
+              setFilters({ stars: [], amenities: [], sort: "recommended" });
             }}
           >
             Xóa tất cả
@@ -900,22 +939,6 @@ export default function HotelMapOverlay({
         ) : null}
 
         <div className="customer-map-filter-group">
-          <h3>Khoảng giá / đêm</h3>
-          <input
-            type="range"
-            min="0"
-            max="10000000"
-            step="100000"
-            value={filters.maxPrice}
-            onChange={(event) => setFilters((current) => ({ ...current, maxPrice: Number(event.target.value) }))}
-          />
-          <div className="customer-map-price-row">
-            <span>0đ</span>
-            <span>{filters.maxPrice.toLocaleString("vi-VN")}đ</span>
-          </div>
-        </div>
-
-        <div className="customer-map-filter-group">
           <h3>Xếp hạng sao</h3>
           {[5, 4, 3, 2, 1].map((star) => (
             <label key={star} className="customer-map-check-row">
@@ -930,12 +953,22 @@ export default function HotelMapOverlay({
           ))}
         </div>
 
-        <div className="customer-map-filter-group">
-          <h3>Tiện nghi cơ bản</h3>
-          <label className="customer-map-check-row"><input type="checkbox" /><span>Wifi miễn phí</span></label>
-          <label className="customer-map-check-row"><input type="checkbox" /><span>Điều hòa</span></label>
-          <label className="customer-map-check-row"><input type="checkbox" /><span>Bãi đỗ xe</span></label>
-        </div>
+        {amenityOptions.length ? (
+          <div className="customer-map-filter-group">
+            <h3>Tiện nghi khách sạn</h3>
+            {amenityOptions.map((amenity) => (
+              <label className="customer-map-check-row" key={amenity.id}>
+                <input
+                  type="checkbox"
+                  checked={(filters.amenities ?? []).includes(amenity.id)}
+                  onChange={() => toggleAmenity(amenity.id)}
+                />
+                <span>{amenity.label}</span>
+                <small>{amenity.count}</small>
+              </label>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <section className="customer-map-list-pane">

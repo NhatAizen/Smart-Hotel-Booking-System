@@ -21,6 +21,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import ErrorMessage from "../../components/common/ErrorMessage";
 import { askEnziuAssistant } from "../../services/aiService";
+import { statusLabel } from "../../utils/presentation";
 import "./AiAssistantPage.css";
 
 const QUICK_PROMPTS = [
@@ -29,23 +30,6 @@ const QUICK_PROMPTS = [
   "Tôi còn phải thanh toán bao nhiêu?",
   "QR check-in hoạt động như thế nào?",
 ];
-
-const STATUS_LABEL = {
-  PENDING: "Chờ xử lý",
-  PENDING_PAYMENT: "Chờ thanh toán",
-  CONFIRMED: "Đã xác nhận",
-  CHECKED_IN: "Đang lưu trú",
-  CHECKED_OUT: "Đã trả phòng",
-  CANCELLED: "Đã hủy",
-};
-
-const PAYMENT_LABEL = {
-  UNPAID: "Chưa thanh toán",
-  PARTIALLY_PAID: "Đã đặt cọc",
-  PAID: "Đã thanh toán",
-  REFUNDED: "Đã hoàn tiền",
-  FAILED: "Thanh toán lỗi",
-};
 
 function money(value) {
   if (value === null || value === undefined) return "—";
@@ -64,6 +48,13 @@ function formatDate(value) {
 function formatTime(value) {
   if (!value) return "—";
   return String(value).slice(0, 5);
+}
+
+function localDateValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function hotelUrl(hotel, context) {
@@ -178,7 +169,7 @@ function BookingCard({ booking }) {
             <h3>{booking.hotelName}</h3>
           </div>
           <span className={`enziu-ai-booking-status ${String(booking.bookingStatus || "").toLowerCase()}`}>
-            {STATUS_LABEL[booking.bookingStatus] ?? booking.bookingStatus}
+            {statusLabel(booking.bookingStatus)}
           </span>
         </div>
 
@@ -188,7 +179,7 @@ function BookingCard({ booking }) {
           <div><CalendarDays size={14} /><span>Nhận phòng<strong>{formatDate(booking.checkIn)}</strong></span></div>
           <div><CalendarDays size={14} /><span>Trả phòng<strong>{formatDate(booking.checkOut)}</strong></span></div>
           <div><Clock3 size={14} /><span>Giờ nhận / trả<strong>{formatTime(booking.hotelCheckInTime)} / {formatTime(booking.hotelCheckOutTime)}</strong></span></div>
-          <div><CreditCard size={14} /><span>Thanh toán<strong>{PAYMENT_LABEL[booking.paymentStatus] ?? booking.paymentStatus}</strong></span></div>
+          <div><CreditCard size={14} /><span>Thanh toán<strong>{statusLabel(booking.paymentStatus)}</strong></span></div>
         </div>
 
         <div className="enziu-ai-payment-row">
@@ -267,7 +258,7 @@ export default function AiAssistantPage() {
   const [error, setError] = useState("");
   const bottomRef = useRef(null);
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(() => localDateValue(), []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });

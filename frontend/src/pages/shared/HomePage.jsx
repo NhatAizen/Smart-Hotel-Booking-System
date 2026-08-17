@@ -29,6 +29,7 @@ import heroImage from "../../assets/hero.png";
 import { useAuth } from "../../auth/AuthContext";
 import { useAiAssistant } from "../../ai/AiAssistantContext";
 import HotelSearchBar from "../../components/search/HotelSearchBar";
+import { EmptyState, LoadingState, StatusBadge } from "../../components/ui";
 import { getHotels } from "../../services/hotelService";
 import {
   getActiveCampaigns,
@@ -37,40 +38,6 @@ import {
 } from "../../services/promotionService";
 import { useRealtime } from "../../realtime/RealtimeContext";
 import "./PromotionCenter.css";
-
-const destinations = [
-  {
-    name: "Hồ Chí Minh",
-    subtitle: "Trung tâm sôi động",
-    className: "destination-saigon",
-  },
-  {
-    name: "Đà Nẵng",
-    subtitle: "Thành phố biển",
-    className: "destination-danang",
-  },
-  {
-    name: "Hà Nội",
-    subtitle: "Thủ đô nghìn năm",
-    className: "destination-hanoi",
-  },
-  {
-    name: "Đà Lạt",
-    subtitle: "Thành phố ngàn hoa",
-    className: "destination-dalat",
-  },
-  {
-    name: "Nha Trang",
-    subtitle: "Thiên đường nghỉ dưỡng",
-    className: "destination-nhatrang",
-  },
-  {
-    name: "Phú Quốc",
-    subtitle: "Đảo ngọc Việt Nam",
-    className: "destination-phuquoc",
-  },
-
-];
 
 function resolveHotelHeroImage(hotel) {
   if (!hotel) return "";
@@ -254,6 +221,29 @@ export default function HomePage() {
       [hotels],
     );
 
+  const destinations = useMemo(() => {
+    const cityMap = new Map();
+
+    hotels.forEach((hotel) => {
+      const name = String(hotel?.city ?? "").trim();
+      if (!name) return;
+      const key = name.toLocaleLowerCase("vi");
+      const current = cityMap.get(key) ?? {
+        name,
+        hotelCount: 0,
+        image: "",
+      };
+
+      current.hotelCount += 1;
+      current.image ||= resolveHotelHeroImage(hotel);
+      cityMap.set(key, current);
+    });
+
+    return [...cityMap.values()]
+      .sort((a, b) => b.hotelCount - a.hotelCount || a.name.localeCompare(b.name, "vi"))
+      .slice(0, 6);
+  }, [hotels]);
+
   const heroBackgroundImage = useMemo(() => {
     const hotelImage = hotels
       .map(resolveHotelHeroImage)
@@ -427,13 +417,9 @@ export default function HomePage() {
           <div className="container">
             <div className="section-heading">
               <div>
-                <span className="section-kicker">
-                  LỰA CHỌN NỔI BẬT
-                </span>
+                <span className="section-kicker">KHÁCH SẠN TRÊN ENZIUROOMS</span>
 
-                <h2>
-                  Khách sạn được quan tâm
-                </h2>
+                <h2>Khám phá nơi nghỉ</h2>
 
                 <p>
                   Khám phá những khách sạn đang
@@ -451,17 +437,13 @@ export default function HomePage() {
             </div>
 
             {loadingHotels ? (
-              <div className="hotel-loading">
-                Đang tải danh sách khách sạn...
-              </div>
+              <LoadingState message="Đang tải danh sách khách sạn..." className="hotel-loading" />
             ) : featuredHotels.length === 0 ? (
-              <div className="empty-state">
-                Chưa có khách sạn để hiển thị.
-              </div>
+              <EmptyState compact title="Chưa có khách sạn để hiển thị" className="empty-state" />
             ) : (
               <div className="hotel-card-grid">
                 {featuredHotels.map(
-                  (hotel, index) => (
+                  (hotel) => (
                     <article
                       className="hotel-card"
                       key={hotel.id}
@@ -470,24 +452,15 @@ export default function HomePage() {
                         to={`/hotels/${hotel.id}`}
                         className="hotel-image-wrapper"
                       >
-                        <img
-                          src={
-                            hotel.imageUrl
-                            || heroImage
-                          }
-                          alt={hotel.name}
-                          className={
-                            `hotel-image `
-                            + `hotel-image-${index + 1}`
-                          }
-                        />
+                        {resolveHotelHeroImage(hotel) ? (
+                          <img src={resolveHotelHeroImage(hotel)} alt={hotel.name} className="hotel-image" />
+                        ) : (
+                          <span className="hotel-image-placeholder" aria-label={`${hotel.name} chưa cập nhật ảnh`}>
+                            <span>EnziuRooms</span>
+                          </span>
+                        )}
 
-                        <span className="hotel-status">
-                          {hotel.status
-                            === "ACTIVE"
-                            ? "Đang hoạt động"
-                            : hotel.status}
-                        </span>
+                        {hotel.status ? <StatusBadge status={hotel.status} className="hotel-status" /> : null}
                       </Link>
 
                       <div className="hotel-card-body">
@@ -526,15 +499,12 @@ export default function HomePage() {
                           {hotel.city}
                         </p>
 
-                        <p className="hotel-description">
-                          {hotel.description
-                            || "Không gian nghỉ dưỡng thoải mái và tiện nghi."}
-                        </p>
+                        {hotel.description ? <p className="hotel-description">{hotel.description}</p> : null}
 
                         <div className="hotel-card-footer">
                           <div>
                             <small>
-                              Đánh giá
+                              Hạng khách sạn
                             </small>
 
                             <strong>
@@ -612,11 +582,9 @@ export default function HomePage() {
           <div className="container">
             <div className="section-heading">
               <div>
-                <span className="section-kicker">
-                  KHÁM PHÁ VIỆT NAM
-                </span>
+                <span className="section-kicker">KHÁM PHÁ ĐIỂM ĐẾN</span>
 
-                <h2>Điểm đến phổ biến</h2>
+                <h2>Khách sạn theo thành phố</h2>
 
                 <p>
                   Chọn thành phố và bắt đầu tìm
@@ -625,15 +593,12 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="destination-grid">
+            {destinations.length ? <div className="destination-grid">
               {destinations.map(
                 (destination) => (
                   <button
                     type="button"
-                    className={
-                      `destination-card `
-                      + destination.className
-                    }
+                    className="destination-card"
                     key={destination.name}
                     onClick={() =>
                       searchDestination(
@@ -641,6 +606,11 @@ export default function HomePage() {
                       )
                     }
                   >
+                    {destination.image ? (
+                      <img src={destination.image} alt="" className="destination-image" />
+                    ) : (
+                      <span className="destination-image-placeholder" aria-hidden="true" />
+                    )}
                     <div className="destination-overlay" />
 
                     <div className="destination-content">
@@ -652,14 +622,16 @@ export default function HomePage() {
                         </h3>
 
                         <p>
-                          {destination.subtitle}
+                          {destination.hotelCount} khách sạn
                         </p>
                       </div>
                     </div>
                   </button>
                 ),
               )}
-            </div>
+            </div> : (
+              <EmptyState compact title="Chưa có điểm đến để hiển thị" description="Điểm đến sẽ xuất hiện khi khách sạn cập nhật thành phố." />
+            )}
           </div>
         </section>
       </main>

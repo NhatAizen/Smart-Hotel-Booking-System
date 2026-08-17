@@ -6,7 +6,10 @@ const GENERIC_ACTIONS = new Set([
 ]);
 
 function normalizeRole(role) {
-  return String(role ?? "").trim().toUpperCase();
+  return String(role ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/^ROLE_/, "");
 }
 
 function normalizeType(type) {

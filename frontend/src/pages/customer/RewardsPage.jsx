@@ -12,6 +12,9 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "../../auth/AuthContext";
+import ErrorMessage from "../../components/common/ErrorMessage";
+import Loading from "../../components/common/Loading";
+import { EmptyState, StatusBadge } from "../../components/ui";
 import { useRealtime } from "../../realtime/RealtimeContext";
 import {
   getActiveCampaigns,
@@ -21,42 +24,39 @@ import {
   removeSavedPromotion,
   savePromotion,
 } from "../../services/promotionService";
+import { normalizeEnum, STATUS_LABELS } from "../../utils/presentation";
 import "../shared/PromotionCenter.css";
 import "./RewardsPage.css";
 
-const fallbackTiers = [
-  { level: 1, name: "Cấp 1", minCompletedBookings: 0, discountPercent: 2 },
-  { level: 2, name: "Cấp 2", minCompletedBookings: 5, discountPercent: 5 },
-  { level: 3, name: "Cấp 3", minCompletedBookings: 15, discountPercent: 8 },
-];
-
 function money(value) {
-  return `${Number(value ?? 0).toLocaleString("vi-VN")} ₫`;
+  if (value === null || value === undefined || value === "") return "Chưa cập nhật";
+  const amount = Number(value);
+  return Number.isFinite(amount) ? `${amount.toLocaleString("vi-VN")} ₫` : "Chưa cập nhật";
 }
 
 function discountLabel(promotion) {
+  if (promotion?.discountValue == null) return "Mức giảm chưa được cập nhật";
   if (String(promotion?.discountType).toUpperCase() === "PERCENT") {
-    return `Giảm ${Number(promotion?.discountValue ?? 0)}%`;
+    return `Giảm ${Number(promotion.discountValue)}%`;
   }
-  return `Giảm ${money(promotion?.discountValue)}`;
+  return `Giảm ${money(promotion.discountValue)}`;
 }
 
 function dateLabel(value) {
-  if (!value) return "";
+  if (!value) return "Chưa cập nhật";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Chưa cập nhật";
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function lifecycleLabel(value) {
-  return {
-    ACTIVE: "Có thể sử dụng",
-    EXPIRED: "Đã hết hạn",
-    EXHAUSTED: "Đã hết lượt",
-    SCHEDULED: "Sắp diễn ra",
-  }[value] ?? "Tạm dừng";
+  const normalized = normalizeEnum(value);
+  if (normalized === "ACTIVE") return "Có thể sử dụng";
+  return STATUS_LABELS[normalized] ?? "Chưa xác định";
 }
 
 export default function RewardsPage() {
@@ -66,13 +66,15 @@ export default function RewardsPage() {
 
   const [profile, setProfile] = useState(null);
   const [campaigns, setCampaigns] = useState([]);
-  const [tiers, setTiers] = useState(fallbackTiers);
+  const [tiers, setTiers] = useState([]);
   const [savedPromotions, setSavedPromotions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const [profileData, campaignData, tierData, savedData] = await Promise.all([
         getMembershipProfile(),
@@ -83,11 +85,13 @@ export default function RewardsPage() {
 
       setProfile(profileData);
       setCampaigns(Array.isArray(campaignData) ? campaignData : []);
-      setTiers(Array.isArray(tierData) && tierData.length ? tierData : fallbackTiers);
+      setTiers(Array.isArray(tierData) ? tierData : []);
       setSavedPromotions(Array.isArray(savedData) ? savedData : []);
       setError("");
     } catch (requestError) {
       setError(requestError.response?.data?.message ?? "Không thể tải chương trình thành viên lúc này.");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -113,15 +117,26 @@ export default function RewardsPage() {
     [savedPromotions],
   );
 
-  const currentLevel = Number(profile?.level ?? 1);
-  const completedBookings = Number(profile?.completedBookings ?? 0);
-  const currentTier = tiers.find((tier) => Number(tier.level) === currentLevel) ?? tiers[0];
-  const nextTier = tiers.find((tier) => Number(tier.level) === currentLevel + 1) ?? null;
-  const nextThreshold = nextTier?.minCompletedBookings ?? currentTier?.minCompletedBookings ?? completedBookings;
-  const currentThreshold = currentTier?.minCompletedBookings ?? 0;
+  const currentLevel = profile?.level == null ? null : Number(profile.level);
+  const completedBookings = profile?.completedBookings == null
+    ? null
+    : Number(profile.completedBookings);
+  const currentTier = Number.isFinite(currentLevel)
+    ? tiers.find((tier) => Number(tier.level) === currentLevel) ?? null
+    : null;
+  const nextTier = Number.isFinite(currentLevel)
+    ? tiers.find((tier) => Number(tier.level) === currentLevel + 1) ?? null
+    : null;
+  const nextThreshold = nextTier?.minCompletedBookings == null
+    ? null
+    : Number(nextTier.minCompletedBookings);
+  const currentThreshold = currentTier?.minCompletedBookings == null
+    ? null
+    : Number(currentTier.minCompletedBookings);
 
   const progress = useMemo(() => {
-    if (!nextTier) return 100;
+    if (!nextTier || !Number.isFinite(completedBookings)
+      || !Number.isFinite(currentThreshold) || !Number.isFinite(nextThreshold)) return null;
     return Math.max(
       0,
       Math.min(
@@ -133,7 +148,8 @@ export default function RewardsPage() {
   }, [completedBookings, currentThreshold, nextThreshold, nextTier]);
 
   const progressDots = useMemo(() => {
-    if (!nextTier) return [];
+    if (!nextTier || !Number.isFinite(completedBookings)
+      || !Number.isFinite(currentThreshold) || !Number.isFinite(nextThreshold)) return [];
     const total = Math.max(1, Number(nextThreshold) - Number(currentThreshold));
     const done = Math.max(0, Math.min(total, completedBookings - Number(currentThreshold)));
     return Array.from({ length: Math.min(total, 15) }, (_, index) => index < done);
@@ -174,6 +190,10 @@ export default function RewardsPage() {
 
   const firstName = String(user?.fullName ?? "").trim().split(/\s+/).pop() || "bạn";
 
+  if (loading && !profile && tiers.length === 0) {
+    return <Loading message="Đang tải chương trình thành viên..." />;
+  }
+
   return (
     <main className="customer-page-shell enziu-loyalty-page">
       <section className="enziu-loyalty-hero">
@@ -194,23 +214,33 @@ export default function RewardsPage() {
 
       <div className="container enziu-loyalty-content">
         {message ? <div className="promo-message">{message}</div> : null}
-        {error ? <div className="promo-message error">{error}</div> : null}
+        <ErrorMessage message={error} onRetry={() => void load()} />
 
-        <section className="enziu-level-progress-card">
+        {profile && Number.isFinite(currentLevel) ? (
+          <section className="enziu-level-progress-card">
           <div className="enziu-level-title">
             <span className="enziu-level-number">{currentLevel}</span>
             <div>
               <small>Hạng hiện tại</small>
-              <h2>{firstName} ơi, bạn đang ở {profile?.name ?? `Cấp ${currentLevel}`}!</h2>
+              <h2>{firstName} ơi, bạn đang ở {profile.name || `Cấp ${currentLevel}`}!</h2>
               <p>
-                {nextTier
-                  ? `Hoàn tất ${Number(profile?.bookingsToNextLevel ?? 0)} booking nữa để mở khóa ${profile?.nextName ?? nextTier.name}.`
+                {tiers.length === 0
+                  ? "Chưa có dữ liệu để xác định hạng tiếp theo."
+                  : nextTier
+                  ? (profile.bookingsToNextLevel != null
+                    ? `Hoàn tất ${Number(profile.bookingsToNextLevel)} booking nữa để mở khóa ${profile.nextName || nextTier.name}.`
+                    : `Tiếp tục hoàn tất chuyến đi để mở khóa ${profile.nextName || nextTier.name}.`)
                   : "Bạn đã đạt cấp thành viên cao nhất hiện tại."}
               </p>
             </div>
           </div>
 
-          {nextTier ? (
+          {tiers.length === 0 ? (
+            <div className="enziu-highest-level">
+              <Award size={22} />
+              Tiến độ chưa thể hiển thị vì dữ liệu hạng chưa được cung cấp.
+            </div>
+          ) : nextTier ? (
             <>
               <div className="enziu-progress-dots" aria-label={`Tiến độ lên ${nextTier.name}`}>
                 {progressDots.map((done, index) => (
@@ -219,9 +249,17 @@ export default function RewardsPage() {
                   </span>
                 ))}
               </div>
-              <div className="enziu-progress-track">
-                <span style={{ width: `${progress}%` }} />
-              </div>
+              {progress != null ? (
+                <div
+                  className="enziu-progress-track"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow={Math.round(progress)}
+                >
+                  <span style={{ width: `${progress}%` }} />
+                </div>
+              ) : null}
             </>
           ) : (
             <div className="enziu-highest-level">
@@ -237,7 +275,16 @@ export default function RewardsPage() {
           >
             Xem quyền lợi từng cấp
           </button>
-        </section>
+          </section>
+        ) : (
+          <EmptyState
+            icon={<Award size={28} />}
+            title={error ? "Chưa thể hiển thị hạng thành viên" : "Chưa có dữ liệu hạng thành viên"}
+            description={error
+              ? "Dữ liệu thành viên chưa tải được. Hãy thử lại khi kết nối ổn định."
+              : "EnziuRooms chưa nhận được thông tin hạng từ hệ thống."}
+          />
+        )}
 
         <section ref={benefitsRef} className="enziu-loyalty-benefits">
           <div className="enziu-loyalty-section-heading">
@@ -248,11 +295,11 @@ export default function RewardsPage() {
             </p>
           </div>
 
-          <div className="enziu-tier-grid">
+          {tiers.length > 0 ? <div className="enziu-tier-grid">
             {tiers.map((tier) => {
               const level = Number(tier.level);
-              const current = level === currentLevel;
-              const unlocked = currentLevel >= level;
+              const current = Number.isFinite(currentLevel) && level === currentLevel;
+              const unlocked = Number.isFinite(currentLevel) && currentLevel >= level;
 
               return (
                 <article
@@ -263,11 +310,17 @@ export default function RewardsPage() {
                     {unlocked ? <Award size={16} /> : <LockKeyhole size={16} />}
                     {tier.name}
                   </div>
-                  <strong>Giảm {Number(tier.discountPercent ?? 0)}% khi đặt phòng</strong>
+                  <strong>
+                    {tier.discountPercent == null
+                      ? "Mức giảm chưa được cập nhật"
+                      : `Giảm ${Number(tier.discountPercent)}% khi đặt phòng`}
+                  </strong>
                   <p>
                     {level === 1
                       ? "Quyền lợi bắt đầu ngay khi bạn là thành viên EnziuRooms."
-                      : `Mở khóa từ ${Number(tier.minCompletedBookings ?? 0)} booking đã hoàn tất.`}
+                      : (tier.minCompletedBookings == null
+                        ? "Điều kiện mở khóa chưa được cập nhật."
+                        : `Mở khóa từ ${Number(tier.minCompletedBookings)} booking đã hoàn tất.`)}
                   </p>
                   <div className="enziu-tier-rule">
                     <Check size={17} />
@@ -277,7 +330,16 @@ export default function RewardsPage() {
                 </article>
               );
             })}
-          </div>
+          </div> : (
+            <EmptyState
+              icon={<Trophy size={28} />}
+              title={error ? "Chưa thể hiển thị quyền lợi" : "Chưa có thông tin quyền lợi"}
+              description={error
+                ? "Dữ liệu quyền lợi chưa tải được. Hãy thử lại khi kết nối ổn định."
+                : "Các hạng và quyền lợi chưa được hệ thống cung cấp."}
+              compact
+            />
+          )}
         </section>
 
         <section className="enziu-loyalty-vouchers">
@@ -298,12 +360,16 @@ export default function RewardsPage() {
                     <small>
                       {String(promotion.scope).toUpperCase() === "HOTEL"
                         ? "Ưu đãi của khách sạn"
-                        : "Ưu đãi EnziuRooms"}
+                        : String(promotion.scope).toUpperCase() === "PLATFORM"
+                          ? "Ưu đãi EnziuRooms"
+                          : "Phạm vi chưa xác định"}
                     </small>
                     <small>Hạn dùng: {dateLabel(promotion.endAt)}</small>
-                    <span className={`promo-status ${promotion.lifecycle === "ACTIVE" ? "active" : ""}`}>
-                      {lifecycleLabel(promotion.lifecycle)}
-                    </span>
+                    <StatusBadge
+                      status={promotion.lifecycle}
+                      label={lifecycleLabel(promotion.lifecycle)}
+                      size="sm"
+                    />
                     {Number(promotion.minBookingAmount ?? 0) > 0 ? (
                       <small>Đơn tối thiểu: {money(promotion.minBookingAmount)}</small>
                     ) : null}

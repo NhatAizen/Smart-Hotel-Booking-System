@@ -8,7 +8,6 @@ import {
   Smile,
   Star,
   Users,
-  X,
 } from "lucide-react";
 import {
   useEffect,
@@ -19,12 +18,16 @@ import { Link } from "react-router-dom";
 
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
+import { EmptyState, Modal, Pagination } from "../../components/ui";
 import { getMyReviews } from "../../services/bookingService";
 import {
   getHotelById,
   getRoomTypeById,
 } from "../../services/hotelService";
+import "./CustomerAccountExperience.css";
 import "./CustomerCollectionPages.css";
+
+const PAGE_SIZE = 5;
 
 function hotelCover(hotel) {
   return hotel?.coverImageUrl
@@ -38,24 +41,29 @@ function hotelCover(hotel) {
 
 function formatDate(value) {
   if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Chưa xác định";
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function formatStayMonth(value) {
   if (!value) return "—";
   const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "Chưa xác định";
   return `Tháng ${date.getMonth() + 1}/${date.getFullYear()}`;
 }
 
 function nightCount(checkIn, checkOut) {
-  if (!checkIn || !checkOut) return 1;
+  if (!checkIn || !checkOut) return null;
   const start = new Date(`${checkIn}T00:00:00`);
   const end = new Date(`${checkOut}T00:00:00`);
-  return Math.max(1, Math.round((end - start) / 86400000));
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  if (end <= start) return null;
+  return Math.round((end - start) / 86400000);
 }
 
 function tripLabel(value) {
@@ -65,7 +73,7 @@ function tripLabel(value) {
     SOLO: "Một mình",
     GROUP: "Nhóm bạn",
   };
-  return labels[value] ?? "Chuyến nghỉ dưỡng";
+  return labels[value] ?? "Chưa có thông tin chuyến đi";
 }
 
 function normalize(value) {
@@ -97,6 +105,7 @@ export default function MyReviewsPage() {
   const [sort, setSort] = useState("newest");
   const [scoreFilter, setScoreFilter] = useState("all");
   const [lightbox, setLightbox] = useState(null);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let active = true;
@@ -159,9 +168,12 @@ export default function MyReviewsPage() {
 
   const stats = useMemo(() => {
     const total = reviews.length;
-    const average = total
-      ? reviews.reduce((sum, review) => sum + Number(review.rating ?? 0), 0) / total
-      : 0;
+    const ratingValues = reviews
+      .map((review) => Number(review.rating))
+      .filter(Number.isFinite);
+    const average = ratingValues.length
+      ? ratingValues.reduce((sum, rating) => sum + rating, 0) / ratingValues.length
+      : null;
     const photoCount = reviews.reduce(
       (sum, review) => sum + (Array.isArray(review.images) ? review.images.length : 0),
       0,
@@ -196,17 +208,12 @@ export default function MyReviewsPage() {
         return new Date(b.createdAt) - new Date(a.createdAt);
       });
   }, [reviews, query, scoreFilter, sort, hotelMap]);
-
-  useEffect(() => {
-    if (!lightbox) return undefined;
-
-    function onKeyDown(event) {
-      if (event.key === "Escape") setLightbox(null);
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [lightbox]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const visibleReviews = useMemo(
+    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filtered, safePage],
+  );
 
   if (loading) {
     return <Loading message="Đang tải đánh giá của bạn..." />;
@@ -245,7 +252,7 @@ export default function MyReviewsPage() {
               </div>
               <div className="review-summary-card">
                 <span>Điểm trung bình của bạn</span>
-                <strong>{stats.average.toFixed(1)}/10</strong>
+                <strong>{stats.average == null ? "—" : `${stats.average.toFixed(1)}/10`}</strong>
               </div>
               <div className="review-summary-card">
                 <span>Ảnh đã chia sẻ</span>
@@ -258,14 +265,21 @@ export default function MyReviewsPage() {
                 <Search size={18} />
                 <input
                   value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setPage(1);
+                  }}
                   placeholder="Tìm khách sạn hoặc nội dung đánh giá..."
+                  aria-label="Tìm trong đánh giá của tôi"
                 />
               </label>
 
               <select
                 value={scoreFilter}
-                onChange={(event) => setScoreFilter(event.target.value)}
+                onChange={(event) => {
+                  setScoreFilter(event.target.value);
+                  setPage(1);
+                }}
                 aria-label="Lọc theo điểm"
               >
                 <option value="all">Tất cả điểm</option>
@@ -276,7 +290,10 @@ export default function MyReviewsPage() {
 
               <select
                 value={sort}
-                onChange={(event) => setSort(event.target.value)}
+                onChange={(event) => {
+                  setSort(event.target.value);
+                  setPage(1);
+                }}
                 aria-label="Sắp xếp đánh giá"
               >
                 <option value="newest">Mới nhất</option>
@@ -287,8 +304,9 @@ export default function MyReviewsPage() {
             </div>
 
             {filtered.length > 0 ? (
-              <div className="my-review-list">
-                {filtered.map((review) => {
+              <>
+                <div className="my-review-list">
+                {visibleReviews.map((review) => {
                   const hotel = hotelMap[review.hotelId];
                   const roomType = roomTypeMap[review.roomTypeId];
                   const cover = hotelCover(hotel);
@@ -308,25 +326,29 @@ export default function MyReviewsPage() {
                             )}
                           </div>
                           <div>
-                            <h2>{hotel?.name ?? "Khách sạn EnziuRooms"}</h2>
+                            <h2>{hotel?.name ?? "Không thể tải thông tin khách sạn"}</h2>
                             <p>
                               Đánh giá ngày {formatDate(review.createdAt)}
                             </p>
                           </div>
                         </div>
 
-                        <div className="my-review-score">{Number(review.rating).toFixed(1)}</div>
+                        <div className="my-review-score">
+                          {Number.isFinite(Number(review.rating))
+                            ? Number(review.rating).toFixed(1)
+                            : "—"}
+                        </div>
                       </div>
 
                       <div className="my-review-content">
                         <div className="my-review-meta">
                           <div className="my-review-meta-item">
                             <BedDouble size={17} />
-                            <span>{roomType?.name ?? "Loại phòng đã lưu trú"}</span>
+                            <span>{roomType?.name ?? "Không thể tải loại phòng"}</span>
                           </div>
                           <div className="my-review-meta-item">
                             <CalendarDays size={17} />
-                            <span>{nights} đêm · {formatStayMonth(review.checkIn)}</span>
+                            <span>{nights == null ? "Chưa có số đêm" : `${nights} đêm`} · {formatStayMonth(review.checkIn)}</span>
                           </div>
                           <div className="my-review-meta-item">
                             <Users size={17} />
@@ -334,7 +356,11 @@ export default function MyReviewsPage() {
                           </div>
                           <div className="my-review-meta-item">
                             <Camera size={17} />
-                            <span>{review.images?.length ?? 0} ảnh</span>
+                            <span>
+                              {Array.isArray(review.images)
+                                ? `${review.images.length} ảnh`
+                                : "Chưa có dữ liệu ảnh"}
+                            </span>
                           </div>
                         </div>
 
@@ -390,66 +416,66 @@ export default function MyReviewsPage() {
                         <span>
                           Đánh giá được xác minh từ booking đã hoàn tất trên EnziuRooms.
                         </span>
-                        <Link
-                          className="collection-link-button"
-                          to={`/hotels/${review.hotelId}`}
-                        >
-                          Xem khách sạn
-                        </Link>
+                        {review.hotelId ? (
+                          <Link
+                            className="collection-link-button"
+                            to={`/hotels/${review.hotelId}`}
+                          >
+                            Xem khách sạn
+                          </Link>
+                        ) : null}
                       </div>
                     </article>
                   );
                 })}
-              </div>
+                </div>
+                <Pagination
+                  currentPage={safePage}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  ariaLabel="Phân trang đánh giá của tôi"
+                />
+              </>
             ) : (
-              <div className="collection-empty">
-                <span className="collection-empty-icon">
-                  <Search size={32} />
-                </span>
-                <h2>Không có đánh giá phù hợp bộ lọc</h2>
-                <p>Thử bỏ bộ lọc điểm hoặc tìm với từ khóa khác.</p>
-              </div>
+              <EmptyState
+                className="collection-empty"
+                icon={<Search size={30} />}
+                title="Không có đánh giá phù hợp bộ lọc"
+                description="Thử bỏ bộ lọc điểm hoặc tìm với từ khóa khác."
+              />
             )}
           </>
         ) : (
-          <div className="collection-empty">
-            <span className="collection-empty-icon">
-              <Star size={34} />
-            </span>
-            <h2>Bạn chưa có đánh giá nào</h2>
-            <p>
-              Sau khi hoàn tất lưu trú và trả phòng, bạn có thể chia sẻ nhận xét,
-              chấm điểm và thêm ảnh về kỳ nghỉ của bạn.
-            </p>
-            <Link className="collection-link-button primary" to="/customer/bookings">
-              Xem đơn đặt phòng
-            </Link>
-          </div>
+          <EmptyState
+            className="collection-empty"
+            icon={<Star size={30} />}
+            title={error ? "Chưa thể hiển thị đánh giá" : "Bạn chưa có đánh giá nào"}
+            description={error
+              ? "Dữ liệu đánh giá chưa tải được. Hãy thử lại khi kết nối ổn định."
+              : "Sau khi hoàn tất lưu trú và trả phòng, bạn có thể chia sẻ nhận xét, chấm điểm và thêm ảnh về kỳ nghỉ của bạn."}
+            actions={!error
+              ? <Link className="collection-link-button primary" to="/customer/bookings">Xem đơn đặt phòng</Link>
+              : undefined}
+          />
         )}
       </section>
 
-      {lightbox ? (
-        <div
-          className="review-lightbox"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setLightbox(null)}
-        >
-          <button
-            type="button"
-            className="review-lightbox-close"
-            onClick={() => setLightbox(null)}
-            aria-label="Đóng ảnh"
-          >
-            <X size={24} />
-          </button>
+      <Modal
+        open={Boolean(lightbox)}
+        onClose={() => setLightbox(null)}
+        title="Ảnh trong đánh giá"
+        description={lightbox?.alt}
+        size="lg"
+        className="review-lightbox-modal"
+        bodyClassName="review-lightbox-modal__body"
+      >
+        {lightbox ? (
           <img
             src={lightbox.src}
             alt={lightbox.alt}
-            onClick={(event) => event.stopPropagation()}
           />
-        </div>
-      ) : null}
+        ) : null}
+      </Modal>
     </main>
   );
 }

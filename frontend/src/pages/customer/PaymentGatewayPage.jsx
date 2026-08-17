@@ -13,11 +13,13 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router-do
 
 import { useAuth } from "../../auth/AuthContext";
 import ErrorMessage from "../../components/common/ErrorMessage";
+import { StatusBadge } from "../../components/ui";
 import {
   cancelPayOsOrder,
   getPayOsOrder,
   syncPayOsOrder,
 } from "../../services/paymentService";
+import { normalizeEnum, STATUS_LABELS } from "../../utils/presentation";
 import "./BookingCheckoutPage.css";
 
 const TERMINAL_STATUSES = new Set(["PAID", "CANCELLED", "EXPIRED", "FAILED", "REFUNDED"]);
@@ -26,7 +28,9 @@ const CHECKIN_PAYMENT_CHANNEL = "enziurooms-payos-checkin";
 const HOTEL_PAYMENT_RETURN_KEY = "enziuroomsHotelPaymentReturn";
 
 function money(value) {
-  return `${Number(value ?? 0).toLocaleString("vi-VN")} ₫`;
+  if (value === null || value === undefined || value === "") return "—";
+  const amount = Number(value);
+  return Number.isFinite(amount) ? `${amount.toLocaleString("vi-VN")} ₫` : "—";
 }
 
 function readStoredOrder() {
@@ -112,6 +116,15 @@ function broadcastCheckInPaymentPaid(order, context) {
 }
 
 function statusCopy(status) {
+  if (!status) {
+    return {
+      icon: LoaderCircle,
+      title: "Đang xác minh thanh toán",
+      message: "Đang xác nhận giao dịch với PayOS.",
+      tone: "processing",
+    };
+  }
+
   switch (status) {
     case "PAID":
       return {
@@ -141,14 +154,42 @@ function statusCopy(status) {
         message: "PayOS chưa ghi nhận được giao dịch. Bạn có thể kiểm tra lại hoặc tạo booking mới.",
         tone: "danger",
       };
-    default:
+    case "REFUNDED":
+      return {
+        icon: CheckCircle2,
+        title: "Giao dịch đã được hoàn tiền",
+        message: "PayOS đã ghi nhận trạng thái hoàn tiền cho giao dịch này.",
+        tone: "success",
+      };
+    case "PENDING":
+    case "PROCESSING":
       return {
         icon: LoaderCircle,
         title: "Đang xác minh thanh toán",
         message: "Đang xác nhận giao dịch với PayOS.",
         tone: "processing",
       };
+    default:
+      return {
+        icon: Clock3,
+        title: "Chưa xác định trạng thái giao dịch",
+        message: "PayOS trả về trạng thái chưa được EnziuRooms nhận diện. Hãy kiểm tra lại sau ít phút.",
+        tone: "neutral",
+      };
   }
+}
+
+function paymentStatusLabel(status) {
+  return STATUS_LABELS[normalizeEnum(status)] ?? "Chưa xác định";
+}
+
+function paymentTypeLabel(type) {
+  return {
+    DEPOSIT: "Đặt cọc online",
+    REMAINING_PAYMENT: "Thanh toán phần còn lại",
+    WALLET_TOP_UP: "Nạp tiền vào ví khách sạn",
+    FULL_PAYMENT: "Thanh toán toàn bộ",
+  }[normalizeEnum(type)] ?? "Chưa xác định";
 }
 
 export default function PaymentGatewayPage() {
@@ -353,16 +394,20 @@ export default function PaymentGatewayPage() {
           </div>
         </section>
 
-        <ErrorMessage message={error} />
+        <ErrorMessage message={error} onRetry={() => void loadOrder({ sync: true })} />
 
         {order ? (
           <section className="payos-order-card">
             <div className="payos-order-heading">
               <div>
                 <small>Mã giao dịch</small>
-                <strong>{order.orderCode}</strong>
+                <strong>{order.orderCode || "Chưa có mã giao dịch"}</strong>
               </div>
-              <span className={`payos-status-pill ${copy.tone}`}>{order.status}</span>
+              <StatusBadge
+                status={order.status}
+                label={paymentStatusLabel(order.status)}
+                className="payos-status-pill"
+              />
             </div>
 
             <div className="payos-order-grid">
@@ -373,13 +418,7 @@ export default function PaymentGatewayPage() {
               <div>
                 <small>Hình thức</small>
                 <strong>
-                  {order.paymentType === "DEPOSIT"
-                    ? "Đặt cọc online"
-                    : order.paymentType === "REMAINING_PAYMENT"
-                      ? "Thanh toán phần còn lại"
-                      : order.paymentType === "WALLET_TOP_UP"
-                        ? "Nạp tiền vào ví khách sạn"
-                        : "Thanh toán toàn bộ"}
+                  {paymentTypeLabel(order.paymentType)}
                 </strong>
               </div>
               <div>
@@ -388,7 +427,7 @@ export default function PaymentGatewayPage() {
               </div>
               <div>
                 <small>Tham chiếu ngân hàng</small>
-                <strong>{order.providerReference || "Đang chờ"}</strong>
+                <strong>{order.providerReference || "Chưa được PayOS cung cấp"}</strong>
               </div>
             </div>
 

@@ -69,12 +69,21 @@ function statusMeta(status) {
     };
   }
 
+  if (status === "PENDING") {
+    return {
+      className: "pending",
+      icon: Clock3,
+      title: "Hồ sơ đang chờ duyệt",
+      description:
+        "Thông tin CCCD và khuôn mặt đã được xác minh. Hồ sơ đang chờ xét duyệt.",
+    };
+  }
+
   return {
-    className: "pending",
-    icon: Clock3,
-    title: "Hồ sơ đang chờ duyệt",
-    description:
-      "Thông tin CCCD và khuôn mặt đã được xác minh. Hồ sơ đang chờ xét duyệt.",
+    className: "neutral",
+    icon: Info,
+    title: "Đang cập nhật trạng thái hồ sơ",
+    description: "Trạng thái mới nhất chưa thể hiển thị. Vui lòng tải lại sau ít phút.",
   };
 }
 
@@ -612,13 +621,13 @@ export default function PartnerApplicationPage() {
               <div className="partner-form-grid">
                 <label className="partner-field wide">
                   <span>{form.applicantType === "BUSINESS" ? "Tên doanh nghiệp" : "Họ và tên pháp lý"} *</span>
-                  <input name="legalName" value={form.legalName} onChange={updateField} maxLength={150} placeholder={form.applicantType === "BUSINESS" ? "Công ty TNHH Enziu Hotel" : "Nguyễn Văn A"} />
+                  <input name="legalName" value={form.legalName} onChange={updateField} maxLength={150} placeholder={form.applicantType === "BUSINESS" ? "Nhập tên pháp lý doanh nghiệp" : "Nhập họ và tên"} />
                 </label>
 
                 {form.applicantType === "BUSINESS" ? (
                   <label className="partner-field wide">
                     <span>Họ tên người đại diện trên CCCD *</span>
-                    <input name="representativeName" value={form.representativeName} onChange={updateField} maxLength={150} placeholder="Nguyễn Văn A" />
+                    <input name="representativeName" value={form.representativeName} onChange={updateField} maxLength={150} placeholder="Nhập tên người đại diện" />
                   </label>
                 ) : null}
 

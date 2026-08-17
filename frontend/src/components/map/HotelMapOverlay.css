@@ -49,19 +49,6 @@
   font-size: 14px;
 }
 
-.customer-map-filter-group input[type="range"] {
-  width: 100%;
-  accent-color: #006ce4;
-}
-
-.customer-map-price-row {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 7px;
-  color: #647487;
-  font-size: 11px;
-}
-
 .customer-map-check-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

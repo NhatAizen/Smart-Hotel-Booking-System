@@ -832,10 +832,12 @@
   }
 
   .enziu-fai-panel {
-    position: fixed;
-    inset: 10px 10px 80px;
-    width: auto;
-    height: auto;
+    position: absolute;
+    right: 0;
+    bottom: 66px;
+    width: min(420px, calc(100vw - 24px));
+    height: min(72dvh, 640px);
+    max-height: calc(100dvh - 92px);
     border-radius: 18px;
   }
 
@@ -851,6 +853,28 @@
 
   .enziu-fai-trip-fields {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .enziu-fai-root {
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .enziu-fai-panel {
+    width: calc(100vw - 16px);
+    height: min(70dvh, 600px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enziu-fai-root *,
+  .enziu-fai-root *::before,
+  .enziu-fai-root *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
   }
 }
 

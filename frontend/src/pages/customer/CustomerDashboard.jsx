@@ -21,10 +21,10 @@ export default function CustomerDashboard() {
   return (
     <main className="customer-dashboard-page">
       <div className="container">
-        <section className="customer-dashboard-welcome">
+        <section className="customer-dashboard-welcome" aria-labelledby="customer-dashboard-title">
           <div>
             <span>TRANG CỦA BẠN</span>
-            <h1>Xin chào, {user?.fullName ?? "bạn"}!</h1>
+            <h1 id="customer-dashboard-title">Xin chào, {user?.fullName ?? "bạn"}!</h1>
             <p>
               Tìm khách sạn, theo dõi đơn đặt phòng và nhận hỗ trợ
               từ trợ lý AI tại một nơi.
@@ -37,7 +37,7 @@ export default function CustomerDashboard() {
           </Link>
         </section>
 
-        <section className="customer-dashboard-grid">
+        <nav className="customer-dashboard-grid" aria-label="Lối tắt tài khoản khách hàng">
           <Link to="/hotels" className="customer-dashboard-card">
             <Hotel size={25} />
             <strong>Khám phá khách sạn</strong>
@@ -50,7 +50,7 @@ export default function CustomerDashboard() {
           >
             <CalendarCheck2 size={25} />
             <strong>Đơn đặt phòng</strong>
-            <span>Theo dõi lịch sử và trạng thái booking</span>
+            <span>Theo dõi lịch sử và trạng thái đơn</span>
           </Link>
 
           <Link
@@ -86,7 +86,7 @@ export default function CustomerDashboard() {
           >
             <WalletCards size={25} />
             <strong>Ví Enziu</strong>
-            <span>Nhận hoàn tiền, thanh toán booking và rút về ngân hàng</span>
+            <span>Nhận hoàn tiền, thanh toán đơn và rút về ngân hàng</span>
           </Link>
 
 
@@ -108,7 +108,7 @@ export default function CustomerDashboard() {
             <strong>Trợ lý AI</strong>
             <span>Nhận gợi ý khách sạn theo nhu cầu</span>
           </button>
-        </section>
+        </nav>
       </div>
     </main>
   );

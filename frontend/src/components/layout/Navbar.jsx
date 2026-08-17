@@ -8,7 +8,6 @@ import {
   LogIn,
   LogOut,
   Menu,
-  Settings,
   Star,
   UserRound,
   UserPlus,
@@ -228,6 +227,8 @@ export default function Navbar() {
             MENU CHÍNH
         ================================================== */}
         <nav
+          id="customer-primary-navigation"
+          aria-label="Điều hướng chính"
           className={
             mobileOpen
               ? "nav-menu open"
@@ -282,6 +283,19 @@ export default function Navbar() {
               </button>
             </>
           ) : null}
+
+          {!isAuthenticated ? (
+            <div className="nav-mobile-auth" aria-label="Tài khoản">
+              <Link to="/login" className="outline-button" onClick={closeMenu}>
+                <LogIn size={18} />
+                Đăng nhập
+              </Link>
+              <Link to="/register" className="primary-button" onClick={closeMenu}>
+                <UserPlus size={18} />
+                Đăng ký
+              </Link>
+            </div>
+          ) : null}
         </nav>
 
         {/* ==================================================
@@ -315,6 +329,7 @@ export default function Navbar() {
                   onClick={toggleAccountMenu}
                   aria-expanded={accountMenuOpen}
                   aria-haspopup="menu"
+                  aria-controls="customer-account-dropdown"
                 >
                   <span className="account-avatar">
                     {avatarUrl ? (
@@ -356,6 +371,7 @@ export default function Navbar() {
                 ========================================== */}
                 {accountMenuOpen ? (
                   <div
+                    id="customer-account-dropdown"
                     className="account-dropdown"
                     role="menu"
                   >
@@ -529,29 +545,6 @@ export default function Navbar() {
                         </small>
                       </span>
                     </Link>
-
-                    {/* ======================================
-                        SETTINGS
-                    ====================================== */}
-                    <Link
-                      to="/customer/settings"
-                      className="account-dropdown-item"
-                      role="menuitem"
-                      onClick={closeMenu}
-                    >
-                      <Settings size={19} />
-
-                      <span>
-                        <strong>
-                          Cài đặt
-                        </strong>
-
-                        <small>
-                          Mật khẩu và bảo mật
-                        </small>
-                      </span>
-                    </Link>
-
                     <div className="account-dropdown-divider" />
 
                     {/* ======================================
@@ -620,6 +613,8 @@ export default function Navbar() {
                 ? "Đóng menu"
                 : "Mở menu"
             }
+            aria-expanded={mobileOpen}
+            aria-controls="customer-primary-navigation"
           >
             {mobileOpen ? (
               <X />

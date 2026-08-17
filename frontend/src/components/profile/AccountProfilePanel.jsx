@@ -24,6 +24,7 @@ import {
 } from "react";
 
 import { useAuth } from "../../auth/AuthContext";
+import { ErrorState, StatusBadge } from "../ui";
 import { getMyHotels } from "../../services/hotelAdminService";
 import {
   getMyPartnerRequest,
@@ -32,6 +33,7 @@ import {
   updateMyProfile,
   uploadMyAvatar,
 } from "../../services/profileService";
+import { normalizeEnum, STATUS_LABELS } from "../../utils/presentation";
 
 import "./AccountProfilePanel.css";
 
@@ -105,6 +107,10 @@ function partnerTypeLabel(type) {
   return "Đối tác khách sạn";
 }
 
+function accountStatusLabel(status) {
+  return STATUS_LABELS[normalizeEnum(status)] ?? "Chưa có dữ liệu";
+}
+
 export default function AccountProfilePanel({ mode = "customer" }) {
   const isHotelAdmin = mode === "hotel-admin";
   const { user, updateCachedUser } = useAuth();
@@ -119,10 +125,12 @@ export default function AccountProfilePanel({ mode = "customer" }) {
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   const displayRole = isHotelAdmin
     ? "Đối tác"
     : "Khách hàng";
+  const accountStatus = profile?.status ?? profile?.accountStatus ?? user?.status ?? "";
 
   const avatarInitial = useMemo(() => {
     const text = profile?.fullName ?? user?.fullName ?? "U";
@@ -185,7 +193,7 @@ export default function AccountProfilePanel({ mode = "customer" }) {
     return () => {
       cancelled = true;
     };
-  }, [isHotelAdmin, updateCachedUser]);
+  }, [isHotelAdmin, reloadKey, updateCachedUser]);
 
   function changeField(event) {
     const { name, value } = event.target;
@@ -311,6 +319,22 @@ export default function AccountProfilePanel({ mode = "customer" }) {
         <LoaderCircle className="spin" size={24} />
         Đang tải hồ sơ...
       </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <section
+        className={`profile-page-shell ${
+          isHotelAdmin ? "hotel-admin-profile-shell" : ""
+        }`}
+      >
+        <ErrorState
+          title="Chưa thể hiển thị hồ sơ"
+          message={error || "Hệ thống chưa cung cấp dữ liệu hồ sơ cho tài khoản này."}
+          onRetry={() => setReloadKey((current) => current + 1)}
+        />
+      </section>
     );
   }
 
@@ -446,10 +470,14 @@ export default function AccountProfilePanel({ mode = "customer" }) {
 
               <div>
                 <ShieldCheck size={18} />
-                <span>
+                <div className="profile-account-fact-copy">
                   <small>Trạng thái tài khoản</small>
-                  <strong>Đang hoạt động</strong>
-                </span>
+                  <StatusBadge
+                    status={accountStatus}
+                    label={accountStatusLabel(accountStatus)}
+                    size="sm"
+                  />
+                </div>
               </div>
             </div>
           </article>

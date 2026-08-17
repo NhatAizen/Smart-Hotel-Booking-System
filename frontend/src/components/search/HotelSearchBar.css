@@ -264,7 +264,8 @@
 }
 
 .shared-destination-option:hover,
-.shared-destination-option:focus-visible {
+.shared-destination-option:focus-visible,
+.shared-destination-option[aria-selected="true"] {
   color: #057bc5;
   background: #eff8ff;
   outline: none;
@@ -470,6 +471,23 @@
       calc(100vh - 100px);
   }
 }
+
+.shared-destination-recent-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.shared-destination-recent-row .shared-destination-option {
+  padding-right: 56px;
+}
+
+.shared-destination-recent-row .shared-destination-remove {
+  position: absolute;
+  right: 16px;
+  border: 0;
+  background: transparent;
+}
 /* Date validation shared by Guest and Customer search bars. */
 .shared-search-date-error {
   grid-column: 1 / -1;
@@ -483,5 +501,13 @@
   .shared-search-date-error {
     margin: 0;
     font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shared-destination-dropdown,
+  .shared-search-submit {
+    animation: none;
+    transition: none;
   }
 }

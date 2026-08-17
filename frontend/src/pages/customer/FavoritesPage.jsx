@@ -16,6 +16,11 @@ import { Link } from "react-router-dom";
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
 import {
+  ConfirmDialog,
+  EmptyState,
+  Pagination,
+} from "../../components/ui";
+import {
   getHotelReviewSummary,
 } from "../../services/bookingService";
 import {
@@ -23,7 +28,10 @@ import {
   removeFavoriteHotel,
 } from "../../services/favoriteService";
 import { getHotelById } from "../../services/hotelService";
+import "./CustomerAccountExperience.css";
 import "./CustomerCollectionPages.css";
+
+const PAGE_SIZE = 6;
 
 function hotelCover(hotel) {
   return hotel?.coverImageUrl
@@ -58,6 +66,8 @@ export default function FavoritesPage() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("saved-desc");
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [pendingRemove, setPendingRemove] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -74,19 +84,15 @@ export default function FavoritesPage() {
           normalizedFavorites.map(async (favorite) => {
             const hotel = await getHotelById(favorite.hotelId).catch(() => null);
             const summary = hotel
-              ? await getHotelReviewSummary(favorite.hotelId).catch(() => ({
-                  reviewCount: 0,
-                  averageRating: null,
-                }))
-              : {
-                  reviewCount: 0,
-                  averageRating: null,
-                };
+              ? await getHotelReviewSummary(favorite.hotelId).catch(() => null)
+              : null;
 
             return {
               ...favorite,
               hotel,
               summary,
+              hotelUnavailable: !hotel,
+              summaryUnavailable: Boolean(hotel) && !summary,
             };
           }),
         );
@@ -142,14 +148,14 @@ export default function FavoritesPage() {
       });
   }, [items, query, sort]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const visibleItems = useMemo(
+    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filtered, safePage],
+  );
+
   async function removeFavorite(item) {
-    const hotelName = item.hotel?.name ?? "khách sạn này";
-    const accepted = window.confirm(
-      `Bỏ ${hotelName} khỏi danh sách yêu thích?`,
-    );
-
-    if (!accepted) return;
-
     setRemovingId(item.hotelId);
     setError("");
 
@@ -158,6 +164,7 @@ export default function FavoritesPage() {
       setItems((current) =>
         current.filter((entry) => entry.hotelId !== item.hotelId),
       );
+      setPendingRemove(null);
     } catch (requestError) {
       setError(
         requestError.response?.data?.message
@@ -203,14 +210,21 @@ export default function FavoritesPage() {
                 <Search size={18} />
                 <input
                   value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setPage(1);
+                  }}
                   placeholder="Tìm theo tên khách sạn hoặc địa điểm..."
+                  aria-label="Tìm khách sạn yêu thích"
                 />
               </label>
 
               <select
                 value={sort}
-                onChange={(event) => setSort(event.target.value)}
+                onChange={(event) => {
+                  setSort(event.target.value);
+                  setPage(1);
+                }}
                 aria-label="Sắp xếp khách sạn yêu thích"
               >
                 <option value="saved-desc">Lưu gần đây nhất</option>
@@ -220,12 +234,16 @@ export default function FavoritesPage() {
             </div>
 
             {filtered.length > 0 ? (
-              <div className="favorite-grid">
-                {filtered.map((item) => {
+              <>
+                <div className="favorite-grid">
+                {visibleItems.map((item) => {
                   const hotel = item.hotel;
                   const cover = hotelCover(hotel);
-                  const average = item.summary?.averageRating;
-                  const reviewCount = item.summary?.reviewCount ?? 0;
+                  const parsedAverage = Number(item.summary?.averageRating);
+                  const average = item.summary?.averageRating != null && Number.isFinite(parsedAverage)
+                    ? parsedAverage
+                    : null;
+                  const reviewCount = item.summary?.reviewCount;
 
                   return (
                     <article className="favorite-card" key={item.id ?? item.hotelId}>
@@ -241,7 +259,7 @@ export default function FavoritesPage() {
                         <button
                           type="button"
                           className="favorite-remove-button"
-                          onClick={() => removeFavorite(item)}
+                          onClick={() => setPendingRemove(item)}
                           disabled={removingId === item.hotelId}
                           title="Bỏ khỏi yêu thích"
                           aria-label={`Bỏ ${hotel?.name ?? "khách sạn"} khỏi yêu thích`}
@@ -253,12 +271,16 @@ export default function FavoritesPage() {
                       <div className="favorite-card-body">
                         <div className="favorite-title-row">
                           <div>
-                            <h2>{hotel?.name ?? "Khách sạn"}</h2>
-                            <div className="favorite-stars" aria-label={`${hotel?.starRating ?? 0} sao`}>
-                              {Array.from({ length: Number(hotel?.starRating ?? 0) }).map((_, index) => (
-                                <Star key={index} size={15} fill="currentColor" />
-                              ))}
-                            </div>
+                            <h2>{hotel?.name ?? "Không thể tải thông tin khách sạn"}</h2>
+                            {hotel?.starRating != null ? (
+                              <div className="favorite-stars" aria-label={`${hotel.starRating} sao`}>
+                                {Array.from({ length: Number(hotel.starRating) }).map((_, index) => (
+                                  <Star key={index} size={15} fill="currentColor" />
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="favorite-stars-unavailable">Chưa có dữ liệu hạng sao</span>
+                            )}
                           </div>
                         </div>
 
@@ -277,7 +299,9 @@ export default function FavoritesPage() {
                           <span className="favorite-rating-text">
                             <strong>{ratingLabel(average)}</strong>
                             <span>
-                              {reviewCount > 0
+                              {item.summaryUnavailable
+                                ? "Không thể tải đánh giá"
+                                : reviewCount > 0
                                 ? `${reviewCount} đánh giá thật`
                                 : "Chưa có đánh giá"}
                             </span>
@@ -288,7 +312,7 @@ export default function FavoritesPage() {
                           <button
                             type="button"
                             className="collection-link-button"
-                            onClick={() => removeFavorite(item)}
+                            onClick={() => setPendingRemove(item)}
                             disabled={removingId === item.hotelId}
                           >
                             <Trash2 size={16} />
@@ -303,7 +327,7 @@ export default function FavoritesPage() {
                             </Link>
                           ) : (
                             <span className="collection-link-button" aria-disabled="true">
-                              Không còn mở bán
+                              Tạm chưa xem được chi tiết
                             </span>
                           )}
                         </div>
@@ -311,33 +335,49 @@ export default function FavoritesPage() {
                     </article>
                   );
                 })}
-              </div>
+                </div>
+                <Pagination
+                  currentPage={safePage}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  ariaLabel="Phân trang khách sạn yêu thích"
+                />
+              </>
             ) : (
-              <div className="collection-empty">
-                <span className="collection-empty-icon">
-                  <Search size={32} />
-                </span>
-                <h2>Không tìm thấy khách sạn phù hợp</h2>
-                <p>Thử đổi từ khóa hoặc cách sắp xếp để xem lại danh sách đã lưu.</p>
-              </div>
+              <EmptyState
+                className="collection-empty"
+                icon={<Search size={30} />}
+                title="Không tìm thấy khách sạn phù hợp"
+                description="Thử đổi từ khóa hoặc cách sắp xếp để xem lại danh sách đã lưu."
+              />
             )}
           </>
         ) : (
-          <div className="collection-empty">
-            <span className="collection-empty-icon">
-              <Heart size={34} />
-            </span>
-            <h2>Bạn chưa lưu khách sạn nào</h2>
-            <p>
-              Khi thấy một khách sạn phù hợp, nhấn biểu tượng trái tim để thêm
-              vào danh sách yêu thích của bạn.
-            </p>
-            <Link className="collection-link-button primary" to="/hotels">
-              Khám phá khách sạn
-            </Link>
-          </div>
+          <EmptyState
+            className="collection-empty"
+            icon={<Heart size={30} />}
+            title={error ? "Chưa thể hiển thị danh sách yêu thích" : "Bạn chưa lưu khách sạn nào"}
+            description={error
+              ? "Dữ liệu khách sạn đã lưu chưa tải được. Hãy thử lại khi kết nối ổn định."
+              : "Khi thấy một khách sạn phù hợp, nhấn biểu tượng trái tim để thêm vào danh sách yêu thích của bạn."}
+            actions={!error
+              ? <Link className="collection-link-button primary" to="/hotels">Khám phá khách sạn</Link>
+              : undefined}
+          />
         )}
       </section>
+
+      <ConfirmDialog
+        open={Boolean(pendingRemove)}
+        title="Bỏ khỏi danh sách yêu thích?"
+        description={pendingRemove?.hotel?.name
+          ? `Khách sạn ${pendingRemove.hotel.name} sẽ được gỡ khỏi danh sách đã lưu.`
+          : "Khách sạn này sẽ được gỡ khỏi danh sách đã lưu."}
+        confirmLabel="Bỏ lưu"
+        busy={removingId === pendingRemove?.hotelId}
+        onCancel={() => setPendingRemove(null)}
+        onConfirm={() => pendingRemove && void removeFavorite(pendingRemove)}
+      />
     </main>
   );
 }

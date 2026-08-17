@@ -147,6 +147,10 @@ button.outline-button {
   border: 0;
 }
 
+.nav-mobile-auth {
+  display: none;
+}
+
 .category-bar {
   border-top: 1px solid #edf2f7;
 }
@@ -272,5 +276,38 @@ button.outline-button {
 
   .enziu-brand-name {
     font-size: 22px;
+  }
+}
+
+@media (max-width: 820px) {
+  .customer-navbar .nav-menu {
+    max-height: calc(100dvh - 96px);
+    overflow-y: auto;
+  }
+
+  .nav-mobile-auth {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding-top: 14px;
+    border-top: 1px solid #e6edf5;
+  }
+
+  .nav-mobile-auth .outline-button,
+  .nav-mobile-auth .primary-button {
+    display: inline-flex;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .enziu-brand-name {
+    font-size: 19px;
+  }
+
+  .enziu-brand-logo {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
   }
 }

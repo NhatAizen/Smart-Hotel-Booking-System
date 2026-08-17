@@ -18,6 +18,7 @@ import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 import { resolveNotificationTarget } from "../../utils/notificationNavigation";
 import ErrorMessage from "../common/ErrorMessage";
 import Loading from "../common/Loading";
+import { EmptyState, Pagination } from "../ui";
 import {
   getMyNotifications,
   markAllNotificationsRead,
@@ -48,15 +49,19 @@ const CATEGORY_META = {
   REVIEW: [Sparkles, "Đánh giá"],
 };
 
+const PAGE_SIZE = 10;
+
 function dateTime(value) {
-  if (!value) return "";
+  if (!value) return "Chưa xác định";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Chưa xác định";
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 export default function NotificationCenterPage({
@@ -75,9 +80,14 @@ export default function NotificationCenterPage({
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("ALL");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async (silent = false) => {
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false);
+      setError("Không xác định được tài khoản để tải thông báo.");
+      return;
+    }
     if (!silent) setLoading(true);
     setError("");
     try {
@@ -107,7 +117,7 @@ export default function NotificationCenterPage({
   const filtered = useMemo(() => {
     const keyword = search.trim().toLowerCase();
     return items.filter((item) => {
-      const category = String(item.category ?? "SYSTEM").toUpperCase();
+      const category = String(item.category ?? "UNKNOWN").toUpperCase();
       const filterMatch = filter === "ALL"
         || (filter === "UNREAD" && !item.read)
         || category === filter;
@@ -116,6 +126,12 @@ export default function NotificationCenterPage({
       return filterMatch && keywordMatch;
     });
   }, [filter, items, search]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const visibleItems = useMemo(
+    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filtered, safePage],
+  );
 
   async function markRead(item, navigateAfter = false) {
     if (!item.read) {
@@ -169,7 +185,7 @@ export default function NotificationCenterPage({
       <ErrorMessage message={error} onRetry={() => void load()} />
 
       <section className="notification-center-toolbar">
-        <div className="notification-filter-tabs">
+        <div className="notification-filter-tabs" role="tablist" aria-label="Lọc thông báo">
           {FILTERS.map(([value, label]) => {
             if (["PARTNER", "FINANCE"].includes(value) && userRole === "CUSTOMER") return null;
             return (
@@ -177,7 +193,13 @@ export default function NotificationCenterPage({
                 type="button"
                 key={value}
                 className={filter === value ? "active" : ""}
-                onClick={() => setFilter(value)}
+                onClick={() => {
+                  setFilter(value);
+                  setPage(1);
+                }}
+                role="tab"
+                aria-selected={filter === value}
+                aria-controls="notification-results"
               >
                 {label}
               </button>
@@ -186,20 +208,38 @@ export default function NotificationCenterPage({
         </div>
         <label className="notification-search-box">
           <Search size={17} />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm trong thông báo..." />
+          <input
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+            placeholder="Tìm trong thông báo..."
+            aria-label="Tìm trong thông báo"
+          />
         </label>
       </section>
 
-      <section className="notification-center-list">
+      <section
+        className="notification-center-list"
+        id="notification-results"
+        role="tabpanel"
+        aria-label={`${filtered.length} thông báo phù hợp`}
+      >
         {filtered.length === 0 ? (
-          <div className="notification-center-empty">
-            <Bell size={42} />
-            <h2>Không có thông báo phù hợp</h2>
-            <p>Các cập nhật mới sẽ tự động xuất hiện tại đây.</p>
-          </div>
-        ) : filtered.map((item) => {
-          const category = String(item.category ?? "SYSTEM").toUpperCase();
-          const [Icon, label] = CATEGORY_META[category] ?? CATEGORY_META.SYSTEM;
+          <EmptyState
+            className="notification-center-empty"
+            icon={<Bell size={30} />}
+            title={error && items.length === 0
+              ? "Chưa thể hiển thị thông báo"
+              : "Không có thông báo phù hợp"}
+            description={error && items.length === 0
+              ? "Dữ liệu thông báo chưa tải được. Hãy thử lại khi kết nối ổn định."
+              : "Các cập nhật mới sẽ tự động xuất hiện tại đây."}
+          />
+        ) : visibleItems.map((item) => {
+          const category = String(item.category ?? "UNKNOWN").toUpperCase();
+          const [Icon, label] = CATEGORY_META[category] ?? [Bell, "Khác"];
           return (
             <article className={`notification-center-item ${item.read ? "read" : "unread"}`} key={item.id}>
               <span className={`notification-center-icon ${category.toLowerCase()}`}><Icon size={20} /></span>
@@ -209,10 +249,10 @@ export default function NotificationCenterPage({
                     <span className="notification-category">{label}</span>
                     {!item.read ? <span className="notification-new-tag">Mới</span> : null}
                   </div>
-                  <time>{dateTime(item.createdAt)}</time>
+                  <time dateTime={item.createdAt || undefined}>{dateTime(item.createdAt)}</time>
                 </div>
-                <h3>{item.title}</h3>
-                <p>{item.content}</p>
+                <h3>{item.title || "Thông báo"}</h3>
+                <p>{item.content || "Không có nội dung chi tiết."}</p>
                 <div className="notification-center-actions">
                   {resolveNotificationTarget(item, userRole) ? (
                     <button type="button" className="primary" onClick={() => void markRead(item, true)}>
@@ -230,6 +270,12 @@ export default function NotificationCenterPage({
           );
         })}
       </section>
+      <Pagination
+        currentPage={safePage}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        ariaLabel="Phân trang thông báo"
+      />
     </main>
   );
 }

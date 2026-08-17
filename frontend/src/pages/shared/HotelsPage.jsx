@@ -1,5 +1,4 @@
 import {
-  ChevronLeft,
   ChevronRight,
   Heart,
   Map,
@@ -7,8 +6,7 @@ import {
   Search,
   SlidersHorizontal,
   Star,
-  Wifi,
-  Wind,
+  X,
 } from "lucide-react";
 
 import {
@@ -29,6 +27,7 @@ import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
 import HotelSearchBar from "../../components/search/HotelSearchBar";
 import HotelMapOverlay from "../../components/map/HotelMapOverlay";
+import { EmptyState, Pagination } from "../../components/ui";
 import { getHotelReviewSummary } from "../../services/bookingService";
 import { getHotels } from "../../services/hotelService";
 import {
@@ -47,16 +46,15 @@ const starOptions = [
   1,
 ];
 
+const PAGE_SIZE = 6;
+
 function tomorrow(offset = 0) {
   const date = new Date();
-
-  date.setDate(
-    date.getDate() + 1 + offset,
-  );
-
-  return date
-    .toISOString()
-    .slice(0, 10);
+  date.setDate(date.getDate() + 1 + offset);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function hotelCover(hotel) {
@@ -75,10 +73,16 @@ function normalizeText(value) {
     .trim();
 }
 
+function amenityLabel(amenity) {
+  if (typeof amenity === "string") return amenity.trim();
+  return String(amenity?.name ?? amenity?.label ?? "").trim();
+}
+
 export default function HotelsPage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const isCustomer = isAuthenticated && user?.role === "CUSTOMER";
+  const isCustomer = isAuthenticated
+    && String(user?.role ?? "").replace(/^ROLE_/i, "").toUpperCase() === "CUSTOMER";
   const [searchParams] =
     useSearchParams();
 
@@ -103,13 +107,19 @@ export default function HotelsPage() {
   const [mapMode, setMapMode] =
     useState(false);
 
+  const [filterOpen, setFilterOpen] =
+    useState(false);
+
+  const [currentPage, setCurrentPage] =
+    useState(1);
+
   const [catalogVersion, setCatalogVersion] =
     useState(0);
 
   const [filters, setFilters] =
     useState({
       stars: [],
-      maxPrice: 10000000,
+      amenities: [],
       sort: "recommended",
     });
 
@@ -156,6 +166,23 @@ export default function HotelsPage() {
       window.removeEventListener("storage", handleStorage);
     };
   }, []);
+
+  useEffect(() => {
+    if (!filterOpen) return undefined;
+
+    function handleEscape(event) {
+      if (event.key === "Escape") setFilterOpen(false);
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [filterOpen]);
 
   useEffect(() => {
     let active = true;
@@ -246,6 +273,19 @@ export default function HotelsPage() {
     loadHotels();
   }, [catalogVersion]);
 
+  const availableAmenities = useMemo(() => {
+    const values = new Map();
+    hotels.forEach((hotel) => {
+      (Array.isArray(hotel?.amenities) ? hotel.amenities : []).forEach((amenity) => {
+        const label = amenityLabel(amenity);
+        if (label) values.set(normalizeText(label), label);
+      });
+    });
+    return [...values.entries()]
+      .sort((a, b) => a[1].localeCompare(b[1], "vi"))
+      .map(([id, label]) => ({ id, label }));
+  }, [hotels]);
+
   const visibleHotels =
     useMemo(() => {
       const keyword =
@@ -279,9 +319,18 @@ export default function HotelsPage() {
               ),
             );
 
+          const hotelAmenities = new Set(
+            (Array.isArray(hotel?.amenities) ? hotel.amenities : [])
+              .map((amenity) => normalizeText(amenityLabel(amenity)))
+              .filter(Boolean),
+          );
+
+          const amenityMatch = (filters.amenities ?? []).every((amenity) => hotelAmenities.has(amenity));
+
           return (
             cityMatch
             && starMatch
+            && amenityMatch
           );
         });
 
@@ -320,6 +369,17 @@ export default function HotelsPage() {
       filters,
     ]);
 
+  const totalPages = Math.max(1, Math.ceil(visibleHotels.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedHotels = useMemo(() => {
+    const start = (safeCurrentPage - 1) * PAGE_SIZE;
+    return visibleHotels.slice(start, start + PAGE_SIZE);
+  }, [safeCurrentPage, visibleHotels]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchValues.city, filters.stars, filters.amenities, filters.sort]);
+
   function toggleStar(star) {
     setFilters((current) => ({
       ...current,
@@ -334,6 +394,24 @@ export default function HotelsPage() {
             star,
           ],
     }));
+  }
+
+  function toggleAmenity(amenity) {
+    setFilters((current) => ({
+      ...current,
+      amenities: (current.amenities ?? []).includes(amenity)
+        ? current.amenities.filter((item) => item !== amenity)
+        : [...(current.amenities ?? []), amenity],
+    }));
+  }
+
+  function resetFilters() {
+    setFilters({
+      stars: [],
+      amenities: [],
+      sort: "recommended",
+    });
+    setCurrentPage(1);
   }
 
   async function toggleFavorite(hotelId) {
@@ -442,8 +520,35 @@ export default function HotelsPage() {
 
         <ErrorMessage message={error} />
 
+        <button
+          type="button"
+          className="customer-mobile-filter-toggle"
+          aria-expanded={filterOpen}
+          aria-controls="customer-hotel-filters"
+          onClick={() => setFilterOpen(true)}
+        >
+          <SlidersHorizontal size={18} />
+          Bộ lọc
+          {filters.stars.length + (filters.amenities?.length ?? 0) > 0 ? (
+            <span>{filters.stars.length + (filters.amenities?.length ?? 0)}</span>
+          ) : null}
+        </button>
+
+        {filterOpen ? (
+          <button
+            type="button"
+            className="customer-filter-backdrop"
+            aria-label="Đóng bộ lọc"
+            onClick={() => setFilterOpen(false)}
+          />
+        ) : null}
+
         <div className="customer-results-layout">
-          <aside className="customer-filter-card">
+          <aside
+            id="customer-hotel-filters"
+            className={`customer-filter-card ${filterOpen ? "is-open" : ""}`}
+            aria-label="Bộ lọc khách sạn"
+          >
             <div className="customer-filter-title">
               <div>
                 <SlidersHorizontal
@@ -457,58 +562,19 @@ export default function HotelsPage() {
 
               <button
                 type="button"
-                onClick={() =>
-                  setFilters({
-                    stars: [],
-                    maxPrice:
-                      10000000,
-                    sort:
-                      "recommended",
-                  })
-                }
+                onClick={resetFilters}
               >
                 Xóa tất cả
               </button>
-            </div>
 
-            <div className="customer-filter-group">
-              <h3>
-                Khoảng giá / đêm
-              </h3>
-
-              <input
-                type="range"
-                min="0"
-                max="10000000"
-                step="100000"
-                value={
-                  filters.maxPrice
-                }
-                onChange={(event) =>
-                  setFilters(
-                    (current) => ({
-                      ...current,
-                      maxPrice:
-                        Number(
-                          event.target
-                            .value,
-                        ),
-                    }),
-                  )
-                }
-              />
-
-              <div className="customer-price-range">
-                <span>0đ</span>
-
-                <span>
-                  {filters.maxPrice
-                    .toLocaleString(
-                      "vi-VN",
-                    )}
-                  đ
-                </span>
-              </div>
+              <button
+                type="button"
+                className="customer-filter-close"
+                aria-label="Đóng bộ lọc"
+                onClick={() => setFilterOpen(false)}
+              >
+                <X size={19} />
+              </button>
             </div>
 
             <div className="customer-filter-group">
@@ -551,28 +617,21 @@ export default function HotelsPage() {
               )}
             </div>
 
-            <div className="customer-filter-group">
-              <h3>
-                Tiện nghi cơ bản
-              </h3>
-
-              <label className="customer-checkbox-row">
-                <input type="checkbox" />
-                <span>
-                  Wifi miễn phí
-                </span>
-              </label>
-
-              <label className="customer-checkbox-row">
-                <input type="checkbox" />
-                <span>Điều hòa</span>
-              </label>
-
-              <label className="customer-checkbox-row">
-                <input type="checkbox" />
-                <span>Bãi đỗ xe</span>
-              </label>
-            </div>
+            {availableAmenities.length ? (
+              <div className="customer-filter-group">
+                <h3>Tiện nghi khách sạn</h3>
+                {availableAmenities.map((amenity) => (
+                  <label className="customer-checkbox-row" key={amenity.id}>
+                    <input
+                      type="checkbox"
+                      checked={(filters.amenities ?? []).includes(amenity.id)}
+                      onChange={() => toggleAmenity(amenity.id)}
+                    />
+                    <span>{amenity.label}</span>
+                  </label>
+                ))}
+              </div>
+            ) : null}
           </aside>
 
           <section className="customer-results-main">
@@ -589,6 +648,8 @@ export default function HotelsPage() {
                   thấy
                 </h1>
 
+                <label className="customer-sort-control">
+                  <span className="sr-only">Sắp xếp khách sạn</span>
                 <select
                   value={filters.sort}
                   onChange={(event) =>
@@ -603,8 +664,7 @@ export default function HotelsPage() {
                   }
                 >
                   <option value="recommended">
-                    Sắp xếp: Lựa chọn
-                    hàng đầu
+                    Thứ tự mặc định
                   </option>
 
                   <option value="stars-desc">
@@ -615,6 +675,7 @@ export default function HotelsPage() {
                     Tên khách sạn A–Z
                   </option>
                 </select>
+                </label>
               </div>
 
               <button
@@ -630,21 +691,14 @@ export default function HotelsPage() {
             <div className="customer-hotel-list">
               {visibleHotels.length
                 === 0 ? (
-                <div className="customer-empty-results">
-                  <Search size={40} />
-
-                  <h2>
-                    Không tìm thấy khách
-                    sạn phù hợp
-                  </h2>
-
-                  <p>
-                    Hãy thử thay đổi thành
-                    phố hoặc bỏ bớt bộ lọc.
-                  </p>
-                </div>
+                <EmptyState
+                  className="customer-empty-results"
+                  icon={<Search size={40} />}
+                  title="Không tìm thấy khách sạn phù hợp"
+                  description="Hãy thử thay đổi thành phố hoặc bỏ bớt bộ lọc."
+                />
               ) : (
-                visibleHotels.map(
+                paginatedHotels.map(
                   (hotel) => (
                     <article
                       className="customer-hotel-card"
@@ -736,30 +790,17 @@ export default function HotelsPage() {
                             </span>
                           </div>
 
-                          <p className="customer-hotel-description">
-                            {hotel.description
-                              || "Khách sạn cung cấp không gian nghỉ dưỡng tiện nghi và vị trí thuận tiện."}
-                          </p>
+                          {hotel.description ? (
+                            <p className="customer-hotel-description">{hotel.description}</p>
+                          ) : null}
 
-                          <div className="customer-amenity-list">
-                            <span>
-                              <Wifi
-                                size={15}
-                              />
-                              Wifi miễn phí
-                            </span>
-
-                            <span>
-                              <Wind
-                                size={15}
-                              />
-                              Điều hòa
-                            </span>
-
-                            <span>
-                              Bãi đỗ xe
-                            </span>
-                          </div>
+                          {Array.isArray(hotel.amenities) && hotel.amenities.length ? (
+                            <div className="customer-amenity-list" aria-label="Tiện nghi">
+                              {hotel.amenities.slice(0, 4).map((amenity) => (
+                                <span key={amenityLabel(amenity)}>{amenityLabel(amenity)}</span>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
 
                         <div className="customer-hotel-action">
@@ -794,13 +835,8 @@ export default function HotelsPage() {
                           </div>
 
                           <div className="customer-price-block">
-                            <small>
-                              Giá phòng từ
-                            </small>
-
-                            <strong>
-                              Liên hệ khách sạn
-                            </strong>
+                            <small>Giá phòng</small>
+                            <strong>Xem loại phòng để biết giá</strong>
                           </div>
 
                           <button
@@ -822,32 +858,16 @@ export default function HotelsPage() {
               )}
             </div>
 
-            {visibleHotels.length
-              > 0 ? (
-              <div className="customer-pagination">
-                <button type="button">
-                  <ChevronLeft
-                    size={17}
-                  />
-                </button>
-
-                <button
-                  type="button"
-                  className="active"
-                >
-                  1
-                </button>
-
-                <button type="button">
-                  2
-                </button>
-
-                <button type="button">
-                  <ChevronRight
-                    size={17}
-                  />
-                </button>
-              </div>
+            {visibleHotels.length > PAGE_SIZE ? (
+              <Pagination
+                className="customer-pagination"
+                currentPage={safeCurrentPage}
+                totalPages={totalPages}
+                onPageChange={(page) => {
+                  setCurrentPage(page);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              />
             ) : null}
           </section>
         </div>

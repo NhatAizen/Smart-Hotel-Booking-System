@@ -1,4 +1,5 @@
 import NotificationCenterPage from "../../components/notifications/NotificationCenterPage";
+import "./CustomerAccountExperience.css";
 
 export default function NotificationsPage() {
   return (
