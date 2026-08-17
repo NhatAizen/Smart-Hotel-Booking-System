@@ -583,8 +583,7 @@ export default function HotelDetailPage() {
   }, [
     hotelId,
     loadAvailability,
-    searchForm.checkIn,
-    searchForm.checkOut,
+    searchForm,
   ]);
 
   const roomHoldMap = useMemo(

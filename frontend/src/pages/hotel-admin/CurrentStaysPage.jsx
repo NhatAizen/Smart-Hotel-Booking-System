@@ -316,14 +316,12 @@ export default function CurrentStaysPage() {
   }
 
   async function handleCollectCash(item) {
-    let currentItem = item;
-    let booking = currentItem.booking;
+    let booking = item.booking;
     if (!booking?.id) return;
 
-    if (currentItem.lateCheckout?.overdue) {
-      const refreshed = await handleAssessLateFee(currentItem, { announce: false });
+    if (item.lateCheckout?.overdue) {
+      const refreshed = await handleAssessLateFee(item, { announce: false });
       if (!refreshed) return;
-      currentItem = refreshed;
       booking = refreshed.booking;
     }
 
@@ -348,14 +346,12 @@ export default function CurrentStaysPage() {
   }
 
   async function handlePayOs(item) {
-    let currentItem = item;
-    let booking = currentItem.booking;
+    let booking = item.booking;
     if (!booking?.id) return;
 
-    if (currentItem.lateCheckout?.overdue) {
-      const refreshed = await handleAssessLateFee(currentItem, { announce: false });
+    if (item.lateCheckout?.overdue) {
+      const refreshed = await handleAssessLateFee(item, { announce: false });
       if (!refreshed) return;
-      currentItem = refreshed;
       booking = refreshed.booking;
     }
 

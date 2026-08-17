@@ -106,7 +106,7 @@ export default function EkycCameraCapture({
   const streamRef = useRef(null);
   const scanRunRef = useRef(0);
 
-  const [challenge, setChallenge] = useState(null);
+  const [, setChallenge] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [frames, setFrames] = useState([]);
   const [cameraActive, setCameraActive] = useState(false);

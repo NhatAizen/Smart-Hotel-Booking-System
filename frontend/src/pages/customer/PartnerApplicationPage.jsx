@@ -114,11 +114,6 @@ function formatDateTime(value) {
   }
 }
 
-function formatSimilarity(value) {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric.toFixed(3) : "—";
-}
-
 function validateImage(file, label) {
   if (!file) return `Vui lòng tải ảnh CCCD ${label}.`;
   if (!["image/jpeg", "image/png"].includes(file.type)) {

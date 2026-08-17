@@ -1,8 +1,17 @@
-export default function Loading({ label = "Đang tải dữ liệu..." }) {
+import LoadingState from "../ui/LoadingState";
+
+export default function Loading({
+  label = "Đang tải dữ liệu...",
+  message,
+  className = "",
+  ...props
+}) {
   return (
-    <div className="admin-loading" role="status" aria-live="polite">
-      <span className="admin-spinner" aria-hidden="true" />
-      <span>{label}</span>
-    </div>
+    <LoadingState
+      message={message ?? label}
+      className={`admin-loading ${className}`.trim()}
+      spinnerClassName="admin-spinner"
+      {...props}
+    />
   );
 }

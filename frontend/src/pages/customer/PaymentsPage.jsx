@@ -51,7 +51,7 @@ export default function PaymentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => {
     void loadPayments();

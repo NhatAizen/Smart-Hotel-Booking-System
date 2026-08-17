@@ -1,0 +1,124 @@
+@keyframes ui-modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ui-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: var(--space-5);
+  background: rgba(8, 24, 43, 0.62);
+  backdrop-filter: blur(4px);
+}
+
+.ui-modal {
+  position: relative;
+  width: min(40rem, 100%);
+  max-height: calc(100dvh - 2.5rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  animation: ui-modal-enter var(--duration-normal) var(--ease-standard);
+}
+
+.ui-modal--sm {
+  width: min(32rem, 100%);
+}
+
+.ui-modal--lg {
+  width: min(58rem, 100%);
+}
+
+.ui-modal--xl {
+  width: min(70rem, 100%);
+}
+
+.ui-modal__header,
+.ui-modal__footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.ui-modal__header {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.ui-modal__header h2 {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-snug);
+}
+
+.ui-modal__header p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+.ui-modal__body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5);
+}
+
+.ui-modal__footer {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-subtle);
+}
+
+.ui-modal__close {
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  flex: 0 0 var(--control-height-sm);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+@media (max-width: 520px) {
+  .ui-modal-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .ui-modal {
+    width: 100%;
+    max-height: calc(100dvh - 1rem);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-modal {
+    animation: none;
+  }
+}

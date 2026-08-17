@@ -140,20 +140,6 @@ function percentFromAmount(amount, base) {
   return Math.round((safeAmount / safeBase) * 100);
 }
 
-function promotionNames(hotel) {
-  const result = [];
-
-  if (hotel?.hotelPromotionCode) {
-    result.push(`mã ${hotel.hotelPromotionCode} của khách sạn`);
-  }
-
-  if (hotel?.platformPromotionCode) {
-    result.push(`mã ${hotel.platformPromotionCode} của sự kiện EnziuRooms`);
-  }
-
-  return result;
-}
-
 function buildPriceExplanation(hotel, trip) {
   const listedNightly = numberOrNull(hotel?.pricePerNight);
   const baseAmount = numberOrNull(hotel?.baseStayAmount);

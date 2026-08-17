@@ -226,7 +226,7 @@ export default function BookingCheckoutPage() {
 
     let active = true;
     const storageKey = holdStorageKey(hotelId, roomIds, checkIn, checkOut);
-    let holdToken = "";
+    let holdToken;
     try {
       holdToken = sessionStorage.getItem(storageKey) ?? "";
     } catch {
@@ -338,7 +338,7 @@ export default function BookingCheckoutPage() {
     checkIn,
     checkOut,
     roomIds,
-    bookingHold?.holdToken,
+    bookingHold,
     holdLoading,
   ]);
 
@@ -443,7 +443,7 @@ export default function BookingCheckoutPage() {
     } finally {
       setDiscountLoading(false);
     }
-  }, [hotelId, pricingQuote?.totalAmount, user?.id]);
+  }, [hotelId, pricingQuote, user]);
 
   const refreshPromotionSuggestions = useCallback(async () => {
     if (!hotelId || !pricingQuote?.totalAmount || !user?.id) {
@@ -462,7 +462,7 @@ export default function BookingCheckoutPage() {
     } finally {
       setPromotionSuggestionsLoading(false);
     }
-  }, [hotelId, pricingQuote?.totalAmount, user?.id]);
+  }, [hotelId, pricingQuote, user]);
 
   useEffect(() => {
     if (!pricingQuote?.totalAmount || !user?.id) return;

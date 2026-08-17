@@ -471,7 +471,7 @@ export function HotelMiniMapCanvas({
         mapRef.current = null;
       }
     };
-  }, [hotel?.id, hotel?.latitude, hotel?.longitude, interactive, zoom]);
+  }, [hotel, interactive, zoom]);
 
   if (status === "missing") {
     return (
@@ -656,7 +656,7 @@ export function HotelMapModal({
       originMarkerRef.current = null;
       routeLayerRef.current = null;
     };
-  }, [hotel?.id, hotel?.name, hotelPosition?.lat, hotelPosition?.lng]);
+  }, [hotel?.id, hotel?.name, hotelPosition]);
 
   function drawRoute(nextOrigin, nextRoute) {
     const L = leafletRef.current;

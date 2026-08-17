@@ -1,0 +1,158 @@
+/* EnziuRooms design tokens.
+ * Keep semantic tokens as the public API; palette tokens are implementation details.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Brand */
+  --color-brand-50: #f0f9ff;
+  --color-brand-100: #e3f5ff;
+  --color-brand-200: #bae6fd;
+  --color-brand-300: #7dd3fc;
+  --color-brand-400: #38bdf8;
+  --color-brand-500: #0797e3;
+  --color-brand-600: #0578bd;
+  --color-brand-700: #075f96;
+  --color-brand-800: #0c4f78;
+  --color-brand-900: #123f5f;
+
+  /* Hospitality accent */
+  --color-accent-50: #effcf9;
+  --color-accent-100: #d8f7ef;
+  --color-accent-500: #0f9489;
+  --color-accent-600: #08766f;
+  --color-accent-700: #075f5a;
+
+  /* Neutral */
+  --color-neutral-0: #ffffff;
+  --color-neutral-25: #fbfcfe;
+  --color-neutral-50: #f7f9fc;
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-200: #e2e8f0;
+  --color-neutral-300: #cbd5e1;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #64748b;
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-800: #1e293b;
+  --color-neutral-900: #0f172a;
+
+  /* Semantic surfaces and text */
+  --color-page: #f7f9fc;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f8fafc;
+  --color-surface-raised: #ffffff;
+  --color-text: #172033;
+  --color-text-strong: #10233f;
+  --color-text-muted: #64748b;
+  --color-text-subtle: #8291a3;
+  --color-border: #dce5ef;
+  --color-border-subtle: #e8eef4;
+  --color-focus: #0797e3;
+  --focus-ring: 0 0 0 3px rgba(7, 151, 227, 0.18);
+
+  /* Status */
+  --color-success: #08785f;
+  --color-success-surface: #eaf8f2;
+  --color-success-border: #bfe5d4;
+  --color-warning: #9a6500;
+  --color-warning-surface: #fff7e6;
+  --color-warning-border: #f0d08a;
+  --color-danger: #c9363f;
+  --color-danger-surface: #fff1f2;
+  --color-danger-border: #efc7cc;
+  --color-info: #176bc4;
+  --color-info-surface: #eaf4ff;
+  --color-info-border: #bfd9f4;
+
+  /* Typography */
+  --font-family-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 2rem;
+  --font-size-4xl: 2.5rem;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --line-height-tight: 1.2;
+  --line-height-snug: 1.4;
+  --line-height-normal: 1.6;
+
+  /* Spacing */
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* Shape and elevation */
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-pill: 999px;
+  --shadow-xs: 0 1px 2px rgba(16, 35, 63, 0.05);
+  --shadow-sm: 0 8px 22px rgba(16, 35, 63, 0.06);
+  --shadow-md: 0 16px 40px rgba(16, 35, 63, 0.09);
+  --shadow-lg: 0 28px 72px rgba(8, 24, 43, 0.18);
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --duration-slow: 280ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --transition-fast: var(--duration-fast) var(--ease-standard);
+  --transition-normal: var(--duration-normal) var(--ease-standard);
+
+  /* Layout */
+  --content-width: 1180px;
+  --content-width-wide: 1500px;
+  --content-width-readable: 760px;
+  --page-gutter: clamp(1rem, 2.4vw, 2rem);
+  --control-height-sm: 2.25rem;
+  --control-height-md: 2.75rem;
+  --control-height-lg: 3rem;
+
+  /* Breakpoint reference tokens. Media queries retain literal values for compatibility. */
+  --breakpoint-mobile: 390px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-laptop: 1024px;
+  --breakpoint-desktop: 1440px;
+
+  /* Layering */
+  --z-sticky: 100;
+  --z-dropdown: 300;
+  --z-overlay: 500;
+  --z-modal: 600;
+  --z-toast: 700;
+
+  /* Legacy aliases retained for existing feature styles. */
+  --primary: var(--color-brand-500);
+  --primary-dark: var(--color-brand-600);
+  --primary-light: var(--color-brand-100);
+  --navy: var(--color-text-strong);
+  --text: var(--color-text);
+  --muted: var(--color-text-muted);
+  --border: var(--color-border);
+  --background: var(--color-page);
+  --white: var(--color-neutral-0);
+  --success: #069b6b;
+  --warning: #f6a700;
+  --danger: #dc2626;
+}

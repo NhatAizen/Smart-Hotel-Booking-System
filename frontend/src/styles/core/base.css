@@ -1,35 +1,6 @@
-/* Extracted from legacy global.css: lines 1-68.
-   Keep import order in styles/index.css to preserve cascade. */
-
-:root {
-  --primary: #0797e3;
-  --primary-dark: #0578bd;
-  --primary-light: #e3f5ff;
-  --navy: #10233f;
-  --text: #172033;
-  --muted: #64748b;
-  --border: #dce5ef;
-  --background: #f7f9fc;
-  --white: #ffffff;
-  --success: #069b6b;
-  --warning: #f6a700;
-  --danger: #dc2626;
-
-  font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-
-  color: var(--text);
-  background: var(--background);
-}
-
-* {
-  box-sizing: border-box;
-}
+/* Global document and shared layout defaults.
+ * Tokens, reset, and typography live in adjacent core modules.
+ */
 
 html {
   scroll-behavior: smooth;
@@ -38,34 +9,30 @@ html {
 body {
   min-width: 320px;
   min-height: 100vh;
-  margin: 0;
   background: var(--background);
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-button,
-a {
-  -webkit-tap-highlight-color: transparent;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-img {
-  display: block;
-  max-width: 100%;
+#root {
+  min-height: 100vh;
 }
 
 .container {
-  width: min(1180px, calc(100% - 32px));
+  width: min(var(--content-width), calc(100% - 32px));
   margin-inline: auto;
 }
 
+::selection {
+  background: var(--color-brand-100);
+  color: var(--color-text-strong);
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

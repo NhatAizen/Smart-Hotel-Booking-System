@@ -165,6 +165,11 @@ export default function HotelSearchBar({
   const navigate = useNavigate();
   const destinationRef = useRef(null);
   const today = localDateValue();
+  const initialCity = initialValues?.city;
+  const initialCheckIn = initialValues?.checkIn;
+  const initialCheckOut = initialValues?.checkOut;
+  const initialGuests = initialValues?.guests;
+  const initialRooms = initialValues?.rooms;
 
   const [form, setForm] = useState(
     () =>
@@ -188,15 +193,21 @@ export default function HotelSearchBar({
   useEffect(() => {
     setForm(
       buildInitialValues(
-        initialValues,
+        {
+          city: initialCity,
+          checkIn: initialCheckIn,
+          checkOut: initialCheckOut,
+          guests: initialGuests,
+          rooms: initialRooms,
+        },
       ),
     );
   }, [
-    initialValues?.city,
-    initialValues?.checkIn,
-    initialValues?.checkOut,
-    initialValues?.guests,
-    initialValues?.rooms,
+    initialCity,
+    initialCheckIn,
+    initialCheckOut,
+    initialGuests,
+    initialRooms,
   ]);
 
   useEffect(() => {

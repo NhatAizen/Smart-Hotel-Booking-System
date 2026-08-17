@@ -9,7 +9,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import Loading from "../../components/common/Loading";
@@ -215,7 +215,7 @@ export default function RoomsPage() {
     load();
   }, [realtimeTick]);
 
-  async function loadHotelData(targetHotelId = hotelId) {
+  const loadHotelData = useCallback(async (targetHotelId) => {
     if (!targetHotelId) {
       hotelDataRequestRef.current += 1;
       setRooms([]);
@@ -256,11 +256,11 @@ export default function RoomsPage() {
         setLoadingRooms(false);
       }
     }
-  }
+  }, []);
 
   useEffect(() => {
     void loadHotelData(hotelId);
-  }, [hotelId, realtimeTick]);
+  }, [hotelId, loadHotelData, realtimeTick]);
 
   useEffect(() => {
     if (!hotelId || hotels.length === 0) return;

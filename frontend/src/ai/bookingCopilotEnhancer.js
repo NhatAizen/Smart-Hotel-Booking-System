@@ -111,7 +111,7 @@ async function resolveBestDiscount(hotelId, grossAmount) {
     return { discountChecked: false };
   }
 
-  let suggestions = [];
+  let suggestions;
   try {
     const response = await getPromotionRecommendations(hotelId, safeGross);
     suggestions = Array.isArray(response) ? response : [];
