@@ -470,3 +470,18 @@
       calc(100vh - 100px);
   }
 }
+/* Date validation shared by Guest and Customer search bars. */
+.shared-search-date-error {
+  grid-column: 1 / -1;
+  margin: -4px 4px 0;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .shared-search-date-error {
+    margin: 0;
+    font-size: 12px;
+  }
+}

@@ -217,7 +217,7 @@ export default function CheckInPage() {
           "Thanh toán PayOS đã hoàn tất. Booking được khôi phục tự động, không cần quét lại QR.",
         );
       } else if (context.paidAt) {
-        setMessage("Đang đồng bộ giao dịch PayOS vừa thanh toán với booking...");
+        setMessage("Đang cập nhật giao dịch PayOS...");
       }
 
       if (shouldResume) {
@@ -490,7 +490,7 @@ export default function CheckInPage() {
       await collectCashAtHotel(result.booking.id);
       const refreshed = await verifyCheckInCode(code);
       setResult(refreshed);
-      setMessage("Đã ghi nhận tiền mặt, khấu trừ hoa hồng hệ thống và cập nhật doanh thu khách sạn.");
+      setMessage("Đã ghi nhận tiền mặt và cập nhật doanh thu khách sạn.");
     } catch (requestError) {
       setError(
         requestError.response?.data?.message
@@ -721,7 +721,7 @@ export default function CheckInPage() {
               <Clock3 size={18} />
               <span>
                 Nút nhận phòng sẽ được mở sau khi số tiền còn lại bằng 0 ₫.
-                Nếu thu tiền mặt tại quầy, hệ thống sẽ tự khấu trừ hoa hồng từ Ví đối tác
+                Nếu thu tiền mặt tại quầy, hoa hồng sẽ được khấu trừ từ Ví đối tác
                 và ghi nhận doanh thu tiền mặt để không bỏ sót doanh thu/hoa hồng.
               </span>
             </div>

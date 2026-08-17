@@ -7,7 +7,6 @@ import {
   CreditCard,
   DoorOpen,
   Hotel,
-  LockKeyhole,
   LogOut,
   MapPin,
   RefreshCw,
@@ -31,6 +30,7 @@ import {
   syncPayOsOrder,
 } from "../../services/paymentService";
 import "./CurrentStaysPage.css";
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 
 const HOTEL_PAYMENT_RETURN_KEY = "enziuroomsHotelPaymentReturn";
 
@@ -115,6 +115,33 @@ function clearPaymentReturnContext(orderCode) {
   }
 }
 
+
+function resolveGuestName(booking) {
+  const directName = [
+    booking?.guestName,
+    booking?.customerName,
+    booking?.bookerName,
+    booking?.fullName,
+    booking?.customerFullName,
+  ].find((value) => typeof value === "string" && value.trim());
+
+  if (directName) return directName.trim();
+
+  const guestFullName = [booking?.guestLastName, booking?.guestFirstName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  if (guestFullName) return guestFullName;
+
+  const bookerFullName = [booking?.bookerLastName, booking?.bookerFirstName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  if (bookerFullName) return bookerFullName;
+
+  return booking?.guestEmail || booking?.bookerEmail || "Khách chưa cập nhật tên";
+}
+
 function replaceStay(setStays, updated) {
   if (!updated?.booking?.id) return;
   setStays((current) => current.map((stay) => (
@@ -151,11 +178,24 @@ export default function CurrentStaysPage() {
     void loadStays();
   }, [loadStays]);
 
+  useRealtimeRefresh(
+    ["NOTIFICATION_CREATED", "AVAILABILITY_CHANGED"],
+    () => loadStays({ silent: true }),
+    { debounceMs: 120 },
+  );
+
   useEffect(() => {
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void loadStays({ silent: true });
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [loadStays]);
 
   useEffect(() => {
     const context = readPaymentReturnContext();
@@ -232,29 +272,42 @@ export default function CurrentStaysPage() {
     return { total: stays.length, dueSoon, overdue };
   }, [stays, now]);
 
-  async function handleAssessLateFee(item) {
+  async function handleAssessLateFee(item, { announce = true } = {}) {
     const booking = item.booking;
     if (!booking?.id) return null;
 
     setWorkingId(booking.id);
     setError("");
-    setMessage("");
+    if (announce) setMessage("");
     try {
       const updated = await assessLateCheckoutFee(booking.id);
       replaceStay(setStays, updated);
+
       const fee = Number(updated.booking?.lateCheckoutFee ?? 0);
-      if (fee > 0) {
-        setMessage(
-          `Đã chốt phí trả phòng trễ ${money(fee)}. Phí được khóa tại thời điểm này và không tăng trong lúc thu tiền.`,
-        );
-      } else {
-        setMessage("Khách đang trong thời gian miễn phí trả trễ, không phát sinh phụ thu.");
+      const expectedFee = Number(updated.lateCheckout?.estimatedFee ?? 0);
+
+      // Không cho tiếp tục thu tiền nếu backend vẫn đang chạy image cũ:
+      // UI có thể tính được 60.000đ nhưng Booking DB vẫn chỉ giữ 20.000đ.
+      if (expectedFee - fee > 0.01) {
+        console.warn("[late-fee-sync] Phụ thu chưa đồng bộ", { expectedFee, persistedFee: fee });
+        setError("Phụ thu chưa được cập nhật. Vui lòng thử lại sau ít phút.");
+        return null;
+      }
+
+      if (announce) {
+        if (fee > 0) {
+          setMessage(
+            `Đã cập nhật phụ thu trả phòng trễ: ${money(fee)}.`,
+          );
+        } else {
+          setMessage("Khách đang trong thời gian miễn phí trả trễ, chưa phát sinh phụ thu.");
+        }
       }
       return updated;
     } catch (requestError) {
       setError(
         requestError.response?.data?.message
-          ?? "Không thể chốt phí trả phòng trễ.",
+          ?? "Không thể cập nhật phụ thu trả phòng trễ.",
       );
       return null;
     } finally {
@@ -263,8 +316,18 @@ export default function CurrentStaysPage() {
   }
 
   async function handleCollectCash(item) {
-    const booking = item.booking;
-    if (!booking?.id || Number(booking.remainingAmount ?? 0) <= 0) return;
+    let currentItem = item;
+    let booking = currentItem.booking;
+    if (!booking?.id) return;
+
+    if (currentItem.lateCheckout?.overdue) {
+      const refreshed = await handleAssessLateFee(currentItem, { announce: false });
+      if (!refreshed) return;
+      currentItem = refreshed;
+      booking = refreshed.booking;
+    }
+
+    if (Number(booking.remainingAmount ?? 0) <= 0) return;
     if (!window.confirm(`Xác nhận đã thu ${money(booking.remainingAmount)} tại quầy?`)) return;
 
     setWorkingId(booking.id);
@@ -285,8 +348,18 @@ export default function CurrentStaysPage() {
   }
 
   async function handlePayOs(item) {
-    const booking = item.booking;
-    if (!booking?.id || Number(booking.remainingAmount ?? 0) <= 0) return;
+    let currentItem = item;
+    let booking = currentItem.booking;
+    if (!booking?.id) return;
+
+    if (currentItem.lateCheckout?.overdue) {
+      const refreshed = await handleAssessLateFee(currentItem, { announce: false });
+      if (!refreshed) return;
+      currentItem = refreshed;
+      booking = refreshed.booking;
+    }
+
+    if (Number(booking.remainingAmount ?? 0) <= 0) return;
 
     setWorkingId(booking.id);
     setError("");
@@ -333,14 +406,8 @@ export default function CurrentStaysPage() {
     if (!booking?.id) return;
 
     const late = currentItem.lateCheckout;
-    if (late?.overdue && !late.feeAssessed && Number(late.estimatedFee ?? 0) > 0) {
-      const shouldAssess = window.confirm(
-        `Khách đã quá giờ trả phòng ${formatOverdueMinutes(late.overdueMinutes)}.\n\n`
-        + `Phụ thu dự kiến: ${money(late.estimatedFee)}.\n`
-        + "Chốt phí trả trễ trước khi checkout?",
-      );
-      if (!shouldAssess) return;
-      const updated = await handleAssessLateFee(currentItem);
+    if (late?.overdue) {
+      const updated = await handleAssessLateFee(currentItem, { announce: false });
       if (!updated) return;
       currentItem = updated;
       booking = updated.booking;
@@ -429,7 +496,7 @@ export default function CurrentStaysPage() {
         <section className="current-stays-empty">
           <DoorOpen size={48} />
           <h2>Chưa có khách đang lưu trú</h2>
-          <p>Booking sẽ xuất hiện ở đây sau khi Hotel Admin xác nhận nhận phòng.</p>
+          <p>Booking sẽ xuất hiện ở đây sau khi khách được xác nhận nhận phòng.</p>
         </section>
       ) : (
         <section className="current-stays-list">
@@ -438,22 +505,24 @@ export default function CurrentStaysPage() {
             const checkout = checkoutLabel(item.expectedCheckOutAt, now);
             const late = item.lateCheckout;
             const paymentOrder = paymentOrders[booking.id];
-            const remaining = Number(booking.remainingAmount ?? 0);
+            const persistedRemaining = Number(booking.remainingAmount ?? 0);
             const feeAssessed = Boolean(late?.feeAssessed || booking.lateFeeAssessedAt);
             const estimatedLateFee = Number(late?.estimatedFee ?? 0);
             const assessedLateFee = Number(booking.lateCheckoutFee ?? late?.assessedFee ?? 0);
-            const guestName = [booking.guestLastName, booking.guestFirstName]
-              .filter(Boolean)
-              .join(" ") || [booking.bookerLastName, booking.bookerFirstName]
-              .filter(Boolean)
-              .join(" ");
+            const lateFeeDelta = Math.max(0, estimatedLateFee - assessedLateFee);
+            const currentLateFee = Math.max(assessedLateFee, estimatedLateFee);
+            const remaining = persistedRemaining + lateFeeDelta;
+            const effectiveTotal = Number(booking.totalPrice ?? 0) + lateFeeDelta;
+            const backendLateFeeOutOfSync = lateFeeDelta > 0.01;
+            const guestName = resolveGuestName(booking);
 
             return (
-              <article key={booking.id} className="current-stay-card">
+              <article key={booking.id} className={`current-stay-card ${checkout.tone}`}>
                 <div className="current-stay-top">
                   <div>
                     <span className="current-stay-code">{booking.bookingCode}</span>
-                    <h2>{item.hotelName}</h2>
+                    <h2>{guestName}</h2>
+                    <p><Hotel size={15} /> {item.hotelName} · Phòng {item.roomNumber}</p>
                     <p><MapPin size={15} /> {item.hotelAddress}</p>
                   </div>
                   <span className={`current-stay-deadline ${checkout.tone}`}>
@@ -463,17 +532,17 @@ export default function CurrentStaysPage() {
 
                 <div className="current-stay-grid">
                   <div className="current-stay-info">
-                    <h3><UserRound size={18} /> Khách lưu trú</h3>
-                    <strong>{guestName || "Khách EnziuRooms"}</strong>
-                    <span>{booking.guestPhone || booking.bookerPhone || "Chưa có SĐT"}</span>
+                    <h3><UserRound size={18} /> Liên hệ khách</h3>
+                    <strong>{guestName}</strong>
+                    <span>{booking.guestPhone || booking.bookerPhone || "Chưa có số điện thoại"}</span>
                     <span><Users size={15} /> {booking.adults} người lớn · {booking.children} trẻ em</span>
                   </div>
 
                   <div className="current-stay-info">
-                    <h3><Hotel size={18} /> Phòng</h3>
+                    <h3><Hotel size={18} /> Phòng đang ở</h3>
                     <strong>{item.roomTypeName}</strong>
                     <span>Phòng {item.roomNumber}</span>
-                    <span>Nhận thực tế: {formatDateTime(item.actualCheckInAt)}</span>
+                    <span>Đã nhận phòng: {formatDateTime(item.actualCheckInAt)}</span>
                   </div>
 
                   <div className="current-stay-info important">
@@ -484,52 +553,58 @@ export default function CurrentStaysPage() {
                   </div>
 
                   <div className="current-stay-info current-stay-payment-box">
-                    <h3><WalletCards size={18} /> Thanh toán</h3>
-                    <strong>{money(booking.totalPrice)}</strong>
+                    <h3><WalletCards size={18} /> Tiền phòng</h3>
+                    <strong>{money(effectiveTotal)}</strong>
                     {Number(booking.weekendSurchargeAmount ?? 0) > 0 ? (
                       <span>Cuối tuần: +{money(booking.weekendSurchargeAmount)}</span>
                     ) : null}
                     {Number(booking.specialDateSurchargeAmount ?? 0) > 0 ? (
                       <span>Ngày đặc biệt: +{money(booking.specialDateSurchargeAmount)}</span>
                     ) : null}
-                    {assessedLateFee > 0 ? (
-                      <span className="late-fee-line">Trả trễ: +{money(assessedLateFee)}</span>
+                    {currentLateFee > 0 ? (
+                      <span className="late-fee-line">Trả trễ hiện tại: +{money(currentLateFee)}</span>
                     ) : null}
                     <span>Đã thu: {money(booking.paidAmount)}</span>
                     <span className={remaining > 0 ? "remaining-due" : "remaining-paid"}>
                       Còn lại: {money(remaining)}
                     </span>
+                    {backendLateFeeOutOfSync ? (
+                      <span className="remaining-due">
+                        Đang cập nhật +{money(lateFeeDelta)}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
                 {late?.overdue ? (
-                  <div className={`late-checkout-panel ${feeAssessed ? "locked" : "preview"}`}>
+                  <div className={`late-checkout-panel ${currentLateFee > 0 ? "locked" : "preview"}`}>
                     <div className="late-checkout-panel-icon">
-                      {feeAssessed ? <LockKeyhole size={21} /> : <TimerReset size={21} />}
+                      <TimerReset size={21} />
                     </div>
                     <div className="late-checkout-panel-copy">
-                      <strong>
-                        {feeAssessed ? "Phí trả trễ đã được chốt" : "Khách đang quá giờ trả phòng"}
-                      </strong>
+                      <strong>Phụ thu trả trễ đang được tính</strong>
                       <span>{late.policyLabel}</span>
                       <small>
                         Quá giờ {formatOverdueMinutes(late.overdueMinutes)} · Miễn phí {late.graceMinutes ?? 60} phút đầu
                       </small>
-                    </div>
-                    <div className="late-checkout-panel-amount">
-                      <small>{feeAssessed ? "Phụ thu đã khóa" : "Phụ thu dự kiến"}</small>
-                      <strong>{money(feeAssessed ? assessedLateFee : estimatedLateFee)}</strong>
-                      {feeAssessed && booking.lateFeeAssessedAt ? (
-                        <em>Chốt lúc {formatDateTime(booking.lateFeeAssessedAt)}</em>
+                      {currentLateFee > 0 ? (
+                        <small>Phí tiếp tục tăng theo mốc thời gian cho đến khi checkout.</small>
                       ) : null}
                     </div>
-                    {!feeAssessed && estimatedLateFee > 0 ? (
+                    <div className="late-checkout-panel-amount">
+                      <small>Phụ thu hiện tại</small>
+                      <strong>{money(currentLateFee)}</strong>
+                      {feeAssessed && booking.lateFeeAssessedAt ? (
+                        <em>Cập nhật mức phí lúc {formatDateTime(booking.lateFeeAssessedAt)}</em>
+                      ) : null}
+                    </div>
+                    {estimatedLateFee > 0 ? (
                       <button
                         type="button"
                         onClick={() => void handleAssessLateFee(item)}
                         disabled={workingId === booking.id}
                       >
-                        <LockKeyhole size={17} /> Chốt phí trả trễ
+                        <RefreshCw size={17} /> Cập nhật phụ thu
                       </button>
                     ) : null}
                   </div>

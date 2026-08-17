@@ -145,7 +145,7 @@ function statusCopy(status) {
       return {
         icon: LoaderCircle,
         title: "Đang xác minh thanh toán",
-        message: "Hệ thống đang đối chiếu giao dịch trực tiếp với PayOS.",
+        message: "Đang xác nhận giao dịch với PayOS.",
         tone: "processing",
       };
   }
@@ -429,7 +429,7 @@ export default function PaymentGatewayPage() {
 
         <div className="payment-security-note payos-security-note">
           <ShieldCheck size={20} />
-          Trạng thái được xác minh ở backend bằng webhook có chữ ký và API PayOS; trang chuyển hướng không tự đánh dấu đã thanh toán.
+          Thanh toán sẽ được xác nhận tự động. Nếu trạng thái chưa cập nhật, vui lòng chờ vài giây rồi thử lại.
         </div>
       </div>
     </main>

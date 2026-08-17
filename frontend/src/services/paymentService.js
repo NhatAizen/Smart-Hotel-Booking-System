@@ -245,3 +245,68 @@ export async function createCheckInPayOsCheckout(bookingId) {
 
   return response.data;
 }
+// =========================================================
+// Refund request workflow
+// =========================================================
+
+export async function createRefundRequest(payload) {
+  const response = await apiClient.post("/refunds/requests", payload);
+  return response.data;
+}
+
+export async function getMyRefundRequests() {
+  const response = await apiClient.get("/refunds/requests/me");
+  return response.data;
+}
+
+export async function getRefundRequestByBooking(bookingId) {
+  const response = await apiClient.get(`/refunds/requests/booking/${bookingId}`);
+  return response.data;
+}
+
+export async function getHotelRefundRequests() {
+  const response = await apiClient.get("/refunds/hotel");
+  return response.data;
+}
+
+export async function approveRefundRequest(id, note = "") {
+  const response = await apiClient.post(`/refunds/${id}/approve`, { note });
+  return response.data;
+}
+
+export async function rejectRefundRequest(id, note = "") {
+  const response = await apiClient.post(`/refunds/${id}/reject`, { note });
+  return response.data;
+}
+
+export async function submitHotelRefundProof(id, transferReference, transferProof) {
+  const formData = new FormData();
+  formData.append("transferReference", transferReference);
+  formData.append("transferProof", transferProof);
+  const response = await apiClient.post(`/refunds/${id}/hotel-proof`, formData);
+  return response.data;
+}
+
+export async function getRefundHotelProof(id) {
+  const response = await apiClient.get(`/refunds/${id}/hotel-proof`, {
+    responseType: "blob",
+  });
+  return response.data;
+}
+
+export async function getAdminRefundRequests(status = "") {
+  const response = await apiClient.get("/admin/refunds", {
+    params: status ? { status } : undefined,
+  });
+  return response.data;
+}
+
+export async function executePlatformRefund(id) {
+  const response = await apiClient.post(`/admin/refunds/${id}/execute-platform`);
+  return response.data;
+}
+
+export async function markManualRefundResolved(id, note) {
+  const response = await apiClient.post(`/admin/refunds/${id}/mark-manual-resolved`, { note });
+  return response.data;
+}

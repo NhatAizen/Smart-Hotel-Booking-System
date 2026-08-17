@@ -626,3 +626,28 @@
   font-size: 12px;
   box-shadow: 0 5px 16px rgba(15, 40, 68, .12);
 }
+
+
+/* === REGION BOUNDARY SVG HARD FALLBACK ===
+   Force the selected administrative area above the tile layer and keep it visible
+   even when Leaflet's default vector renderer changes. */
+.customer-google-map-canvas .enziu-region-boundary-path {
+  stroke: #e5ad24 !important;
+  stroke-width: 3px !important;
+  stroke-opacity: 1 !important;
+  fill: #ffe9a6 !important;
+  fill-opacity: 0.16 !important;
+}
+
+.customer-google-map-canvas .enziu-region-boundary-outline {
+  stroke: #e5ad24 !important;
+  stroke-width: 3px !important;
+  stroke-opacity: 1 !important;
+  fill: none !important;
+}
+
+.customer-google-map-canvas .leaflet-enziuRegionPane-pane,
+.customer-google-map-canvas [class*="enziuRegionPane"] {
+  z-index: 550 !important;
+  pointer-events: none !important;
+}

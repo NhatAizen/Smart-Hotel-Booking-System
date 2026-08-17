@@ -14,6 +14,7 @@ import {
   getMyWalletTransactions,
   getMyWithdrawals,
 } from "../../services/paymentService";
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 import "../shared/WalletPage.css";
 
 function money(value) {
@@ -75,6 +76,8 @@ export default function CustomerWalletPage() {
     void load();
   }, [load]);
 
+  useRealtimeRefresh("NOTIFICATION_CREATED", load, { debounceMs: 120 });
+
   function change(event) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
@@ -98,7 +101,7 @@ export default function CustomerWalletPage() {
     try {
       await createWithdrawal({ ...form, amount });
       setForm((current) => ({ ...current, amount: "" }));
-      setMessage("Đã gửi yêu cầu rút tiền. System Admin sẽ kiểm tra và xử lý.");
+      setMessage("Đã gửi yêu cầu rút tiền. Bạn có thể theo dõi trạng thái tại đây.");
       await load();
     } catch (requestError) {
       setError(requestError.response?.data?.message ?? "Không thể tạo yêu cầu rút tiền.");

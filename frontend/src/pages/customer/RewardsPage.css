@@ -1,0 +1,366 @@
+
+.enziu-loyalty-page {
+  padding-bottom: 64px;
+  background: #f5f8fc;
+}
+
+.enziu-loyalty-hero {
+  position: relative;
+  min-height: 360px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  color: #fff;
+  background:
+    radial-gradient(circle at 78% 26%, rgba(36, 197, 214, 0.35), transparent 22%),
+    radial-gradient(circle at 64% 120%, rgba(8, 116, 223, 0.55), transparent 34%),
+    linear-gradient(120deg, #062b54 0%, #073e74 45%, #0874df 100%);
+}
+
+.enziu-loyalty-hero::before,
+.enziu-loyalty-hero::after {
+  position: absolute;
+  content: "";
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 50%;
+}
+
+.enziu-loyalty-hero::before {
+  width: 520px;
+  height: 520px;
+  right: 7%;
+  top: -285px;
+}
+
+.enziu-loyalty-hero::after {
+  width: 370px;
+  height: 370px;
+  right: 19%;
+  bottom: -260px;
+}
+
+.enziu-loyalty-hero-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 760px;
+  padding: 58px 0 88px;
+}
+
+.enziu-loyalty-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px;
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 999px;
+  background: rgba(255,255,255,.1);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.enziu-loyalty-hero-copy > p {
+  margin: 20px 0 2px;
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 800;
+}
+
+.enziu-loyalty-hero-copy h1 {
+  max-width: 720px;
+  margin: 0 0 13px;
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 1.02;
+  letter-spacing: -.035em;
+}
+
+.enziu-loyalty-hero-copy > span:last-child {
+  display: block;
+  max-width: 680px;
+  color: #d8ecff;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.enziu-loyalty-content {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 34px;
+  margin-top: -58px;
+}
+
+.enziu-level-progress-card {
+  width: min(790px, 100%);
+  margin: 0 auto;
+  padding: 30px 36px 26px;
+  border: 1px solid #dbe5ef;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(17, 49, 81, .14);
+  text-align: center;
+}
+
+.enziu-level-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 17px;
+  text-align: left;
+}
+
+.enziu-level-number {
+  width: 66px;
+  height: 66px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #0874df, #0aa79a);
+  color: #fff;
+  font-size: 30px;
+  font-weight: 950;
+  box-shadow: 0 10px 24px rgba(8,116,223,.24);
+}
+
+.enziu-level-title small {
+  color: #71869b;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.enziu-level-title h2 {
+  margin: 3px 0 5px;
+  color: #102a43;
+  font-size: clamp(22px, 3vw, 29px);
+}
+
+.enziu-level-title p {
+  margin: 0;
+  color: #657b91;
+  line-height: 1.5;
+}
+
+.enziu-progress-dots {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 28px 0 15px;
+}
+
+.enziu-progress-dots span {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border: 2px dashed #a6b2bd;
+  border-radius: 50%;
+  color: #8293a3;
+  font-weight: 850;
+}
+
+.enziu-progress-dots span.done {
+  border-style: solid;
+  border-color: #10a899;
+  background: #e9faf6;
+  color: #087d72;
+}
+
+.enziu-progress-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf2f6;
+}
+
+.enziu-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0874df, #10a899);
+}
+
+.enziu-how-to-level {
+  margin-top: 18px;
+  border: 0;
+  background: transparent;
+  color: #0874df;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.enziu-highest-level {
+  margin: 24px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #eef9f6;
+  color: #087760;
+  font-weight: 850;
+}
+
+.enziu-loyalty-section-heading {
+  margin-bottom: 18px;
+}
+
+.enziu-loyalty-section-heading > span {
+  color: #078b82;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .09em;
+}
+
+.enziu-loyalty-section-heading h2 {
+  margin: 6px 0 7px;
+  color: #102a43;
+  font-size: clamp(27px, 3vw, 36px);
+}
+
+.enziu-loyalty-section-heading p {
+  margin: 0;
+  max-width: 850px;
+  color: #687d92;
+  line-height: 1.6;
+}
+
+.enziu-loyalty-benefits,
+.enziu-loyalty-vouchers,
+.enziu-loyalty-campaigns {
+  scroll-margin-top: 90px;
+}
+
+.enziu-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.enziu-tier-card {
+  position: relative;
+  min-height: 245px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 24px;
+  border: 1px solid #dce6ef;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.enziu-tier-card.current {
+  border: 2px solid #10a899;
+  box-shadow: 0 12px 28px rgba(16, 168, 153, .12);
+}
+
+.enziu-tier-card.locked {
+  background: #fbfcfd;
+}
+
+.enziu-tier-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid #d4e1ec;
+  border-radius: 999px;
+  background: #fff;
+  color: #405b73;
+  font-weight: 850;
+}
+
+.enziu-tier-card.current .enziu-tier-pill {
+  border-color: #10a899;
+  background: #e9faf6;
+  color: #087d72;
+}
+
+.enziu-tier-card > strong {
+  color: #112f4d;
+  font-size: 22px;
+  line-height: 1.35;
+}
+
+.enziu-tier-card > p {
+  margin: 0;
+  color: #657b90;
+  line-height: 1.55;
+}
+
+.enziu-tier-rule {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #537089;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.enziu-current-tier-label {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  color: #087d72;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+@media (max-width: 900px) {
+  .enziu-loyalty-hero {
+    min-height: 320px;
+  }
+
+  .enziu-loyalty-hero-copy {
+    padding: 48px 0 78px;
+  }
+
+  .enziu-tier-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .enziu-level-progress-card {
+    padding: 26px 22px 22px;
+  }
+}
+
+@media (max-width: 560px) {
+  .enziu-loyalty-hero {
+    min-height: 300px;
+  }
+
+  .enziu-loyalty-hero-copy h1 {
+    font-size: 36px;
+  }
+
+  .enziu-loyalty-content {
+    margin-top: -42px;
+  }
+
+  .enziu-level-title {
+    align-items: flex-start;
+  }
+
+  .enziu-level-number {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    font-size: 24px;
+  }
+
+  .enziu-progress-dots {
+    gap: 8px;
+  }
+
+  .enziu-progress-dots span {
+    width: 46px;
+    height: 46px;
+  }
+
+  .enziu-tier-card {
+    min-height: 0;
+  }
+}

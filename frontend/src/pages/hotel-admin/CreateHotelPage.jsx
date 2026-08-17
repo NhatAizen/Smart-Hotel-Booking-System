@@ -144,7 +144,7 @@ export default function CreateHotelPage() {
           <h1>Đăng ký khách sạn mới</h1>
           <p>
             Tạo hồ sơ nháp, tải ảnh, sau đó thêm loại phòng và số
-            phòng thực tế trước khi gửi System Admin xét duyệt.
+            phòng trước khi gửi xét duyệt.
           </p>
         </div>
       </section>

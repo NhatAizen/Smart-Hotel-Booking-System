@@ -37,6 +37,7 @@
 
 .booking-v2-heading > button,
 .booking-v2-primary-action,
+.booking-v2-chat-action,
 .booking-v2-pay-action,
 .booking-v2-cancel-action,
 .booking-v2-delete-action {
@@ -60,6 +61,7 @@
 
 .booking-v2-heading > button:hover,
 .booking-v2-primary-action:hover,
+.booking-v2-chat-action:hover,
 .booking-v2-pay-action:hover,
 .booking-v2-cancel-action:hover,
 .booking-v2-delete-action:hover {
@@ -418,6 +420,30 @@
   color: #fff;
   background: #087dce;
   box-shadow: 0 8px 16px rgba(8, 125, 206, 0.18);
+}
+
+.booking-v2-chat-action {
+  color: #08786f;
+  background: #ecfaf7;
+  border-color: #bfe8de !important;
+}
+
+.booking-v2-chat-action > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.booking-v2-chat-unread {
+  min-width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 4px;
+  color: #fff;
+  background: #e2554a;
+  border-radius: 999px;
+  font-size: 9px;
 }
 
 .booking-v2-pay-action {
@@ -844,4 +870,206 @@
   background: #eefaf3;
   color: #16814b;
   font-weight: 750;
+}
+
+/* =========================================================
+ * Refund request flow
+ * ========================================================= */
+.booking-v2-refund-action {
+  border: 1px solid #f2b8a7;
+  background: #fff8f5;
+  color: #b5482f;
+}
+
+.booking-v2-status.no-show,
+.booking-v2-refund-state {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.booking-v2-status.no-show {
+  background: #fff1e8;
+  color: #b45309;
+}
+
+.booking-v2-refund-modal {
+  position: relative;
+  width: min(720px, calc(100vw - 28px));
+  max-height: min(86vh, 820px);
+  overflow-y: auto;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.24);
+  padding: 28px;
+}
+
+.booking-v2-refund-form,
+.booking-v2-refund-status-view {
+  display: grid;
+  gap: 18px;
+}
+
+.booking-v2-refund-warning,
+.booking-v2-refund-policy,
+.booking-v2-refund-note,
+.booking-v2-refund-destination {
+  display: grid;
+  gap: 6px;
+  border-radius: 16px;
+  padding: 15px 16px;
+}
+
+.booking-v2-refund-warning {
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+}
+
+.booking-v2-refund-policy {
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.booking-v2-refund-note {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  color: #115e59;
+}
+
+.booking-v2-refund-destination {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+}
+
+.booking-v2-refund-warning span,
+.booking-v2-refund-policy p,
+.booking-v2-refund-note p,
+.booking-v2-refund-destination span {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.booking-v2-refund-summary,
+.booking-v2-refund-money-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.booking-v2-refund-summary > div,
+.booking-v2-refund-money-grid > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.booking-v2-refund-summary small,
+.booking-v2-refund-money-grid small {
+  color: #64748b;
+}
+
+.booking-v2-refund-form label,
+.booking-v2-refund-bank {
+  display: grid;
+  gap: 8px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.booking-v2-refund-form input,
+.booking-v2-refund-form select,
+.booking-v2-refund-form textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 11px 12px;
+  font: inherit;
+  background: #fff;
+  color: #0f172a;
+  outline: none;
+}
+
+.booking-v2-refund-form input:focus,
+.booking-v2-refund-form select:focus,
+.booking-v2-refund-form textarea:focus {
+  border-color: #0ea5a4;
+  box-shadow: 0 0 0 3px rgba(14, 165, 164, 0.12);
+}
+
+.booking-v2-refund-bank {
+  padding: 15px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.booking-v2-refund-submit,
+.booking-v2-refund-proof-button {
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.booking-v2-refund-submit {
+  background: linear-gradient(135deg, #0ea5a4, #1689d8);
+  color: #fff;
+}
+
+.booking-v2-refund-proof-button {
+  background: #0f766e;
+  color: #fff;
+  width: fit-content;
+}
+
+.booking-v2-refund-state.pending_hotel_review,
+.booking-v2-refund-state.approved {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.booking-v2-refund-state.partially_completed {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.booking-v2-refund-state.completed {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.booking-v2-refund-state.rejected {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.booking-v2-refund-proof-image {
+  width: min(100%, 560px);
+  max-height: 430px;
+  object-fit: contain;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+@media (max-width: 640px) {
+  .booking-v2-refund-modal {
+    padding: 20px;
+  }
+
+  .booking-v2-refund-summary,
+  .booking-v2-refund-money-grid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -5,13 +5,13 @@ export default function HotelAdminDashboard() {
 
   return (
     <main className="page">
-      <h1>Hotel Admin Dashboard</h1>
+      <h1>Tổng quan khách sạn</h1>
 
       <p>
         Xin chào {user?.fullName}.
       </p>
 
-      <p>Role: {user?.role}</p>
+      
     </main>
   );
 }

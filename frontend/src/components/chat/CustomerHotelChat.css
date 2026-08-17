@@ -1,0 +1,472 @@
+.hotel-chat-box {
+  position: fixed;
+  right: 28px;
+  bottom: 24px;
+  z-index: 1500;
+  width: min(430px, calc(100vw - 28px));
+  height: min(680px, calc(100vh - 96px));
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #d7e5ec;
+  border-radius: 22px;
+  box-shadow: 0 24px 72px rgba(19, 54, 78, 0.28);
+  animation: hotel-chat-pop 0.2s ease-out;
+}
+
+@keyframes hotel-chat-pop {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.hotel-chat-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 14px 15px;
+  color: #fff;
+  background: linear-gradient(135deg, #0aa1a0, #0b90b2);
+}
+
+.hotel-chat-avatar {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 13px;
+  background: rgba(255,255,255,.14);
+}
+
+.hotel-chat-header-copy {
+  min-width: 0;
+}
+
+.hotel-chat-header h2 {
+  overflow: hidden;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hotel-chat-header p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0 0;
+  color: rgba(255,255,255,.84);
+  font-size: 11px;
+}
+
+.hotel-chat-online-dot {
+  width: 7px;
+  height: 7px;
+  background: #5cf0ad;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(92,240,173,.16);
+}
+
+.hotel-chat-close {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  background: transparent;
+  cursor: pointer;
+}
+
+.hotel-chat-close:hover {
+  background: rgba(255,255,255,.14);
+}
+
+.hotel-chat-booking-strip {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  border-bottom: 1px solid #e1ebf1;
+  background: #f2fbfa;
+}
+
+.hotel-chat-booking-strip > div {
+  min-width: 0;
+  padding: 9px 11px;
+  border-right: 1px solid #e1ebf1;
+}
+
+.hotel-chat-booking-strip > div:last-child {
+  border-right: 0;
+}
+
+.hotel-chat-booking-strip small,
+.hotel-chat-booking-strip strong {
+  display: block;
+}
+
+.hotel-chat-booking-strip small {
+  margin-bottom: 3px;
+  color: #78909f;
+  font-size: 8px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.hotel-chat-booking-strip strong {
+  overflow: hidden;
+  color: #24445a;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hotel-chat-general-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 13px;
+  color: #4a707d;
+  background: #effbf8;
+  border-bottom: 1px solid #deeee9;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.hotel-chat-general-note svg {
+  flex: 0 0 auto;
+  color: #0b978c;
+}
+
+.hotel-chat-messages {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 13px 10px;
+  background: #f7fafc;
+  scrollbar-width: thin;
+}
+
+.hotel-chat-loading,
+.hotel-chat-empty {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px;
+  color: #8297a7;
+  text-align: center;
+  font-size: 11px;
+}
+
+.hotel-chat-empty svg {
+  color: #0d9990;
+}
+
+.hotel-chat-empty strong {
+  color: #294c62;
+  font-size: 13px;
+}
+
+.hotel-chat-message {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  margin: 0 0 12px;
+}
+
+.hotel-chat-message.mine {
+  justify-content: flex-end;
+}
+
+.hotel-chat-message-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: #12a09a;
+  border-radius: 9px;
+}
+
+.hotel-chat-bubble-wrap {
+  max-width: 82%;
+}
+
+.hotel-chat-bubble-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  min-height: 16px;
+}
+
+.hotel-chat-message.mine .hotel-chat-bubble-meta {
+  justify-content: flex-end;
+}
+
+.hotel-chat-bubble-meta strong {
+  color: #6e8798;
+  font-size: 9px;
+}
+
+.hotel-chat-auto-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 0 7px;
+  color: #bd6523;
+  background: #fff5e9;
+  border: 1px solid #f3d2ad;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.hotel-chat-bubble {
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #dce8ef;
+  border-radius: 5px 16px 16px 16px;
+  box-shadow: 0 3px 10px rgba(27,57,77,.04);
+}
+
+.hotel-chat-message.mine .hotel-chat-bubble {
+  color: #fff;
+  background: linear-gradient(135deg, #0da3a0, #0c93ad);
+  border-color: transparent;
+  border-radius: 16px 5px 16px 16px;
+}
+
+.hotel-chat-message.system-message:not(.mine) .hotel-chat-bubble {
+  background: #fffaf1;
+  border-color: #f0dfbf;
+}
+
+.hotel-chat-bubble p {
+  margin: 0;
+  color: #425f72;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.hotel-chat-message.mine .hotel-chat-bubble p {
+  color: #fff;
+}
+
+.hotel-chat-message time {
+  display: block;
+  margin-top: 3px;
+  color: #9aabb7;
+  font-size: 8px;
+}
+
+.hotel-chat-message.mine time {
+  text-align: right;
+}
+
+.hotel-chat-booking-actions {
+  padding: 8px 12px;
+  background: #fff;
+  border-top: 1px solid #e4edf2;
+}
+
+.hotel-chat-arrival-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+  color: #227b65;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.hotel-chat-action-row,
+.hotel-chat-quick-questions {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.hotel-chat-action-row::-webkit-scrollbar,
+.hotel-chat-quick-questions::-webkit-scrollbar {
+  display: none;
+}
+
+.hotel-chat-action-row button,
+.hotel-chat-quick-questions button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #d6e5ed;
+  border-radius: 999px;
+  color: #3a6479;
+  background: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hotel-chat-action-row button:hover,
+.hotel-chat-quick-questions button:hover {
+  color: #087f78;
+  border-color: #8ed9d0;
+  background: #effbf8;
+}
+
+.hotel-chat-action-row button:disabled,
+.hotel-chat-quick-questions button:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+.hotel-chat-inline-form,
+.hotel-chat-late-form {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px;
+  background: #f7fbfd;
+  border: 1px solid #dce8ef;
+  border-radius: 10px;
+}
+
+.hotel-chat-inline-form {
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+}
+
+.hotel-chat-late-form {
+  grid-template-columns: 92px 1fr auto;
+}
+
+.hotel-chat-inline-form input,
+.hotel-chat-late-form input {
+  min-width: 0;
+  height: 31px;
+  padding: 0 8px;
+  color: #24455a;
+  background: #fff;
+  border: 1px solid #d5e3ea;
+  border-radius: 8px;
+  font-size: 9px;
+}
+
+.hotel-chat-inline-form button,
+.hotel-chat-late-form button {
+  height: 31px;
+  padding: 0 10px;
+  color: #fff;
+  background: #0b948c;
+  border: 0;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.hotel-chat-quick-questions {
+  padding: 9px 12px 5px;
+  background: #fff;
+  border-top: 1px solid #e4edf2;
+}
+
+.hotel-chat-error {
+  margin: 6px 12px 0;
+  padding: 7px 9px;
+  color: #a34035;
+  background: #fff1ef;
+  border: 1px solid #f1cdc8;
+  border-radius: 9px;
+  font-size: 9px;
+}
+
+.hotel-chat-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 7px;
+  padding: 9px 12px 12px;
+  background: #fff;
+}
+
+.hotel-chat-composer textarea {
+  width: 100%;
+  min-height: 42px;
+  max-height: 90px;
+  resize: none;
+  padding: 11px 13px;
+  color: #294b60;
+  background: #fff;
+  border: 1px solid #d8e4eb;
+  border-radius: 999px;
+  outline: none;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.hotel-chat-composer textarea:focus {
+  border-color: #69c8c0;
+  box-shadow: 0 0 0 3px rgba(13,155,145,.08);
+}
+
+.hotel-chat-composer button {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  align-self: end;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, #0da39c, #0a8fa9);
+  cursor: pointer;
+}
+
+.hotel-chat-composer button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.spin {
+  animation: hotel-chat-spin 0.8s linear infinite;
+}
+
+@keyframes hotel-chat-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .hotel-chat-box {
+    right: 8px;
+    bottom: 8px;
+    width: calc(100vw - 16px);
+    height: min(720px, calc(100dvh - 16px));
+    border-radius: 18px;
+  }
+
+  .hotel-chat-booking-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hotel-chat-booking-strip > div:first-child {
+    grid-column: span 2;
+  }
+
+  .hotel-chat-late-form {
+    grid-template-columns: 1fr;
+  }
+}

@@ -4,9 +4,9 @@ export default function HotelNotificationsPage() {
   return (
     <NotificationCenterPage
       admin
-      eyebrow="TRUNG TÂM ĐỐI TÁC"
+      eyebrow="THÔNG BÁO"
       title="Thông báo vận hành"
-      description="Booking mới, thanh toán, check-in/check-out, phòng cần dọn, tài chính và trạng thái khách sạn đều tập trung tại đây."
+      description="Theo dõi các cập nhật về booking, thanh toán, lưu trú, phòng và tài chính."
     />
   );
 }

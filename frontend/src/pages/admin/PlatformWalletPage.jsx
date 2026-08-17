@@ -25,10 +25,14 @@ import {
   getWithdrawals,
   markWithdrawalPaid,
   rejectWithdrawal,
-  refundPaymentToWallet,
   releaseHotelRevenue,
+  getAdminRefundRequests,
+  executePlatformRefund,
+  markManualRefundResolved,
+  getRefundHotelProof,
 } from "../../services/paymentService";
 import "../shared/WalletPage.css";
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 
 function money(value) {
   return `${Number(value ?? 0).toLocaleString("vi-VN")} ₫`;
@@ -51,6 +55,9 @@ export default function PlatformWalletPage() {
   const [transactions, setTransactions] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
   const [paidPayments, setPaidPayments] = useState([]);
+  const [refundRequests, setRefundRequests] = useState([]);
+  const [refundProofItem, setRefundProofItem] = useState(null);
+  const [refundProofUrl, setRefundProofUrl] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
@@ -68,16 +75,18 @@ export default function PlatformWalletPage() {
     setLoading(true);
     setError("");
     try {
-      const [walletData, transactionData, withdrawalData, paymentData] = await Promise.all([
+      const [walletData, transactionData, withdrawalData, paymentData, refundData] = await Promise.all([
         getPlatformWallet(),
         getPlatformWalletTransactions(),
         getWithdrawals(status),
         getPaymentsByStatus("PAID"),
+        getAdminRefundRequests().catch(() => []),
       ]);
       setWallet(walletData);
       setTransactions(Array.isArray(transactionData) ? transactionData : []);
       setWithdrawals(Array.isArray(withdrawalData) ? withdrawalData : []);
       setPaidPayments(Array.isArray(paymentData) ? paymentData : []);
+      setRefundRequests(Array.isArray(refundData) ? refundData : []);
       setSelectedWithdrawal((current) => {
         if (!current) return current;
         return (Array.isArray(withdrawalData) ? withdrawalData : []).find(
@@ -95,6 +104,8 @@ export default function PlatformWalletPage() {
     load();
   }, [load]);
 
+  useRealtimeRefresh("NOTIFICATION_CREATED", load, { debounceMs: 120 });
+
   useEffect(() => {
     if (!transferProof) {
       setTransferProofPreview("");
@@ -108,7 +119,8 @@ export default function PlatformWalletPage() {
   useEffect(() => () => {
     if (receiverQrUrl) URL.revokeObjectURL(receiverQrUrl);
     if (savedProofUrl) URL.revokeObjectURL(savedProofUrl);
-  }, [receiverQrUrl, savedProofUrl]);
+    if (refundProofUrl) URL.revokeObjectURL(refundProofUrl);
+  }, [receiverQrUrl, savedProofUrl, refundProofUrl]);
 
   async function run(id, action, successMessage) {
     setBusyId(id);
@@ -169,7 +181,7 @@ export default function PlatformWalletPage() {
   async function handleApproveReal(item) {
     const note = window.prompt(
       "Ghi chú duyệt (có thể để trống):",
-      "Đã kiểm tra thông tin nhận tiền. Chờ System Admin chuyển khoản thật.",
+      "Đã kiểm tra thông tin nhận tiền. Chờ chuyển khoản.",
     );
     if (note === null) return;
     setBusyId(item.id);
@@ -178,7 +190,7 @@ export default function PlatformWalletPage() {
     try {
       const updated = await approveWithdrawal(item.id, note, false);
       setSelectedWithdrawal((current) => current?.id === item.id ? { ...current, ...updated } : current);
-      setMessage("Đã duyệt. Hãy chuyển tiền thật bằng app ngân hàng, sau đó tải chứng từ để hoàn tất.");
+      setMessage("Đã duyệt. Hãy chuyển khoản theo thông tin nhận tiền, sau đó tải chứng từ để hoàn tất.");
       await load();
     } catch (requestError) {
       setError(requestError.response?.data?.message ?? "Không thể duyệt yêu cầu rút tiền.");
@@ -202,10 +214,10 @@ export default function PlatformWalletPage() {
       return;
     }
     if (!transferProof) {
-      setError("Bắt buộc tải ảnh chứng từ chuyển khoản thật trước khi xác nhận đã trả.");
+      setError("Vui lòng tải ảnh chứng từ chuyển khoản trước khi xác nhận đã trả.");
       return;
     }
-    if (!window.confirm(`Xác nhận bạn đã CHUYỂN TIỀN THẬT ${money(item.amount)} cho người nhận này?`)) return;
+    if (!window.confirm(`Xác nhận đã chuyển ${money(item.amount)} cho người nhận này?`)) return;
 
     setBusyId(item.id);
     setError("");
@@ -213,7 +225,7 @@ export default function PlatformWalletPage() {
     try {
       const updated = await markWithdrawalPaid(item.id, transferReference.trim(), transferProof);
       setSelectedWithdrawal((current) => current?.id === item.id ? { ...current, ...updated } : current);
-      setMessage("Đã ghi nhận chuyển tiền thật. Tiền khóa đã được trừ khỏi ví và chứng từ được lưu.");
+      setMessage("Đã ghi nhận chuyển khoản. Số tiền đã được trừ khỏi phần đang giữ và chứng từ đã được lưu.");
       setTransferProof(null);
       const blob = await getWithdrawalTransferProof(item.id);
       if (savedProofUrl) URL.revokeObjectURL(savedProofUrl);
@@ -226,15 +238,51 @@ export default function PlatformWalletPage() {
     }
   }
 
-  function handleRefund(item) {
-    if (!window.confirm(
-      `Hoàn ${money(item.amount)} của booking ${item.bookingId} vào Ví Enziu của khách?`,
-    )) return undefined;
-    return run(
+  function refundStatusLabel(value) {
+    return ({
+      PENDING_HOTEL_REVIEW: "Chờ khách sạn duyệt",
+      APPROVED: "Đã duyệt",
+      PARTIALLY_COMPLETED: "Đã hoàn một phần",
+      COMPLETED: "Hoàn tất",
+      REJECTED: "Từ chối",
+    }[value] ?? value);
+  }
+
+  async function handleExecutePlatformRefund(item) {
+    if (!window.confirm(`Hoàn ${money(item.platformHeldAmount)} phần EnziuRooms đang giữ cho booking ${item.bookingCode}?`)) return;
+    await run(
       item.id,
-      () => refundPaymentToWallet(item.id),
-      "Đã hoàn tiền vào Ví Enziu của khách và đảo doanh thu/hoa hồng tương ứng.",
+      () => executePlatformRefund(item.id),
+      "Đã hoàn phần tiền EnziuRooms đang giữ vào Ví Enziu của khách.",
     );
+  }
+
+  async function handleManualResolved(item) {
+    const note = window.prompt(
+      "Ghi nội dung đối soát khoản đã giải ngân/không thể hoàn tự động:",
+      "Đã đối soát thủ công với khách sạn và khách hàng.",
+    );
+    if (note === null || !note.trim()) return;
+    await run(
+      item.id,
+      () => markManualRefundResolved(item.id, note.trim()),
+      "Đã ghi nhận hoàn tất phần đối soát thủ công.",
+    );
+  }
+
+  async function openRefundHotelProof(item) {
+    setBusyId(item.id);
+    setError("");
+    try {
+      const blob = await getRefundHotelProof(item.id);
+      if (refundProofUrl) URL.revokeObjectURL(refundProofUrl);
+      setRefundProofUrl(URL.createObjectURL(blob));
+      setRefundProofItem(item);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message ?? "Không thể tải chứng từ khách sạn hoàn tiền.");
+    } finally {
+      setBusyId("");
+    }
   }
 
   async function copyText(value) {
@@ -258,10 +306,10 @@ export default function PlatformWalletPage() {
     <div className="wallet-page">
       <header className="wallet-page-heading">
         <div>
-          <span className="wallet-page-kicker">TÀI CHÍNH HỆ THỐNG</span>
+          <span className="wallet-page-kicker">TÀI CHÍNH</span>
           <h1>Ví EnziuRooms & đối soát</h1>
           <p>
-            Yêu cầu rút tiền được xử lý theo luồng chuyển khoản thật: kiểm tra tài khoản/QR → duyệt → chuyển bằng ngân hàng → lưu chứng từ → xác nhận đã trả.
+            Theo dõi số dư, đối soát và xử lý các yêu cầu rút tiền.
           </p>
         </div>
         <button className="wallet-refresh-button" type="button" onClick={load} disabled={loading}>
@@ -283,13 +331,13 @@ export default function PlatformWalletPage() {
 
       <section className="wallet-panel">
         <div className="wallet-panel-header">
-          <h2><Banknote size={18} /> Yêu cầu rút tiền thật</h2>
+          <h2><Banknote size={18} /> Yêu cầu rút tiền</h2>
           <select value={status} onChange={(event) => setStatus(event.target.value)}>
             <option value="">Tất cả trạng thái</option>
             <option value="PENDING">Chờ duyệt</option>
-            <option value="APPROVED">Đã duyệt - chờ chuyển thật</option>
+            <option value="APPROVED">Đã duyệt - chờ chuyển khoản</option>
             <option value="PROCESSING">Đang xử lý</option>
-            <option value="PAID">Đã chuyển thật</option>
+            <option value="PAID">Đã chuyển</option>
             <option value="REJECTED">Từ chối</option>
             <option value="FAILED">Xử lý lỗi</option>
           </select>
@@ -301,7 +349,7 @@ export default function PlatformWalletPage() {
               {withdrawals.map((item) => (
                 <tr key={item.id}>
                   <td>
-                    <strong>{item.ownerType === "CUSTOMER" ? "Customer" : "Hotel Admin"}</strong>
+                    <strong>{item.ownerType === "CUSTOMER" ? "Khách hàng" : "Đối tác"}</strong>
                     <br /><small>{item.ownerId ?? item.hotelOwnerId}</small>
                   </td>
                   <td>
@@ -332,31 +380,43 @@ export default function PlatformWalletPage() {
         </div>
       </section>
 
-      <section className="wallet-panel">
+      <section className="wallet-panel refund-workflow-panel">
         <div className="wallet-panel-header">
-          <h2><CircleDollarSign size={18} /> Hoàn tiền vào Ví Enziu</h2>
-          <span>{paidPayments.length} giao dịch có thể kiểm tra</span>
+          <h2><CircleDollarSign size={18} /> Yêu cầu hoàn tiền đã qua khách sạn</h2>
+          <span>{refundRequests.length} yêu cầu</span>
+        </div>
+        <div className="wallet-helper wallet-helper-real">
+          System Admin chỉ hoàn phần tiền EnziuRooms còn đang giữ. Tiền mặt khách sạn đã thu phải do khách sạn hoàn trực tiếp kèm chứng từ; khoản đã giải ngân cần đối soát thủ công.
         </div>
         <div className="wallet-table-wrap">
           <table className="wallet-table">
-            <thead><tr><th>Booking</th><th>Phương thức</th><th>Đã thu</th><th>Hoa hồng</th><th>Hotel net</th><th>Thao tác</th></tr></thead>
+            <thead><tr><th>Booking</th><th>Đã thanh toán</th><th>EnziuRooms giữ</th><th>Hotel trực tiếp</th><th>Đối soát</th><th>Trạng thái / thao tác</th></tr></thead>
             <tbody>
-              {paidPayments.map((item) => (
-                <tr key={`refund-${item.id}`}>
-                  <td><strong>{item.bookingId}</strong><br /><small>{dateTime(item.paidAt)}</small></td>
-                  <td>{item.method}</td>
-                  <td>{money(item.amount)}</td>
-                  <td>{money(item.commissionAmount)}</td>
-                  <td>{money(item.hotelNetAmount)}</td>
+              {refundRequests.map((item) => (
+                <tr key={`refund-request-${item.id}`}>
+                  <td><strong>{item.bookingCode}</strong><br /><small>{dateTime(item.requestedAt)}</small></td>
+                  <td>{money(item.totalPaidAmount)}</td>
+                  <td><strong>{money(item.platformHeldAmount)}</strong><br /><small>{item.platformRefundCompleted ? "✓ Đã hoàn" : "Chưa hoàn"}</small></td>
+                  <td><strong>{money(item.hotelDirectAmount)}</strong><br /><small>{item.hotelRefundCompleted ? "✓ Khách sạn đã hoàn" : "Chờ khách sạn"}</small></td>
+                  <td><strong>{money(item.manualReconciliationAmount)}</strong><br /><small>{item.manualReconciliationCompleted ? "✓ Đã xử lý" : "Chưa xử lý"}</small></td>
                   <td>
-                    <button className="wallet-danger-button" type="button" disabled={busyId === item.id} onClick={() => handleRefund(item)}>
-                      Hoàn vào ví khách
-                    </button>
+                    <span className={`wallet-status ${String(item.status).toLowerCase()}`}>{refundStatusLabel(item.status)}</span>
+                    <div className="wallet-actions refund-admin-actions">
+                      {["APPROVED", "PARTIALLY_COMPLETED"].includes(item.status) && Number(item.platformHeldAmount ?? 0) > 0 && !item.platformRefundCompleted ? (
+                        <button className="wallet-danger-button" type="button" disabled={busyId === item.id} onClick={() => void handleExecutePlatformRefund(item)}>Hoàn phần Enziu</button>
+                      ) : null}
+                      {["APPROVED", "PARTIALLY_COMPLETED"].includes(item.status) && Number(item.manualReconciliationAmount ?? 0) > 0 && !item.manualReconciliationCompleted ? (
+                        <button className="primary" type="button" disabled={busyId === item.id} onClick={() => void handleManualResolved(item)}>Đã đối soát</button>
+                      ) : null}
+                      {item.hotelRefundProofAvailable ? (
+                        <button className="wallet-proof-view-button" type="button" disabled={busyId === item.id} onClick={() => void openRefundHotelProof(item)}>Chứng từ hotel</button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
-              {!loading && paidPayments.length === 0 ? (
-                <tr><td colSpan="6" className="wallet-empty">Không có giao dịch PAID để hoàn.</td></tr>
+              {!loading && refundRequests.length === 0 ? (
+                <tr><td colSpan="6" className="wallet-empty">Chưa có yêu cầu hoàn tiền.</td></tr>
               ) : null}
             </tbody>
           </table>
@@ -370,7 +430,7 @@ export default function PlatformWalletPage() {
         </div>
         <div className="wallet-table-wrap">
           <table className="wallet-table">
-            <thead><tr><th>Booking</th><th>Hotel Admin</th><th>Đã thu</th><th>Hoa hồng</th><th>Khách sạn nhận</th><th>Thao tác</th></tr></thead>
+            <thead><tr><th>Booking</th><th>Đối tác</th><th>Đã thu</th><th>Hoa hồng</th><th>Khách sạn nhận</th><th>Thao tác</th></tr></thead>
             <tbody>
               {paidPayments.filter((item) => item.walletApplied && !item.revenueReleased).map((item) => (
                 <tr key={item.id}>
@@ -383,7 +443,7 @@ export default function PlatformWalletPage() {
                     <button className="primary" type="button" disabled={busyId === item.id} onClick={() => run(
                       item.id,
                       () => releaseHotelRevenue(item.id),
-                      "Đã chuyển doanh thu từ số dư đang giữ sang số dư khả dụng của Hotel Admin.",
+                      "Đã chuyển doanh thu từ số dư đang giữ sang số dư khả dụng của đối tác.",
                     )}>Giải ngân</button>
                   </td>
                 </tr>
@@ -420,6 +480,29 @@ export default function PlatformWalletPage() {
         </div>
       </section>
 
+      {refundProofItem && refundProofUrl ? (
+        <div className="wallet-modal-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) {
+            setRefundProofItem(null);
+            URL.revokeObjectURL(refundProofUrl);
+            setRefundProofUrl("");
+          }
+        }}>
+          <section className="wallet-proof-modal">
+            <button className="wallet-modal-close" type="button" onClick={() => {
+              setRefundProofItem(null);
+              URL.revokeObjectURL(refundProofUrl);
+              setRefundProofUrl("");
+            }}><X size={20} /></button>
+            <div className="wallet-proof-modal-head">
+              <div className="wallet-proof-success-icon"><CheckCircle2 size={25} /></div>
+              <div><span className="wallet-page-kicker">CHỨNG TỪ KHÁCH SẠN HOÀN</span><h3>{refundProofItem.bookingCode}</h3><p>{money(refundProofItem.hotelDirectAmount)} · {refundProofItem.hotelRefundReference}</p></div>
+            </div>
+            <img className="wallet-proof-customer-image" src={refundProofUrl} alt="Chứng từ khách sạn hoàn tiền" />
+          </section>
+        </div>
+      ) : null}
+
       {selectedWithdrawal ? (
         <div className="wallet-modal-backdrop" onMouseDown={(event) => {
           if (event.target === event.currentTarget) closeWithdrawal();
@@ -427,16 +510,16 @@ export default function PlatformWalletPage() {
           <section className="wallet-withdrawal-modal">
             <button className="wallet-modal-close" type="button" onClick={closeWithdrawal}><X size={20} /></button>
             <div className="wallet-withdrawal-modal-head">
-              <span className="wallet-page-kicker">REAL WITHDRAWAL REVIEW</span>
-              <h2>Chuyển tiền thật cho yêu cầu rút</h2>
+              <span className="wallet-page-kicker">XỬ LÝ RÚT TIỀN</span>
+              <h2>Xử lý yêu cầu rút tiền</h2>
               <p>
-                Không đánh dấu hoàn tất trước khi bạn đã chuyển tiền bằng ứng dụng ngân hàng và có chứng từ thật.
+                Chỉ hoàn tất yêu cầu sau khi đã chuyển khoản và có chứng từ.
               </p>
             </div>
 
             <div className="wallet-real-summary">
               <div><small>Số tiền phải chuyển</small><strong>{money(selectedWithdrawal.amount)}</strong></div>
-              <div><small>Chủ ví</small><strong>{selectedWithdrawal.ownerType === "CUSTOMER" ? "Customer" : "Hotel Admin"}</strong><span>{selectedWithdrawal.ownerId}</span></div>
+              <div><small>Chủ ví</small><strong>{selectedWithdrawal.ownerType === "CUSTOMER" ? "Khách hàng" : "Đối tác"}</strong><span>{selectedWithdrawal.ownerId}</span></div>
               <div><small>Phương thức</small><strong>{payoutMethodLabel(selectedWithdrawal.payoutMethod)}</strong></div>
               <div><small>Trạng thái</small><span className={`wallet-status ${String(selectedWithdrawal.status).toLowerCase()}`}>{selectedWithdrawal.status}</span></div>
             </div>
@@ -458,8 +541,8 @@ export default function PlatformWalletPage() {
                 <div className="wallet-real-section-title"><QrCode size={19} /><strong>QR cá nhân do người nhận tải lên</strong></div>
                 {receiverQrUrl ? (
                   <div className="wallet-admin-qr-box">
-                    <img src={receiverQrUrl} alt="QR nhận tiền thật" />
-                    <p>Mở app ngân hàng của System Admin và quét QR này. Kiểm tra lại tên người nhận và số tiền trước khi chuyển.</p>
+                    <img src={receiverQrUrl} alt="QR nhận tiền" />
+                    <p>Quét QR bằng ứng dụng ngân hàng và kiểm tra tên người nhận, số tiền trước khi chuyển.</p>
                   </div>
                 ) : <p>Đang tải QR...</p>}
               </div>
@@ -480,22 +563,22 @@ export default function PlatformWalletPage() {
 
             {["APPROVED", "PROCESSING"].includes(selectedWithdrawal.status) ? (
               <form className="wallet-real-transfer-form" onSubmit={handleMarkPaidReal}>
-                <div className="wallet-real-section-title"><CheckCircle2 size={19} /><strong>Bước 2 · Sau khi đã chuyển tiền thật</strong></div>
+                <div className="wallet-real-section-title"><CheckCircle2 size={19} /><strong>Bước 2 · Xác nhận chuyển khoản</strong></div>
                 <div className="wallet-helper wallet-helper-real">
-                  Chuyển đúng <strong>{money(selectedWithdrawal.amount)}</strong> bằng app ngân hàng. Sau đó nhập mã giao dịch và tải ảnh biên lai/chứng từ. Hệ thống bắt buộc có chứng từ mới cho đánh dấu PAID.
+                  Chuyển đúng <strong>{money(selectedWithdrawal.amount)}</strong>, sau đó nhập mã giao dịch và tải ảnh chứng từ để hoàn tất yêu cầu.
                 </div>
                 <label>Mã giao dịch / mã tham chiếu ngân hàng
                   <input value={transferReference} onChange={(event) => setTransferReference(event.target.value)} placeholder="Ví dụ: FT260811123456" required />
                 </label>
                 <label className="wallet-upload-label wallet-proof-upload">
                   <ImageUp size={19} />
-                  <span>Ảnh chứng từ chuyển khoản thật</span>
+                  <span>Ảnh chứng từ chuyển khoản</span>
                   <small>PNG/JPG/WEBP · tối đa 5MB</small>
                   <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setTransferProof(event.target.files?.[0] ?? null)} required />
                 </label>
                 {transferProofPreview ? <img className="wallet-proof-preview" src={transferProofPreview} alt="Chứng từ sắp gửi" /> : null}
                 <button className="wallet-primary-button wallet-real-paid-button" type="submit" disabled={busyId === selectedWithdrawal.id}>
-                  <CheckCircle2 size={18} /> Tôi đã chuyển tiền thật · Xác nhận PAID
+                  <CheckCircle2 size={18} /> Tôi đã chuyển khoản · Hoàn tất
                 </button>
               </form>
             ) : null}
@@ -504,7 +587,7 @@ export default function PlatformWalletPage() {
               <div className="wallet-paid-proof-panel">
                 <CheckCircle2 size={28} />
                 <div>
-                  <strong>Đã chuyển tiền thật</strong>
+                  <strong>Đã chuyển tiền</strong>
                   <p>Mã giao dịch: {selectedWithdrawal.payoutReference || "—"}</p>
                   <p>Thời gian: {dateTime(selectedWithdrawal.paidAt)}</p>
                 </div>

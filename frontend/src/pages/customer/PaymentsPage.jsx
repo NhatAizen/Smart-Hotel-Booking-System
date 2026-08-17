@@ -1,7 +1,8 @@
 import { CreditCard, ReceiptText } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "../../auth/AuthContext";
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
 import { getMyPayments } from "../../services/paymentService";
@@ -36,23 +37,27 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    async function loadPayments() {
-      try {
-        const data = await getMyPayments(user?.id);
-        setPayments(Array.isArray(data) ? data : []);
-      } catch (requestError) {
-        setError(
-          requestError.response?.data?.message ??
-            "Chưa thể tải lịch sử thanh toán.",
-        );
-      } finally {
-        setLoading(false);
-      }
+  const loadPayments = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const data = await getMyPayments(user.id);
+      setPayments(Array.isArray(data) ? data : []);
+      setError("");
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message ??
+          "Chưa thể tải lịch sử thanh toán.",
+      );
+    } finally {
+      setLoading(false);
     }
-
-    loadPayments();
   }, [user?.id]);
+
+  useEffect(() => {
+    void loadPayments();
+  }, [loadPayments]);
+
+  useRealtimeRefresh("NOTIFICATION_CREATED", loadPayments, { debounceMs: 120 });
 
   if (loading) return <Loading message="Đang tải thanh toán..." />;
 

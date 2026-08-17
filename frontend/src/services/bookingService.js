@@ -175,3 +175,8 @@ export function subscribeHotelAvailability(
 
   return () => source.close();
 }
+
+export async function markBookingNoShow(bookingId) {
+  const response = await apiClient.patch(`/bookings/${bookingId}/no-show`);
+  return response.data;
+}

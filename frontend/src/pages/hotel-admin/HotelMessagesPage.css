@@ -1,0 +1,585 @@
+.hotel-messages-page {
+  min-height: calc(100vh - 76px);
+  padding: 30px clamp(18px, 4vw, 52px) 50px;
+  background: #f4f7fb;
+  color: #203a50;
+}
+
+.hotel-messages-heading {
+  max-width: 1500px;
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.hotel-messages-heading > div > span {
+  color: #128a80;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1.4px;
+}
+
+.hotel-messages-heading h1 {
+  margin: 5px 0 5px;
+  color: #16344d;
+  font-size: clamp(28px, 3vw, 38px);
+}
+
+.hotel-messages-heading p {
+  max-width: 820px;
+  margin: 0;
+  color: #74899a;
+  font-size: 13px;
+}
+
+.hotel-messages-heading > button {
+  min-height: 41px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  color: #176b91;
+  background: #fff;
+  border: 1px solid #d7e5ed;
+  border-radius: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hotel-chat-workspace {
+  width: 100%;
+  max-width: 1500px;
+  height: min(760px, calc(100vh - 190px));
+  min-height: 580px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(290px, 355px) minmax(0, 1fr);
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #dce7ef;
+  border-radius: 22px;
+  box-shadow: 0 16px 42px rgba(30, 61, 85, 0.08);
+}
+
+.hotel-chat-list-panel {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  background: #fbfdfe;
+  border-right: 1px solid #e1eaf0;
+}
+
+.hotel-chat-list-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 14px;
+  border-bottom: 1px solid #e5edf2;
+}
+
+.hotel-chat-list-summary > div {
+  text-align: center;
+}
+
+.hotel-chat-list-summary strong,
+.hotel-chat-list-summary span {
+  display: block;
+}
+
+.hotel-chat-list-summary strong {
+  color: #1c435d;
+  font-size: 16px;
+}
+
+.hotel-chat-list-summary strong.online {
+  color: #0b966c;
+}
+
+.hotel-chat-list-summary strong.offline {
+  color: #a56b3f;
+}
+
+.hotel-chat-list-summary span {
+  margin-top: 2px;
+  color: #8a9ba8;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.hotel-chat-list-search {
+  margin: 12px 12px 8px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+  color: #7b91a1;
+  background: #fff;
+  border: 1px solid #dce8ef;
+  border-radius: 11px;
+}
+
+.hotel-chat-list-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  color: #29485e;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+}
+
+.hotel-chat-conversations {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 8px 12px;
+}
+
+.hotel-chat-conversation-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 11px 9px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 13px;
+  cursor: pointer;
+}
+
+.hotel-chat-conversation-item:hover,
+.hotel-chat-conversation-item.active {
+  background: #eef9f7;
+}
+
+.hotel-chat-conversation-item.active {
+  box-shadow: inset 3px 0 #16a294;
+}
+
+.hotel-chat-conversation-avatar {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, #149f92, #258ac1);
+  border-radius: 13px;
+}
+
+.hotel-chat-conversation-avatar span {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  color: #fff;
+  background: #e6574b;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.hotel-chat-conversation-copy {
+  min-width: 0;
+}
+
+.hotel-chat-conversation-copy header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hotel-chat-conversation-copy header strong {
+  overflow: hidden;
+  color: #29485e;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hotel-chat-conversation-copy header time {
+  flex: 0 0 auto;
+  color: #9aabb6;
+  font-size: 8px;
+}
+
+.hotel-chat-conversation-copy p {
+  margin: 4px 0 5px;
+  overflow: hidden;
+  color: #788d9d;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hotel-chat-conversation-copy footer span,
+.hotel-chat-arrival-badge {
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.hotel-chat-conversation-copy footer span.good,
+.hotel-chat-arrival-badge.good { color: #0c8b62; }
+.hotel-chat-conversation-copy footer span.warning,
+.hotel-chat-arrival-badge.warning { color: #b67422; }
+.hotel-chat-conversation-copy footer span.danger,
+.hotel-chat-arrival-badge.danger { color: #bd4a3d; }
+.hotel-chat-conversation-copy footer span.neutral,
+.hotel-chat-arrival-badge.neutral { color: #7d8f9d; }
+
+.hotel-chat-thread-panel {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  background: #f7fafc;
+}
+
+.hotel-chat-thread-empty,
+.hotel-chat-admin-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 25px;
+  color: #8296a5;
+  text-align: center;
+}
+
+.hotel-chat-thread-empty {
+  grid-row: 1 / -1;
+}
+
+.hotel-chat-thread-empty svg,
+.hotel-chat-admin-empty svg {
+  color: #159c91;
+}
+
+.hotel-chat-thread-empty h2 {
+  margin: 3px 0 0;
+  color: #294a61;
+}
+
+.hotel-chat-thread-empty p {
+  margin: 0;
+}
+
+.hotel-chat-admin-empty strong {
+  color: #39586d;
+}
+
+.hotel-chat-admin-empty span {
+  max-width: 260px;
+  font-size: 10px;
+}
+
+.hotel-chat-thread-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 15px 18px;
+  background: #fff;
+  border-bottom: 1px solid #e2ebf1;
+}
+
+.hotel-chat-thread-hotel-icon {
+  width: 43px;
+  height: 43px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, #0fa494, #1689c5);
+  border-radius: 13px;
+}
+
+.hotel-chat-thread-header > div:nth-child(2) > span {
+  color: #178f85;
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.hotel-chat-thread-header h2 {
+  margin: 2px 0 3px;
+  color: #24455b;
+  font-size: 15px;
+}
+
+.hotel-chat-thread-header p {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+  color: #8295a3;
+  font-size: 9px;
+}
+
+.hotel-chat-arrival-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 8px 10px;
+  background: #f5f8fa;
+  border: 1px solid #e0e8ee;
+  border-radius: 10px;
+}
+
+.hotel-chat-bot-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 18px;
+  background: #edfaf7;
+  border-bottom: 1px solid #d5eee8;
+}
+
+.hotel-chat-bot-control > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  color: #168b80;
+}
+
+.hotel-chat-bot-control > div > div {
+  min-width: 0;
+}
+
+.hotel-chat-bot-control strong,
+.hotel-chat-bot-control span {
+  display: block;
+}
+
+.hotel-chat-bot-control strong {
+  color: #276154;
+  font-size: 10px;
+}
+
+.hotel-chat-bot-control span {
+  margin-top: 2px;
+  color: #76958d;
+  font-size: 9px;
+}
+
+.hotel-chat-bot-control button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.hotel-chat-bot-control button.takeover {
+  color: #9b4c32;
+  background: #fff4ef;
+  border: 1px solid #efcfc3;
+}
+
+.hotel-chat-bot-control button.enable-bot {
+  color: #087b5e;
+  background: #fff;
+  border: 1px solid #bce1d5;
+}
+
+.hotel-chat-thread-messages {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px;
+  scroll-behavior: smooth;
+}
+
+.hotel-chat-admin-message {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.hotel-chat-admin-message.mine {
+  justify-content: flex-end;
+}
+
+.hotel-chat-admin-message > span {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: #159b91;
+  border-radius: 9px;
+}
+
+.hotel-chat-admin-message > div {
+  max-width: min(680px, 82%);
+  padding: 9px 11px;
+  background: #fff;
+  border: 1px solid #dfe9ef;
+  border-radius: 14px 14px 14px 4px;
+}
+
+.hotel-chat-admin-message.mine > div {
+  color: #fff;
+  background: linear-gradient(135deg, #109a91, #177fbc);
+  border-color: transparent;
+  border-radius: 14px 14px 4px 14px;
+}
+
+.hotel-chat-admin-message.system-message:not(.mine) > div {
+  background: #fffaf0;
+  border-color: #eedfbf;
+}
+
+.hotel-chat-admin-message header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 4px;
+}
+
+.hotel-chat-admin-message header strong {
+  color: #16857b;
+  font-size: 9px;
+}
+
+.hotel-chat-admin-message header time {
+  color: #97a6b1;
+  font-size: 8px;
+}
+
+.hotel-chat-admin-message.mine header strong,
+.hotel-chat-admin-message.mine header time,
+.hotel-chat-admin-message.mine p {
+  color: #fff;
+}
+
+.hotel-chat-admin-message p {
+  margin: 0;
+  color: #445f72;
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.hotel-chat-admin-error {
+  margin: 0 18px 9px;
+  padding: 8px 10px;
+  color: #a34135;
+  background: #fff0ed;
+  border: 1px solid #f0cbc4;
+  border-radius: 10px;
+  font-size: 10px;
+}
+
+.hotel-chat-admin-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 8px;
+  padding: 12px 18px 15px;
+  background: #fff;
+  border-top: 1px solid #e1eaf0;
+}
+
+.hotel-chat-admin-composer textarea {
+  min-height: 44px;
+  max-height: 110px;
+  resize: none;
+  padding: 11px 13px;
+  color: #29495f;
+  background: #f7fafc;
+  border: 1px solid #d6e4ec;
+  border-radius: 12px;
+  outline: none;
+  font: inherit;
+  font-size: 11px;
+}
+
+.hotel-chat-admin-composer button {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, #109e92, #168bc8);
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.hotel-chat-admin-composer button:disabled,
+.hotel-chat-bot-control button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.hotel-messages-page .spin {
+  animation: hotel-admin-chat-spin 0.8s linear infinite;
+}
+
+@keyframes hotel-admin-chat-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 920px) {
+  .hotel-chat-workspace {
+    height: auto;
+    min-height: 0;
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .hotel-chat-list-panel {
+    max-height: 420px;
+    border-right: 0;
+    border-bottom: 1px solid #e1eaf0;
+  }
+
+  .hotel-chat-thread-panel {
+    min-height: 650px;
+  }
+}
+
+@media (max-width: 620px) {
+  .hotel-messages-page {
+    padding: 22px 10px 35px;
+  }
+
+  .hotel-messages-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hotel-chat-thread-header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .hotel-chat-arrival-badge {
+    grid-column: 1 / -1;
+  }
+
+  .hotel-chat-bot-control {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hotel-chat-bot-control button {
+    align-self: flex-start;
+  }
+}

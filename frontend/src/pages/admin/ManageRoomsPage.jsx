@@ -48,7 +48,7 @@ export default function ManageRoomsPage() {
   return (
     <div className="admin-page">
       <div className="admin-page-heading">
-        <div><span className="admin-eyebrow">ROOM APPROVAL</span><h1>Phòng chờ duyệt</h1><p>Phòng chỉ xuất hiện cho khách thuê sau khi được System Admin phê duyệt.</p></div>
+        <div><span className="admin-eyebrow">DUYỆT PHÒNG</span><h1>Phòng chờ duyệt</h1><p>Phòng chỉ hiển thị cho khách sau khi được duyệt.</p></div>
         <button type="button" className="admin-secondary-button" onClick={loadRooms}><RefreshCw size={18} /> Làm mới</button>
       </div>
       <ErrorMessage message={error} onRetry={loadRooms} />

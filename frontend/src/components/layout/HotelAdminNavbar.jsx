@@ -7,7 +7,9 @@ import {
   Clock3,
   DoorOpen,
   Hotel,
+  Gift,
   LayoutDashboard,
+  MessagesSquare,
   PlusCircle,
   Power,
   RefreshCw,
@@ -18,9 +20,10 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../auth/AuthContext";
+import { getMyHotels } from "../../services/hotelAdminService";
 import {
   getMyPartnerDeactivationEligibility,
   getMyPartnerDeactivationRequest,
@@ -72,6 +75,11 @@ const items = [
     icon: UserRound,
   },
   {
+    to: "/hotel-admin/promotions",
+    label: "Khuyến mãi",
+    icon: Gift,
+  },
+  {
     to: "/hotel-admin/wallet",
     label: "Ví & rút tiền",
     icon: WalletCards,
@@ -81,6 +89,11 @@ const items = [
     label: "Thông báo",
     icon: Bell,
   },
+  {
+    to: "/hotel-admin/messages",
+    label: "Tin nhắn",
+    icon: MessagesSquare,
+  },
 ];
 
 const desktopNavigation = [
@@ -89,18 +102,21 @@ const desktopNavigation = [
     type: "group",
     label: "Khách sạn",
     icon: Building2,
-    items: [items[1], items[2]],
+    items: [items[1], items[2], items[3], items[4]],
   },
-  { type: "link", item: items[3] },
-  { type: "link", item: items[4] },
   {
     type: "group",
     label: "Vận hành",
     icon: ScanLine,
-    items: [items[5], items[6]],
+    items: [items[5], items[6], items[11]],
   },
-  { type: "link", item: items[8] },
-  { type: "link", item: items[9] },
+  {
+    type: "group",
+    label: "Kinh doanh",
+    icon: WalletCards,
+    items: [items[8], items[9]],
+  },
+  { type: "link", item: items[10] },
 ];
 
 const ELIGIBILITY_CHECKS = [
@@ -140,8 +156,21 @@ function blockerText(blocker) {
   return blocker?.message ?? blocker?.label ?? blocker?.code ?? "Điều kiện chưa đáp ứng";
 }
 
+function resolveHotelImage(hotel) {
+  if (!hotel) return "";
+  if (hotel.coverImageUrl) return hotel.coverImageUrl;
+
+  const images = Array.isArray(hotel.images) ? hotel.images : [];
+  const first = images.find((image) => image?.cover || image?.isCover) ?? images[0];
+
+  if (!first) return "";
+  if (typeof first === "string") return first;
+  return first.imageUrl ?? first.url ?? first.fileUrl ?? first.publicUrl ?? "";
+}
+
 export default function HotelAdminNavbar() {
   const { refreshUserProfile } = useAuth();
+  const [managedHotels, setManagedHotels] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [request, setRequest] = useState(null);
   const [eligibility, setEligibility] = useState(null);
@@ -151,6 +180,41 @@ export default function HotelAdminNavbar() {
   const [reason, setReason] = useState("");
   const [modalError, setModalError] = useState("");
   const [success, setSuccess] = useState("");
+
+
+  const loadManagedHotels = useCallback(async () => {
+    try {
+      const payload = await getMyHotels();
+      setManagedHotels(Array.isArray(payload) ? payload : []);
+    } catch {
+      setManagedHotels([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadManagedHotels();
+
+    function handleHotelImagesChanged() {
+      void loadManagedHotels();
+    }
+
+    window.addEventListener("enziu:hotel-images-changed", handleHotelImagesChanged);
+    window.addEventListener("focus", handleHotelImagesChanged);
+
+    return () => {
+      window.removeEventListener("enziu:hotel-images-changed", handleHotelImagesChanged);
+      window.removeEventListener("focus", handleHotelImagesChanged);
+    };
+  }, [loadManagedHotels]);
+
+  const brandedHotel = useMemo(() => (
+    managedHotels.find((hotel) => hotel.approvalStatus === "APPROVED" && hotel.status === "ACTIVE")
+    ?? managedHotels.find((hotel) => hotel.approvalStatus === "APPROVED")
+    ?? managedHotels[0]
+    ?? null
+  ), [managedHotels]);
+
+  const hotelBrandImageUrl = useMemo(() => resolveHotelImage(brandedHotel), [brandedHotel]);
 
   const storedRequestStatus = normalizeStatus(request?.status);
   const requestStatus = storedRequestStatus === "APPROVED" &&
@@ -263,7 +327,7 @@ export default function HotelAdminNavbar() {
       const payload = await submitPartnerDeactivationRequest(normalizedReason);
       setRequest({ ...payload, status: payload?.status ?? "PENDING" });
       setSuccess(
-        "Yêu cầu đã được gửi tới System Admin. Tài khoản vẫn là Hotel Admin cho đến khi được xác nhận.",
+        "Yêu cầu đã được gửi. Bạn vẫn có thể quản lý khách sạn cho đến khi có kết quả.",
       );
       setReason("");
     } catch (requestError) {
@@ -283,16 +347,19 @@ export default function HotelAdminNavbar() {
     : "Ngừng làm đối tác";
   const accountActionDescription = requestStatus === "PENDING"
     ? "Xem trạng thái yêu cầu đã gửi"
-    : "Gửi yêu cầu chuyển về Customer";
+    : "Gửi yêu cầu ngừng làm đối tác";
 
   return (
     <>
       <AdminNavbar
         variant="hotel"
-        roleLabel="Hotel Admin"
-        roleDescription="Quản lý đối tác"
+        roleLabel="Đối tác"
+        roleDescription={brandedHotel?.name ? `Quản lý ${brandedHotel.name}` : "Quản lý khách sạn"}
         homePath="/hotel-admin"
         brandIcon={Hotel}
+        brandImageUrl={hotelBrandImageUrl}
+        brandImageAlt={brandedHotel?.name ? `Ảnh ${brandedHotel.name}` : "Ảnh khách sạn"}
+        accountAvatarUrl={hotelBrandImageUrl}
         items={items}
         desktopNavigation={desktopNavigation}
         profilePath="/hotel-admin/profile"
@@ -325,7 +392,7 @@ export default function HotelAdminNavbar() {
           >
             <div className="admin-modal-header">
               <div>
-                <span>PARTNER ACCOUNT</span>
+                <span>TÀI KHOẢN ĐỐI TÁC</span>
                 <h2 id="hotel-deactivation-title">Ngừng làm đối tác</h2>
               </div>
               <button
@@ -360,10 +427,9 @@ export default function HotelAdminNavbar() {
               <div className="hotel-deactivation-status pending">
                 <Clock3 size={24} />
                 <div>
-                  <strong>Yêu cầu đang chờ System Admin xác nhận</strong>
+                  <strong>Yêu cầu đang chờ xác nhận</strong>
                   <p>
-                    Bạn vẫn có quyền Hotel Admin và cần tiếp tục xử lý các nghiệp vụ
-                    hiện tại cho đến khi yêu cầu được duyệt.
+                    Bạn vẫn có thể quản lý khách sạn cho đến khi yêu cầu được xử lý.
                   </p>
                   {request?.reason ? <small>Lý do: {request.reason}</small> : null}
                 </div>
@@ -373,7 +439,7 @@ export default function HotelAdminNavbar() {
                 <CheckCircle2 size={24} />
                 <div>
                   <strong>Yêu cầu đã được phê duyệt</strong>
-                  <p>Vai trò đã đổi về Customer. Vui lòng đăng nhập lại để tiếp tục.</p>
+                  <p>Tài khoản đã chuyển về chế độ khách hàng. Vui lòng đăng nhập lại để tiếp tục.</p>
                 </div>
               </div>
             ) : (
@@ -384,7 +450,7 @@ export default function HotelAdminNavbar() {
                     <div>
                       <strong>
                         {requestStatus === "HISTORICAL_APPROVED"
-                          ? "Bạn đã trở lại vai trò Hotel Admin"
+                          ? "Tài khoản đối tác đã được kích hoạt lại"
                           : "Yêu cầu trước chưa được chấp thuận"}
                       </strong>
                       <p>
@@ -397,8 +463,7 @@ export default function HotelAdminNavbar() {
                 ) : null}
 
                 <p className="hotel-deactivation-intro">
-                  EnziuRooms chỉ tiếp nhận yêu cầu khi mọi khách lưu trú, booking sắp
-                  tới, withdrawal và vấn đề tài chính đã được xử lý xong.
+                  Bạn có thể ngừng làm đối tác sau khi các booking, khách lưu trú và khoản tài chính còn lại đã được xử lý.
                 </p>
 
                 {eligibilityLoading ? (
@@ -441,7 +506,7 @@ export default function HotelAdminNavbar() {
                       setReason(event.target.value);
                       setModalError("");
                     }}
-                    placeholder="Chia sẻ lý do để System Admin xem xét..."
+                    placeholder="Nhập lý do ngừng làm đối tác..."
                   />
                 </label>
 

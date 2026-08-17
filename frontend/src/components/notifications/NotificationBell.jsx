@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 import { resolveNotificationTarget } from "../../utils/notificationNavigation";
 import {
   getMyNotifications,
@@ -70,9 +71,12 @@ export default function NotificationBell({ admin = false }) {
 
   useEffect(() => {
     void load();
-    const timer = window.setInterval(() => void load(), 15000);
+    // Fallback nhẹ nếu WebSocket bị chặn bởi proxy/mạng di động.
+    const timer = window.setInterval(() => void load(), 60000);
     return () => window.clearInterval(timer);
   }, [load]);
+
+  useRealtimeRefresh("NOTIFICATION_CREATED", load, { debounceMs: 50 });
 
   useEffect(() => {
     setOpen(false);

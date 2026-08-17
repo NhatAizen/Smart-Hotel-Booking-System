@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 import { resolveNotificationTarget } from "../../utils/notificationNavigation";
 import ErrorMessage from "../common/ErrorMessage";
 import Loading from "../common/Loading";
@@ -91,9 +92,15 @@ export default function NotificationCenterPage({
 
   useEffect(() => {
     void load();
-    const timer = window.setInterval(() => void load(true), 15000);
+    const timer = window.setInterval(() => void load(true), 60000);
     return () => window.clearInterval(timer);
   }, [load]);
+
+  useRealtimeRefresh(
+    "NOTIFICATION_CREATED",
+    () => load(true),
+    { debounceMs: 60 },
+  );
 
   const unread = useMemo(() => items.filter((item) => !item.read).length, [items]);
 

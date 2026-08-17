@@ -3,26 +3,105 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
+import { enhanceAssistantResponse } from "./bookingCopilotEnhancer";
+import { runBookingAgent } from "./bookingAgent";
 import { askEnziuAssistant } from "../services/aiService";
 
 export const AI_QUICK_PROMPTS = [
-  "Tìm khách sạn cho 2 người, ưu tiên review tốt",
-  "Booking sắp tới của tôi là khi nào?",
-  "Tôi còn phải thanh toán bao nhiêu?",
-  "QR check-in hoạt động như thế nào?",
+  "Tôi đi cùng gia đình, nên chọn phòng nào?",
+  "Tìm khách sạn phù hợp ngân sách của tôi",
+  "So sánh các lựa chọn vừa nói giúp tôi",
+  "Booking sắp tới của tôi thế nào?",
 ];
 
 const INITIAL_MESSAGE = {
   role: "assistant",
   content:
-    "Chào bạn, mình là Enziu AI. Mình có thể tìm và so sánh khách sạn bằng dữ liệu thật, tóm tắt review hoặc kiểm tra booking của chính bạn. Bạn muốn hỏi gì?",
+    "Chào bạn, mình là Enziu AI Booking Agent. Bạn cứ nói tự nhiên nhu cầu của mình; " +
+    "mình sẽ tự đối chiếu khách sạn, loại phòng, giá, phòng trống và ưu đãi từ EnziuRooms để hỗ trợ bạn chọn.",
   hotels: [],
   bookings: [],
   suggestedPrompts: AI_QUICK_PROMPTS,
+  agentContext: null,
 };
+
+const TRIP_STORAGE_KEY = "enziu.ai.trip.v1";
+const DEFAULT_TRIP = {
+  checkIn: "",
+  checkOut: "",
+  adults: 2,
+  children: 0,
+};
+
+function readStoredTrip() {
+  if (typeof window === "undefined") return DEFAULT_TRIP;
+
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(TRIP_STORAGE_KEY) || "null",
+    );
+
+    if (!parsed || typeof parsed !== "object") return DEFAULT_TRIP;
+
+    return {
+      checkIn: typeof parsed.checkIn === "string" ? parsed.checkIn : "",
+      checkOut: typeof parsed.checkOut === "string" ? parsed.checkOut : "",
+      adults: Math.max(1, Number(parsed.adults) || 2),
+      children: Math.max(0, Number(parsed.children) || 0),
+    };
+  } catch {
+    return DEFAULT_TRIP;
+  }
+}
+
+function persistTrip(nextTrip) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(TRIP_STORAGE_KEY, JSON.stringify(nextTrip));
+  } catch {
+    // State trong phiên vẫn hoạt động nếu trình duyệt chặn localStorage.
+  }
+}
+
+function buildHistory(messages) {
+  return (messages ?? [])
+    .slice(-10)
+    .map((message) => ({
+      role: message?.role === "user" ? "user" : "assistant",
+      content: String(message?.content ?? "").trim(),
+    }))
+    .filter((message) => message.content);
+}
+
+function searchAgentContext(response, previousMessages, contextualHotel) {
+  const top = Array.isArray(response?.hotels) ? response.hotels[0] : null;
+  const previous = [...(previousMessages ?? [])]
+    .reverse()
+    .find((message) => message?.agentContext)?.agentContext ?? null;
+
+  return {
+    currentHotelId:
+      contextualHotel?.id ??
+      top?.hotelId ??
+      top?.id ??
+      previous?.currentHotelId ??
+      null,
+    currentHotelName:
+      contextualHotel?.name ??
+      top?.name ??
+      previous?.currentHotelName ??
+      null,
+    roomCandidates: top ? [] : previous?.roomCandidates ?? [],
+    preferences: previous?.preferences ?? [],
+    entities: previous?.entities ?? {},
+    lastGoal: top ? "hotel search" : previous?.lastGoal ?? "hotel search",
+  };
+}
 
 const AiAssistantContext = createContext(null);
 
@@ -30,12 +109,8 @@ export function AiAssistantProvider({ children }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tripOpen, setTripOpen] = useState(false);
   const [question, setQuestion] = useState("");
-  const [trip, setTrip] = useState({
-    checkIn: "",
-    checkOut: "",
-    adults: 2,
-    children: 0,
-  });
+  const [trip, setTrip] = useState(readStoredTrip);
+  const tripRef = useRef(trip);
   const [contextualHotel, setContextualHotel] = useState(null);
   const [messages, setMessages] = useState([INITIAL_MESSAGE]);
   const [sending, setSending] = useState(false);
@@ -51,11 +126,44 @@ export function AiAssistantProvider({ children }) {
       : AI_QUICK_PROMPTS;
   }, [messages]);
 
+  const latestUserQuestion = useMemo(() => {
+    const latestUser = [...messages]
+      .reverse()
+      .find(
+        (item) =>
+          item.role === "user" &&
+          String(item.content ?? "").trim(),
+      );
+
+    return latestUser?.content ?? "";
+  }, [messages]);
+
   const updateTrip = useCallback((field, value) => {
-    setTrip((current) => ({
+    const current = tripRef.current;
+    const normalizedValue =
+      field === "adults"
+        ? Math.max(1, Number(value) || 1)
+        : field === "children"
+          ? Math.max(0, Number(value) || 0)
+          : String(value ?? "");
+
+    const next = {
       ...current,
-      [field]: value,
-    }));
+      [field]: normalizedValue,
+    };
+
+    if (
+      field === "checkIn" &&
+      next.checkOut &&
+      normalizedValue &&
+      next.checkOut <= normalizedValue
+    ) {
+      next.checkOut = "";
+    }
+
+    tripRef.current = next;
+    setTrip(next);
+    persistTrip(next);
   }, []);
 
   const openAssistant = useCallback((options = {}) => {
@@ -65,7 +173,7 @@ export function AiAssistantProvider({ children }) {
       checkIn,
       checkOut,
       adults,
-      children,
+      children: optionChildren,
       openTrip = false,
     } = options;
 
@@ -78,39 +186,36 @@ export function AiAssistantProvider({ children }) {
       setContextualHotel(null);
     }
 
-    setTrip((current) => ({
-      checkIn: checkIn !== undefined ? checkIn : current.checkIn,
-      checkOut: checkOut !== undefined ? checkOut : current.checkOut,
+    const currentTrip = tripRef.current;
+    const nextTrip = {
+      checkIn:
+        checkIn !== undefined ? String(checkIn ?? "") : currentTrip.checkIn,
+      checkOut:
+        checkOut !== undefined ? String(checkOut ?? "") : currentTrip.checkOut,
       adults:
         adults !== undefined && adults !== ""
-          ? Number(adults) || 1
-          : current.adults,
+          ? Math.max(1, Number(adults) || 1)
+          : currentTrip.adults,
       children:
-        children !== undefined && children !== ""
-          ? Number(children) || 0
-          : current.children,
-    }));
+        optionChildren !== undefined && optionChildren !== ""
+          ? Math.max(0, Number(optionChildren) || 0)
+          : currentTrip.children,
+    };
 
-    if (openTrip) {
-      setTripOpen(true);
-    }
+    tripRef.current = nextTrip;
+    setTrip(nextTrip);
+    persistTrip(nextTrip);
 
+    if (openTrip) setTripOpen(true);
     setError("");
     setIsOpen(true);
   }, []);
 
-  const closeAssistant = useCallback(() => {
-    setIsOpen(false);
-  }, []);
-
+  const closeAssistant = useCallback(() => setIsOpen(false), []);
   const toggleAssistant = useCallback(() => {
     setIsOpen((current) => !current);
   }, []);
-
-  const clearHotelContext = useCallback(() => {
-    setContextualHotel(null);
-  }, []);
-
+  const clearHotelContext = useCallback(() => setContextualHotel(null), []);
   const resetConversation = useCallback(() => {
     setMessages([INITIAL_MESSAGE]);
     setQuestion("");
@@ -122,33 +227,70 @@ export function AiAssistantProvider({ children }) {
       const currentQuestion = String(rawQuestion ?? question).trim();
       if (!currentQuestion || sending) return;
 
-      const history = messages
-        .slice(-6)
-        .map((item) => ({
-          role: item.role,
-          content: item.content,
-        }));
+      const activeTrip = tripRef.current;
+      const currentMessages = messages;
+      const history = buildHistory(currentMessages);
 
       setMessages((current) => [
         ...current,
-        {
-          role: "user",
-          content: currentQuestion,
-        },
+        { role: "user", content: currentQuestion },
       ]);
       setQuestion("");
       setSending(true);
       setError("");
 
       try {
+        /*
+         * Booking Agent đi trước assistant chung.
+         * Nó dùng Gemini để hiểu NGỮ NGHĨA và tự chọn dữ liệu cần lấy,
+         * không ép người dùng nói đúng regex/form câu hỏi.
+         */
+        const agentResponse = await runBookingAgent({
+          question: currentQuestion,
+          messages: currentMessages,
+          trip: activeTrip,
+          contextualHotel,
+        });
+
+        if (agentResponse) {
+          setMessages((current) => [
+            ...current,
+            {
+              role: "assistant",
+              content:
+                agentResponse.answer ||
+                "Mình chưa nhận được nội dung trả lời.",
+              hotels: agentResponse.hotels ?? [],
+              bookings: agentResponse.bookings ?? [],
+              context: agentResponse.context ?? null,
+              intent: agentResponse.intent ?? "BOOKING_AGENT",
+              copilot: agentResponse.copilot ?? null,
+              agentContext: agentResponse.agentContext ?? null,
+              suggestedPrompts: agentResponse.suggestedPrompts ?? [],
+            },
+          ]);
+          return;
+        }
+
+        /*
+         * Tìm khách sạn, booking, policy và câu hỏi chung
+         * vẫn dùng AI Service hiện có vì backend đã có tool/data cho các luồng đó.
+         */
         const response = await askEnziuAssistant({
           message: currentQuestion,
-          checkIn: trip.checkIn || null,
-          checkOut: trip.checkOut || null,
-          adults: Number(trip.adults) || 1,
-          children: Number(trip.children) || 0,
+          userMessage: currentQuestion,
+          checkIn: activeTrip.checkIn || null,
+          checkOut: activeTrip.checkOut || null,
+          adults: Number(activeTrip.adults) || 1,
+          children: Number(activeTrip.children) || 0,
           hotelId: contextualHotel?.id || null,
           history,
+        });
+
+        const enhanced = await enhanceAssistantResponse({
+          question: currentQuestion,
+          response,
+          trip: activeTrip,
         });
 
         setMessages((current) => [
@@ -156,25 +298,32 @@ export function AiAssistantProvider({ children }) {
           {
             role: "assistant",
             content:
-              response.answer || "Mình chưa nhận được nội dung trả lời.",
-            hotels: response.hotels ?? [],
-            bookings: response.bookings ?? [],
-            context: response.context ?? null,
-            intent: response.intent,
-            suggestedPrompts: response.suggestedPrompts ?? [],
+              enhanced.answer ||
+              "Mình chưa nhận được nội dung trả lời.",
+            hotels: enhanced.hotels ?? [],
+            bookings: enhanced.bookings ?? [],
+            context: enhanced.context ?? null,
+            intent: enhanced.intent ?? null,
+            copilot: enhanced.copilot ?? null,
+            agentContext: searchAgentContext(
+              enhanced,
+              currentMessages,
+              contextualHotel,
+            ),
+            suggestedPrompts: enhanced.suggestedPrompts ?? [],
           },
         ]);
       } catch (requestError) {
         setError(
-          requestError.response?.data?.message
-            ?? requestError.response?.data?.error
-            ?? "Không thể kết nối Enziu AI. Hãy kiểm tra AI Service và Gemini API.",
+          requestError?.response?.data?.message ??
+            requestError?.response?.data?.error ??
+            "Không thể kết nối Enziu AI. Hãy kiểm tra AI Service và Gemini API.",
         );
       } finally {
         setSending(false);
       }
     },
-    [contextualHotel, messages, question, sending, trip],
+    [contextualHotel, messages, question, sending],
   );
 
   const value = useMemo(
@@ -191,6 +340,7 @@ export function AiAssistantProvider({ children }) {
       sending,
       error,
       latestSuggestions,
+      latestUserQuestion,
       openAssistant,
       closeAssistant,
       toggleAssistant,
@@ -209,6 +359,7 @@ export function AiAssistantProvider({ children }) {
       sending,
       error,
       latestSuggestions,
+      latestUserQuestion,
       openAssistant,
       closeAssistant,
       toggleAssistant,

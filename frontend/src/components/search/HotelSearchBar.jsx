@@ -83,6 +83,38 @@ function normalizeText(value) {
     .trim();
 }
 
+function localDateValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(value, days) {
+  const base = value
+    ? new Date(`${value}T12:00:00`)
+    : new Date();
+
+  base.setDate(base.getDate() + days);
+  return localDateValue(base);
+}
+
+function normalizeSearchDates(values) {
+  const today = localDateValue();
+  let checkIn = String(values?.checkIn ?? "");
+  let checkOut = String(values?.checkOut ?? "");
+
+  if (checkIn && checkIn < today) {
+    checkIn = "";
+  }
+
+  if (checkOut && checkOut <= (checkIn || today)) {
+    checkOut = "";
+  }
+
+  return { checkIn, checkOut };
+}
+
 function readRecentSearches() {
   try {
     const storedValue =
@@ -106,16 +138,14 @@ function readRecentSearches() {
 }
 
 function buildInitialValues(initialValues) {
+  const dates = normalizeSearchDates(initialValues);
+
   return {
     city:
       initialValues?.city
       ?? "",
-    checkIn:
-      initialValues?.checkIn
-      ?? "",
-    checkOut:
-      initialValues?.checkOut
-      ?? "",
+    checkIn: dates.checkIn,
+    checkOut: dates.checkOut,
     guests: Number(
       initialValues?.guests
       ?? 2,
@@ -134,6 +164,7 @@ export default function HotelSearchBar({
 }) {
   const navigate = useNavigate();
   const destinationRef = useRef(null);
+  const today = localDateValue();
 
   const [form, setForm] = useState(
     () =>
@@ -151,6 +182,8 @@ export default function HotelSearchBar({
     recentSearches,
     setRecentSearches,
   ] = useState(readRecentSearches);
+
+  const [dateError, setDateError] = useState("");
 
   useEffect(() => {
     setForm(
@@ -258,6 +291,52 @@ export default function HotelSearchBar({
       name,
       value,
     } = event.target;
+
+    if (name === "checkIn") {
+      if (value && value < today) {
+        setDateError("Ngày nhận phòng không thể trước hôm nay.");
+        return;
+      }
+
+      setDateError("");
+      setForm((current) => {
+        const nextCheckOut =
+          !value
+            ? current.checkOut
+            : !current.checkOut || current.checkOut <= value
+              ? addDays(value, 1)
+              : current.checkOut;
+
+        return {
+          ...current,
+          checkIn: value,
+          checkOut: nextCheckOut,
+        };
+      });
+      return;
+    }
+
+    if (name === "checkOut") {
+      const minimumCheckOut = form.checkIn
+        ? addDays(form.checkIn, 1)
+        : addDays(today, 1);
+
+      if (value && value < minimumCheckOut) {
+        setDateError(
+          form.checkIn
+            ? "Ngày trả phòng phải sau ngày nhận phòng ít nhất 1 ngày."
+            : "Ngày trả phòng phải từ ngày mai trở đi.",
+        );
+        return;
+      }
+
+      setDateError("");
+      setForm((current) => ({
+        ...current,
+        checkOut: value,
+      }));
+      return;
+    }
 
     setForm((current) => ({
       ...current,
@@ -375,6 +454,28 @@ export default function HotelSearchBar({
   function handleSubmit(event) {
     event.preventDefault();
 
+    if (form.checkIn && form.checkIn < today) {
+      setDateError("Ngày nhận phòng không thể trước hôm nay.");
+      return;
+    }
+
+    if (form.checkOut && !form.checkIn) {
+      setDateError("Vui lòng chọn ngày nhận phòng trước.");
+      return;
+    }
+
+    if (form.checkIn && !form.checkOut) {
+      setDateError("Vui lòng chọn ngày trả phòng.");
+      return;
+    }
+
+    if (form.checkIn && form.checkOut && form.checkOut <= form.checkIn) {
+      setDateError("Ngày trả phòng phải sau ngày nhận phòng ít nhất 1 ngày.");
+      return;
+    }
+
+    setDateError("");
+
     const city =
       form.city.trim();
 
@@ -428,6 +529,10 @@ export default function HotelSearchBar({
       .length > 0
     || destinationResults.hotels
       .length > 0;
+
+  const minimumCheckOut = form.checkIn
+    ? addDays(form.checkIn, 1)
+    : addDays(today, 1);
 
   return (
     <form
@@ -718,6 +823,7 @@ export default function HotelSearchBar({
             type="date"
             name="checkIn"
             value={form.checkIn}
+            min={today}
             onChange={handleChange}
           />
         </div>
@@ -736,10 +842,17 @@ export default function HotelSearchBar({
             type="date"
             name="checkOut"
             value={form.checkOut}
+            min={minimumCheckOut}
             onChange={handleChange}
           />
         </div>
       </div>
+
+      {dateError ? (
+        <div className="shared-search-date-error" role="alert">
+          {dateError}
+        </div>
+      ) : null}
 
       <div className="shared-search-field">
         <label htmlFor={`search-guests-${variant}`}>

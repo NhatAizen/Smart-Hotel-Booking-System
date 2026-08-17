@@ -398,7 +398,7 @@ export default function EkycCameraCapture({
           <h3>{completed ? "eKYC đã xác minh thành công" : "Selfie chính diện + face match"}</h3>
           <p>
             Bấm “Tôi đã sẵn sàng” đúng một lần rồi giữ mặt trong vòng. Hệ thống tự quét lại
-            cho đến khi backend xác nhận đạt và vòng chuyển xanh.
+            cho đến khi xác minh hoàn tất và vòng chuyển xanh.
           </p>
         </div>
       </div>

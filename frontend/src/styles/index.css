@@ -1,0 +1,22 @@
+/* EnziuRooms CSS entry point
+ *
+ * Global styles are intentionally split by responsibility.
+ * Keep this import order because later modules may refine earlier styles.
+ */
+
+@import "./core/base.css";
+@import "./layout/navbar.css";
+@import "./pages/home.css";
+@import "./pages/hotels.css";
+@import "./layout/footer.css";
+@import "./pages/auth-account.css";
+@import "./admin/admin-shell.css";
+@import "./admin/hotel-admin.css";
+@import "./customer/search-booking.css";
+@import "./customer/booking-center.css";
+@import "./admin/hotel-dashboard.css";
+@import "./notifications.css";
+@import "./admin/system-dashboard.css";
+@import "./admin/admin-management.css";
+@import "./responsive.css";
+@import "./admin/hotel-dashboard-modern.css";

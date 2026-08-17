@@ -1,5 +1,7 @@
 import {
   Bot,
+  Bookmark,
+  Check,
   CheckCircle2,
   ChevronRight,
   CreditCard,
@@ -11,8 +13,10 @@ import {
 } from "lucide-react";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -26,6 +30,13 @@ import { useAuth } from "../../auth/AuthContext";
 import { useAiAssistant } from "../../ai/AiAssistantContext";
 import HotelSearchBar from "../../components/search/HotelSearchBar";
 import { getHotels } from "../../services/hotelService";
+import {
+  getActiveCampaigns,
+  getSavedPromotions,
+  savePromotion,
+} from "../../services/promotionService";
+import { useRealtime } from "../../realtime/RealtimeContext";
+import "./PromotionCenter.css";
 
 const destinations = [
   {
@@ -58,19 +69,93 @@ const destinations = [
     subtitle: "Đảo ngọc Việt Nam",
     className: "destination-phuquoc",
   },
+
 ];
+
+function resolveHotelHeroImage(hotel) {
+  if (!hotel) return "";
+
+  if (hotel.coverImageUrl) return hotel.coverImageUrl;
+  if (hotel.imageUrl) return hotel.imageUrl;
+
+  const images = Array.isArray(hotel.images) ? hotel.images : [];
+  const preferred =
+    images.find((image) => image?.cover || image?.isCover)
+    ?? images[0];
+
+  if (!preferred) return "";
+  if (typeof preferred === "string") return preferred;
+
+  return (
+    preferred.imageUrl
+    ?? preferred.url
+    ?? preferred.fileUrl
+    ?? preferred.publicUrl
+    ?? ""
+  );
+}
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const { openAssistant } = useAiAssistant();
+  const { subscribe } = useRealtime();
+  const heroBannerRef = useRef(null);
+  const heroFrameRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (heroFrameRef.current) {
+        window.cancelAnimationFrame(heroFrameRef.current);
+      }
+    };
+  }, []);
+
+  function handleHeroPointerMove(event) {
+    const element = heroBannerRef.current;
+    if (!element || typeof window === "undefined") return;
+
+    if (
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      || window.matchMedia("(pointer: coarse)").matches
+    ) {
+      return;
+    }
+
+    const rect = element.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+    const y = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+
+    if (heroFrameRef.current) {
+      window.cancelAnimationFrame(heroFrameRef.current);
+    }
+
+    heroFrameRef.current = window.requestAnimationFrame(() => {
+      element.style.setProperty("--hero-parallax-x", `${x * 10}px`);
+      element.style.setProperty("--hero-parallax-y", `${y * 7}px`);
+      element.style.setProperty("--hero-light-x", `${50 + x * 8}%`);
+      element.style.setProperty("--hero-light-y", `${34 + y * 7}%`);
+    });
+  }
+
+  function handleHeroPointerLeave() {
+    const element = heroBannerRef.current;
+    if (!element) return;
+
+    element.style.setProperty("--hero-parallax-x", "0px");
+    element.style.setProperty("--hero-parallax-y", "0px");
+    element.style.setProperty("--hero-light-x", "50%");
+    element.style.setProperty("--hero-light-y", "34%");
+  }
 
   const isCustomer =
     isAuthenticated
     && String(user?.role ?? "").replace(/^ROLE_/i, "").toUpperCase() === "CUSTOMER";
 
-  const [hotels, setHotels] =
-    useState([]);
+  const [hotels, setHotels] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
+  const [savedPromotionIds, setSavedPromotionIds] = useState(() => new Set());
+  const [campaignSaveBusy, setCampaignSaveBusy] = useState("");
 
   const [
     loadingHotels,
@@ -101,11 +186,81 @@ export default function HomePage() {
     loadHotels();
   }, []);
 
+  const loadCampaigns = useCallback(async () => {
+    try {
+      const items = await getActiveCampaigns();
+      setCampaigns(Array.isArray(items) ? items : []);
+    } catch {
+      setCampaigns([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCampaigns();
+  }, [loadCampaigns]);
+
+  useEffect(() => {
+    let active = true;
+    if (!isCustomer) {
+      setSavedPromotionIds(new Set());
+      return undefined;
+    }
+    getSavedPromotions()
+      .then((items) => {
+        if (!active) return;
+        setSavedPromotionIds(
+          new Set((Array.isArray(items) ? items : []).map((item) => String(item.id))),
+        );
+      })
+      .catch(() => {
+        if (active) setSavedPromotionIds(new Set());
+      });
+    return () => { active = false; };
+  }, [isCustomer]);
+
+  useEffect(() => {
+    const refresh = () => void loadCampaigns();
+    const offCreate = subscribe("CAMPAIGN_CREATED", refresh);
+    const offStatus = subscribe("CAMPAIGN_STATUS_CHANGED", refresh);
+    const offPromotionStatus = subscribe("PROMOTION_STATUS_CHANGED", refresh);
+    return () => { offCreate(); offStatus(); offPromotionStatus(); };
+  }, [loadCampaigns, subscribe]);
+
+  async function handleSaveCampaign(campaign) {
+    if (!campaign?.promotionId) return;
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
+    if (!isCustomer || savedPromotionIds.has(String(campaign.promotionId))) return;
+    setCampaignSaveBusy(String(campaign.promotionId));
+    try {
+      await savePromotion(campaign.promotionId);
+      setSavedPromotionIds((current) => {
+        const next = new Set(current);
+        next.add(String(campaign.promotionId));
+        return next;
+      });
+    } catch {
+      // Trang chủ chỉ giữ trải nghiệm gọn; chi tiết lỗi sẽ hiển thị ở trang Hạng & ưu đãi.
+    } finally {
+      setCampaignSaveBusy("");
+    }
+  }
+
   const featuredHotels =
     useMemo(
       () => hotels.slice(0, 4),
       [hotels],
     );
+
+  const heroBackgroundImage = useMemo(() => {
+    const hotelImage = hotels
+      .map(resolveHotelHeroImage)
+      .find(Boolean);
+
+    return hotelImage || heroImage;
+  }, [hotels]);
 
   function searchDestination(
     destination,
@@ -123,15 +278,23 @@ export default function HomePage() {
         <section className="hero-section">
           <div className="container">
             <div
-              className="hero-banner"
-              style={{
-                backgroundImage: `linear-gradient(
-                  90deg,
-                  rgba(3, 20, 38, 0.82),
-                  rgba(3, 20, 38, 0.25)
-                ), url(${heroImage})`,
-              }}
+              ref={heroBannerRef}
+              className="hero-banner hero-banner-motion"
+              onPointerMove={handleHeroPointerMove}
+              onPointerLeave={handleHeroPointerLeave}
             >
+              <div className="hero-media" aria-hidden="true">
+                <img
+                  src={heroBackgroundImage}
+                  alt=""
+                  className="hero-media-image"
+                  draggable="false"
+                />
+              </div>
+
+              <div className="hero-media-overlay" aria-hidden="true" />
+              <div className="hero-media-light" aria-hidden="true" />
+
               <div className="hero-content">
                 <div className="hero-badge">
                   <Sparkles size={17} />
@@ -167,6 +330,38 @@ export default function HomePage() {
             />
           </div>
         </section>
+
+        {campaigns[0] ? (
+          <section className="container">
+            <div className="campaign-strip">
+              <div>
+                <strong>{campaigns[0].title}</strong>
+                <p>{campaigns[0].description}</p>
+              </div>
+              <div className="campaign-actions">
+                <div className="campaign-code">
+                  {campaigns[0].promotionCode
+                    ? `Mã ${campaigns[0].promotionCode}`
+                    : (campaigns[0].badgeText || "Ưu đãi đang diễn ra")}
+                </div>
+                {campaigns[0].promotionId && (isCustomer || !isAuthenticated) ? (
+                  <button
+                    type="button"
+                    className={`campaign-save-button ${savedPromotionIds.has(String(campaigns[0].promotionId)) ? "saved" : ""}`}
+                    disabled={
+                      savedPromotionIds.has(String(campaigns[0].promotionId))
+                      || campaignSaveBusy === String(campaigns[0].promotionId)
+                    }
+                    onClick={() => handleSaveCampaign(campaigns[0])}
+                  >
+                    {savedPromotionIds.has(String(campaigns[0].promotionId)) ? <Check size={15} /> : <Bookmark size={15} />}
+                    {savedPromotionIds.has(String(campaigns[0].promotionId)) ? "Đã lưu" : "Lưu mã"}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section className="benefits-section">
           <div className="container benefits-grid">

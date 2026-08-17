@@ -36,8 +36,8 @@ function SocialLoginButton({
     }
 
     onUnavailable(
-      `${label} chưa được cấu hình ở backend. `
-        + "Giao diện đã sẵn sàng để kết nối OAuth.",
+      `${label} hiện chưa khả dụng. `
+        + "Vui lòng đăng nhập bằng email hoặc thử lại sau.",
     );
   }
 

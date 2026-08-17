@@ -35,7 +35,7 @@ function SocialRegisterButton({ provider, label, onUnavailable }) {
       return;
     }
 
-    onUnavailable(`${label} chưa được cấu hình ở backend. Giao diện đã sẵn sàng để kết nối OAuth.`);
+    onUnavailable(`${label} hiện chưa khả dụng. Vui lòng đăng ký bằng email.`);
   }
 
   return (
@@ -148,7 +148,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="auth-form-heading">
-            <span className="auth-kicker dark">TẠO TÀI KHOẢN CUSTOMER</span>
+            <span className="auth-kicker dark">TẠO TÀI KHOẢN</span>
             <h2>Đăng ký EnziuRooms</h2>
             <p>Chỉ mất vài phút để bắt đầu tìm kiếm và đặt phòng.</p>
           </div>

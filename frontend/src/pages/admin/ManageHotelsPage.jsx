@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
 import { approveHotel, getPendingHotels, rejectHotel } from "../../services/adminService";
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 
 export default function ManageHotelsPage() {
   const [hotels, setHotels] = useState([]);
@@ -26,6 +27,8 @@ export default function ManageHotelsPage() {
   }, []);
 
   useEffect(() => { loadHotels(); }, [loadHotels]);
+
+  useRealtimeRefresh("NOTIFICATION_CREATED", loadHotels, { debounceMs: 120 });
 
   async function handleApprove(hotel) {
     if (!window.confirm(`Phê duyệt khách sạn “${hotel.name}”?`)) return;
@@ -54,7 +57,7 @@ export default function ManageHotelsPage() {
   return (
     <div className="admin-page">
       <div className="admin-page-heading">
-        <div><span className="admin-eyebrow">HOTEL APPROVAL</span><h1>Khách sạn chờ duyệt</h1><p>Kiểm tra thông tin liên hệ, địa chỉ và nội dung mô tả khách sạn.</p></div>
+        <div><span className="admin-eyebrow">DUYỆT KHÁCH SẠN</span><h1>Khách sạn chờ duyệt</h1><p>Kiểm tra thông tin liên hệ, địa chỉ và nội dung mô tả khách sạn.</p></div>
         <button type="button" className="admin-secondary-button" onClick={loadHotels}><RefreshCw size={18} /> Làm mới</button>
       </div>
       <ErrorMessage message={error} onRetry={loadHotels} />

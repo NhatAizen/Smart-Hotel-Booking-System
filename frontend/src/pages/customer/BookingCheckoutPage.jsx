@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   BadgeCheck,
+  Bookmark,
   BedDouble,
   CalendarDays,
   Check,
@@ -29,6 +30,12 @@ import {
   getHotelAvailability,
   subscribeHotelAvailability,
 } from "../../services/bookingService";
+import {
+  getPromotionRecommendations,
+  previewDiscount,
+  savePromotion,
+} from "../../services/promotionService";
+import "../shared/PromotionCenter.css";
 import {
   createPayOsCheckout,
   createWalletCheckout,
@@ -160,6 +167,15 @@ export default function BookingCheckoutPage() {
   const [pricingQuote, setPricingQuote] = useState(null);
   const [pricingLoading, setPricingLoading] = useState(false);
   const [pricingError, setPricingError] = useState("");
+  const [hotelPromotionCode, setHotelPromotionCode] = useState("");
+  const [platformPromotionCode, setPlatformPromotionCode] = useState("");
+  const [discountPreview, setDiscountPreview] = useState(null);
+  const [discountLoading, setDiscountLoading] = useState(false);
+  const [discountError, setDiscountError] = useState("");
+  const [appliedPromotionCodes, setAppliedPromotionCodes] = useState({ hotel: "", platform: "" });
+  const [promotionSuggestions, setPromotionSuggestions] = useState([]);
+  const [promotionSuggestionsLoading, setPromotionSuggestionsLoading] = useState(false);
+  const [promotionSaveBusyId, setPromotionSaveBusyId] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -402,6 +418,98 @@ export default function BookingCheckoutPage() {
     };
   }, [hotelId, roomIds, checkIn, checkOut, selectedRooms]);
 
+  const refreshDiscountPreview = useCallback(async (hotelCode = "", platformCode = "", announce = false) => {
+    if (!user?.id || !hotelId || !pricingQuote?.totalAmount) {
+      setDiscountPreview(null);
+      return null;
+    }
+    setDiscountLoading(true);
+    if (announce) setDiscountError("");
+    try {
+      const preview = await previewDiscount({
+        hotelId,
+        amount: Number(pricingQuote.totalAmount),
+        hotelPromotionCode: hotelCode.trim() || null,
+        platformPromotionCode: platformCode.trim() || null,
+      });
+      setDiscountPreview(preview);
+      setAppliedPromotionCodes({ hotel: hotelCode.trim(), platform: platformCode.trim() });
+      return preview;
+    } catch (requestError) {
+      if (announce) {
+        setDiscountError(requestError.response?.data?.message ?? "Mã ưu đãi chưa thể áp dụng.");
+      }
+      return null;
+    } finally {
+      setDiscountLoading(false);
+    }
+  }, [hotelId, pricingQuote?.totalAmount, user?.id]);
+
+  const refreshPromotionSuggestions = useCallback(async () => {
+    if (!hotelId || !pricingQuote?.totalAmount || !user?.id) {
+      setPromotionSuggestions([]);
+      return;
+    }
+    setPromotionSuggestionsLoading(true);
+    try {
+      const items = await getPromotionRecommendations(
+        hotelId,
+        Number(pricingQuote.totalAmount),
+      );
+      setPromotionSuggestions(Array.isArray(items) ? items : []);
+    } catch {
+      setPromotionSuggestions([]);
+    } finally {
+      setPromotionSuggestionsLoading(false);
+    }
+  }, [hotelId, pricingQuote?.totalAmount, user?.id]);
+
+  useEffect(() => {
+    if (!pricingQuote?.totalAmount || !user?.id) return;
+    void refreshDiscountPreview("", "", false);
+    void refreshPromotionSuggestions();
+  }, [
+    pricingQuote?.totalAmount,
+    user?.id,
+    refreshDiscountPreview,
+    refreshPromotionSuggestions,
+  ]);
+
+  async function applySuggestedPromotion(suggestion) {
+    const promotion = suggestion?.promotion;
+    if (!promotion?.code) return;
+
+    const isHotel = String(promotion.scope).toUpperCase() === "HOTEL";
+    const nextHotelCode = isHotel ? promotion.code : appliedPromotionCodes.hotel;
+    const nextPlatformCode = isHotel ? appliedPromotionCodes.platform : promotion.code;
+
+    setHotelPromotionCode(nextHotelCode);
+    setPlatformPromotionCode(nextPlatformCode);
+
+    await refreshDiscountPreview(nextHotelCode, nextPlatformCode, true);
+  }
+
+  async function saveSuggestedPromotion(suggestion) {
+    const promotion = suggestion?.promotion;
+    if (!promotion?.id || suggestion?.saved) return;
+    setPromotionSaveBusyId(String(promotion.id));
+    setDiscountError("");
+    try {
+      await savePromotion(promotion.id);
+      setPromotionSuggestions((current) =>
+        current.map((item) =>
+          String(item?.promotion?.id) === String(promotion.id)
+            ? { ...item, saved: true }
+            : item,
+        ),
+      );
+    } catch (requestError) {
+      setDiscountError(requestError.response?.data?.message ?? "Không thể lưu mã lúc này.");
+    } finally {
+      setPromotionSaveBusyId("");
+    }
+  }
+
   const selectedItems = useMemo(() => {
     const nights = nightsBetween(checkIn, checkOut);
     const quoteMap = Object.fromEntries(
@@ -472,10 +580,11 @@ export default function BookingCheckoutPage() {
   }, [availableOptions, paymentOption]);
 
   const totals = useMemo(() => {
-    const total = Number(
+    const grossTotal = Number(
       pricingQuote?.totalAmount
         ?? selectedItems.reduce((sum, item) => sum + item.totalPrice, 0),
     );
+    const total = Number(discountPreview?.finalAmount ?? grossTotal);
     const baseAmount = Number(
       pricingQuote?.baseAmount
         ?? selectedItems.reduce((sum, item) => sum + item.baseAmount, 0),
@@ -494,10 +603,12 @@ export default function BookingCheckoutPage() {
           0,
         ),
     );
-    const deposit = selectedItems.reduce(
+    const originalDeposit = selectedItems.reduce(
       (sum, item) => sum + item.depositAmount,
       0,
     );
+    const depositRatio = grossTotal > 0 ? originalDeposit / grossTotal : 0;
+    const deposit = Math.round(total * depositRatio);
     const payNow =
       effectivePaymentOption === "FULL_PAYMENT"
         ? total
@@ -507,6 +618,7 @@ export default function BookingCheckoutPage() {
 
     return {
       total,
+      grossTotal,
       baseAmount,
       weekendSurchargeAmount,
       specialDateSurchargeAmount,
@@ -514,7 +626,7 @@ export default function BookingCheckoutPage() {
       payNow,
       remaining: total - payNow,
     };
-  }, [selectedItems, effectivePaymentOption, pricingQuote]);
+  }, [selectedItems, effectivePaymentOption, pricingQuote, discountPreview]);
 
   const depositPercents = useMemo(
     () => [...new Set(selectedItems.map((item) => item.depositPercent))],
@@ -543,7 +655,7 @@ export default function BookingCheckoutPage() {
     }
     if (pricingLoading || !pricingQuote) {
       setError(
-        pricingError || "Giá theo ngày chưa được backend xác nhận. Vui lòng chờ vài giây rồi thử lại.",
+        pricingError || "Giá chưa được cập nhật. Vui lòng chờ vài giây rồi thử lại.",
       );
       return;
     }
@@ -578,6 +690,8 @@ export default function BookingCheckoutPage() {
         children,
         paymentOption: effectivePaymentOption,
         holdToken: bookingHold?.holdToken ?? null,
+        hotelPromotionCode: appliedPromotionCodes.hotel || null,
+        platformPromotionCode: appliedPromotionCodes.platform || null,
         ...form,
         guestLastName: form.bookerIsGuest ? null : form.guestLastName,
         guestFirstName: form.bookerIsGuest ? null : form.guestFirstName,
@@ -893,7 +1007,7 @@ export default function BookingCheckoutPage() {
                 <WalletCards size={22} />
                 <div>
                   <h2>Phương thức thanh toán</h2>
-                  <p>Chỉ hiển thị lựa chọn Hotel Admin đã bật cho loại phòng.</p>
+                  <p>Chỉ hiển thị các lựa chọn khách sạn cung cấp cho loại phòng này.</p>
                 </div>
               </div>
 
@@ -1005,7 +1119,7 @@ export default function BookingCheckoutPage() {
                   <div className="checkout-vnpay-note">
                     {fundingMethod === "WALLET" ? <WalletCards size={20} /> : <CreditCard size={20} />}
                     <div>
-                      <strong>{fundingMethod === "WALLET" ? "Thanh toán bằng Ví Enziu" : "PayOS - chuyển khoản ngân hàng thật"}</strong>
+                      <strong>{fundingMethod === "WALLET" ? "Thanh toán bằng Ví Enziu" : "PayOS - chuyển khoản ngân hàng"}</strong>
                       <span>
                         {fundingMethod === "WALLET"
                           ? "Tiền được trừ từ số dư ví và booking được xác nhận ngay, không chuyển sang PayOS."
@@ -1032,7 +1146,7 @@ export default function BookingCheckoutPage() {
               </label>
               <div>
                 <ShieldCheck size={19} />
-                Giá và phòng sẽ được backend kiểm tra lại trước khi tạo booking.
+                Giá và tình trạng phòng sẽ được kiểm tra lại trước khi tạo booking.
               </div>
             </section>
           </div>
@@ -1107,6 +1221,92 @@ export default function BookingCheckoutPage() {
               )}
             </div>
 
+            <div className="checkout-promo-box">
+              <div className="checkout-membership-note">
+                <span>Hạng thành viên</span>
+                <strong>{discountPreview?.membershipName ?? "Cấp 1"} · giảm {Number(discountPreview?.membershipPercent ?? 0)}%</strong>
+              </div>
+              <div className="checkout-promo-inputs">
+                <input
+                  value={hotelPromotionCode}
+                  onChange={(event) => setHotelPromotionCode(event.target.value.toUpperCase())}
+                  placeholder="Mã của khách sạn"
+                  aria-label="Mã giảm giá của khách sạn"
+                />
+                <input
+                  value={platformPromotionCode}
+                  onChange={(event) => setPlatformPromotionCode(event.target.value.toUpperCase())}
+                  placeholder="Mã EnziuRooms"
+                  aria-label="Mã giảm giá EnziuRooms"
+                />
+                <button
+                  type="button"
+                  className="promo-secondary"
+                  disabled={discountLoading}
+                  onClick={() => refreshDiscountPreview(hotelPromotionCode, platformPromotionCode, true)}
+                >
+                  {discountLoading ? "Đang áp dụng..." : "Áp dụng"}
+                </button>
+              </div>
+              {discountError ? <div className="promo-message error" style={{ marginTop: 10 }}>{discountError}</div> : null}
+
+              <div className="checkout-promo-suggestions">
+                <div className="checkout-promo-suggestions-title">
+                  <span>Mã phù hợp với booking này</span>
+                  {promotionSuggestionsLoading ? <small>Đang tìm ưu đãi...</small> : null}
+                </div>
+                {promotionSuggestions.length > 0 ? (
+                  <div className="checkout-promo-suggestion-list">
+                    {promotionSuggestions.slice(0, 6).map((suggestion) => {
+                      const promotion = suggestion.promotion;
+                      const isHotel = String(promotion.scope).toUpperCase() === "HOTEL";
+                      const appliedCode = isHotel
+                        ? appliedPromotionCodes.hotel
+                        : appliedPromotionCodes.platform;
+                      const isApplied = appliedCode === promotion.code;
+                      return (
+                        <article
+                          className={`checkout-promo-suggestion ${suggestion.saved ? "saved" : ""}`}
+                          key={promotion.id}
+                        >
+                          <div className="checkout-promo-suggestion-copy">
+                            <strong>{promotion.name}</strong>
+                            <span>{promotion.code}</span>
+                            <small>
+                              {isHotel ? "Ưu đãi khách sạn" : "Ưu đãi EnziuRooms"}
+                              {Number(suggestion.estimatedDiscount ?? 0) > 0
+                                ? ` · Có thể giảm khoảng ${money(suggestion.estimatedDiscount)}`
+                                : ""}
+                            </small>
+                          </div>
+                          <div className="checkout-promo-suggestion-actions">
+                            <button
+                              type="button"
+                              disabled={suggestion.saved || promotionSaveBusyId === String(promotion.id)}
+                              onClick={() => saveSuggestedPromotion(suggestion)}
+                            >
+                              <Bookmark size={13} />
+                              {suggestion.saved ? "Đã lưu" : "Lưu"}
+                            </button>
+                            <button
+                              type="button"
+                              className="primary"
+                              disabled={discountLoading || isApplied}
+                              onClick={() => applySuggestedPromotion(suggestion)}
+                            >
+                              {isApplied ? "Đang dùng" : "Áp dụng"}
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : !promotionSuggestionsLoading ? (
+                  <small>Chưa có mã khác phù hợp với booking hiện tại.</small>
+                ) : null}
+              </div>
+            </div>
+
             <div className="checkout-total-lines">
               <div>
                 <span>Giá phòng cơ bản</span>
@@ -1123,6 +1323,18 @@ export default function BookingCheckoutPage() {
                   <span>Phụ thu ngày đặc biệt</span>
                   <strong>+{money(totals.specialDateSurchargeAmount)}</strong>
                 </div>
+              ) : null}
+              {Number(discountPreview?.membershipDiscount ?? 0) > 0 ? (
+                <div className="checkout-discount-line"><span>Ưu đãi {discountPreview.membershipName}</span><strong>-{money(discountPreview.membershipDiscount)}</strong></div>
+              ) : null}
+              {Number(discountPreview?.hotelPromotionDiscount ?? 0) > 0 ? (
+                <div className="checkout-discount-line"><span>Mã {discountPreview.hotelPromotionCode}</span><strong>-{money(discountPreview.hotelPromotionDiscount)}</strong></div>
+              ) : null}
+              {Number(discountPreview?.platformPromotionDiscount ?? 0) > 0 ? (
+                <div className="checkout-discount-line"><span>Mã {discountPreview.platformPromotionCode}</span><strong>-{money(discountPreview.platformPromotionDiscount)}</strong></div>
+              ) : null}
+              {Number(discountPreview?.totalDiscount ?? 0) > 0 ? (
+                <div className="checkout-discount-line"><span>Tổng ưu đãi</span><strong>-{money(discountPreview.totalDiscount)}</strong></div>
               ) : null}
               <div className="checkout-grand-total">
                 <span>Tổng giá booking</span>
@@ -1158,7 +1370,7 @@ export default function BookingCheckoutPage() {
                     : "Tiếp tục thanh toán PayOS"}
             </button>
             <p>
-              <Check size={16} /> Nếu thu tiền mặt tại khách sạn, hoa hồng được hạch toán khi Hotel Admin xác nhận đã thu.
+              <Check size={16} /> Nếu thanh toán tiền mặt tại khách sạn, trạng thái thanh toán sẽ được cập nhật sau khi khách sạn xác nhận.
             </p>
           </aside>
         </form>

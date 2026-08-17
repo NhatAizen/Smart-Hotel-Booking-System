@@ -121,7 +121,7 @@ export default function AccountProfilePanel({ mode = "customer" }) {
   const [error, setError] = useState("");
 
   const displayRole = isHotelAdmin
-    ? "Hotel Admin"
+    ? "Đối tác"
     : "Khách hàng";
 
   const avatarInitial = useMemo(() => {
@@ -328,7 +328,7 @@ export default function AccountProfilePanel({ mode = "customer" }) {
           </span>
           <h1>
             {isHotelAdmin
-              ? "Hồ sơ Hotel Admin"
+              ? "Hồ sơ đối tác"
               : "Hồ sơ của tôi"}
           </h1>
           <p>
@@ -639,7 +639,7 @@ export default function AccountProfilePanel({ mode = "customer" }) {
                 </div>
                 <div>
                   <h3>Thông tin vận hành đối tác</h3>
-                  <p>Dữ liệu đăng ký đối tác được giữ riêng với hồ sơ cá nhân.</p>
+                  <p>Thông tin đăng ký đối tác được quản lý riêng với hồ sơ cá nhân.</p>
                 </div>
               </div>
 
@@ -662,7 +662,7 @@ export default function AccountProfilePanel({ mode = "customer" }) {
               </div>
 
               <p className="profile-business-note">
-                Thông tin pháp lý/đối tác đã được duyệt không chỉnh trực tiếp ở trang hồ sơ để tránh sai lệch dữ liệu xác minh.
+                Thông tin đối tác đã được duyệt không thể chỉnh trực tiếp tại đây. Nếu cần thay đổi, hãy cập nhật qua hồ sơ đối tác.
               </p>
             </article>
           ) : null}

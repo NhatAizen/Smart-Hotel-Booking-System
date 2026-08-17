@@ -419,7 +419,7 @@ export default function MyReviewsPage() {
             <h2>Bạn chưa có đánh giá nào</h2>
             <p>
               Sau khi hoàn tất lưu trú và trả phòng, bạn có thể chia sẻ nhận xét,
-              chấm điểm và thêm ảnh thực tế về khách sạn.
+              chấm điểm và thêm ảnh về kỳ nghỉ của bạn.
             </p>
             <Link className="collection-link-button primary" to="/customer/bookings">
               Xem đơn đặt phòng

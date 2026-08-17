@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 import EkycCameraCapture from "../../components/partner/EkycCameraCapture";
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
@@ -54,7 +55,7 @@ function statusMeta(status) {
       icon: BadgeCheck,
       title: "Hồ sơ đã được phê duyệt",
       description:
-        "Tài khoản đã được nâng cấp thành Hotel Admin. Hãy đăng xuất và đăng nhập lại để nhận quyền mới.",
+        "Tài khoản đối tác đã được kích hoạt. Hãy đăng xuất và đăng nhập lại để bắt đầu sử dụng.",
     };
   }
 
@@ -64,7 +65,7 @@ function statusMeta(status) {
       icon: XCircle,
       title: "Hồ sơ cần bổ sung",
       description:
-        "System Admin chưa thể phê duyệt hồ sơ. Bạn có thể cập nhật thông tin, chụp lại CCCD và thực hiện eKYC lại.",
+        "Hồ sơ chưa được duyệt. Bạn có thể cập nhật thông tin, chụp lại CCCD và xác minh lại.",
     };
   }
 
@@ -73,7 +74,7 @@ function statusMeta(status) {
     icon: Clock3,
     title: "Hồ sơ đang chờ duyệt",
     description:
-      "Hồ sơ đã vượt qua OCR CCCD, liveness và face match; System Admin sẽ kiểm tra lần cuối trước khi cấp quyền đối tác.",
+      "Thông tin CCCD và khuôn mặt đã được xác minh. Hồ sơ đang chờ xét duyệt.",
   };
 }
 
@@ -205,6 +206,8 @@ export default function PartnerApplicationPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useRealtimeRefresh("NOTIFICATION_CREATED", loadData, { debounceMs: 120 });
 
   useEffect(
     () => () => {
@@ -399,7 +402,7 @@ export default function PartnerApplicationPage() {
 
     if (
       !window.confirm(
-        "CCCD và khuôn mặt đã được xác minh. Gửi hồ sơ này tới System Admin để kiểm duyệt?",
+        "CCCD và khuôn mặt đã được xác minh. Gửi hồ sơ này để xét duyệt?",
       )
     ) {
       return;
@@ -442,7 +445,7 @@ export default function PartnerApplicationPage() {
       setFrontPreview("");
       setBackPreview("");
       setSuccess(
-        "Hồ sơ eKYC đã xác minh thành công và được gửi tới System Admin.",
+        "Hồ sơ xác minh đã được gửi để xét duyệt.",
       );
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (requestError) {
@@ -477,27 +480,26 @@ export default function PartnerApplicationPage() {
         <section className="partner-application-hero">
           <div className="partner-hero-copy">
             <span className="partner-eyebrow">
-              <Building2 size={15} /> ENZIUROOMS PARTNER
+              <Building2 size={15} /> ĐỐI TÁC ENZIUROOMS
             </span>
             <h1>Trở thành đối tác khách sạn</h1>
             <p>
-              Hồ sơ được kiểm tra nhiều lớp: OCR CCCD, camera liveness, face
-              match và System Admin kiểm duyệt cuối cùng.
+              Xác minh danh tính bằng CCCD và khuôn mặt trước khi gửi hồ sơ xét duyệt.
             </p>
           </div>
           <div className="partner-hero-benefits">
             <div>
               <ScanLine size={21} />
               <span>
-                <strong>OCR + Face Match</strong>
+                <strong>Xác minh danh tính</strong>
                 <small>Đối chiếu CCCD và khuôn mặt trực tiếp</small>
               </span>
             </div>
             <div>
               <ShieldCheck size={21} />
               <span>
-                <strong>Liveness riêng tư</strong>
-                <small>Không lưu video hoặc embedding khuôn mặt</small>
+                <strong>Kiểm tra người thật</strong>
+                <small>Camera chỉ dùng trong bước xác minh</small>
               </span>
             </div>
           </div>
@@ -538,8 +540,7 @@ export default function PartnerApplicationPage() {
             <BadgeCheck size={52} />
             <h2>Chào mừng bạn trở thành đối tác EnziuRooms</h2>
             <p>
-              Quyền Hotel Admin đã được cấp. Hãy đăng xuất rồi đăng nhập lại để
-              vào Trung tâm đối tác.
+              Tài khoản đối tác đã được kích hoạt. Hãy đăng xuất rồi đăng nhập lại để bắt đầu quản lý khách sạn.
             </p>
           </section>
         ) : status === "PENDING" ? (
@@ -547,7 +548,7 @@ export default function PartnerApplicationPage() {
             <div className="partner-section-heading">
               <div>
                 <span>HỒ SƠ ĐÃ GỬI</span>
-                <h2>Danh tính đã qua eKYC</h2>
+                <h2>Hồ sơ đã xác minh</h2>
               </div>
               <BadgeCheck size={28} />
             </div>
@@ -556,15 +557,15 @@ export default function PartnerApplicationPage() {
               <div className={`partner-ocr-banner ${request.ocrVerified ? "verified" : "failed"}`}>
                 <BadgeCheck size={22} />
                 <div>
-                  <strong>{request.ocrVerified ? "OCR CCCD hợp lệ" : "OCR chưa hợp lệ"}</strong>
-                  <small>Số CCCD, họ tên và ngày sinh được đối chiếu ở backend.</small>
+                  <strong>{request.ocrVerified ? "CCCD đã xác minh" : "CCCD chưa xác minh"}</strong>
+                  <small>Số CCCD, họ tên và ngày sinh đã được đối chiếu.</small>
                 </div>
               </div>
               <div className={`partner-ocr-banner ${request.ekycVerified ? "verified" : "failed"}`}>
                 <ShieldCheck size={22} />
                 <div>
-                  <strong>{request.ekycVerified ? "Liveness + face match hợp lệ" : "Chưa có eKYC hợp lệ"}</strong>
-                  <small>Cosine similarity: {formatSimilarity(request.faceSimilarity)}</small>
+                  <strong>{request.ekycVerified ? "Xác minh khuôn mặt hợp lệ" : "Chưa có eKYC hợp lệ"}</strong>
+                  <small>Khuôn mặt đã được đối chiếu với ảnh trên CCCD.</small>
                 </div>
               </div>
             </div>
@@ -577,19 +578,15 @@ export default function PartnerApplicationPage() {
               <div><small>Ngày sinh</small><strong>{formatDate(request.dateOfBirth)}</strong></div>
               <div><small>Điện thoại</small><strong>{request.businessPhone}</strong></div>
               <div className="wide"><small>Địa chỉ</small><strong>{request.businessAddress}</strong></div>
-              <div><small>OCR số CCCD</small><strong>{request.ocrIdentityNumber || "Đã khớp"}</strong></div>
-              <div><small>OCR ngày sinh</small><strong>{formatDate(request.ocrDateOfBirth)}</strong></div>
-              <div><small>Liveness</small><strong>{request.livenessVerified ? "Đạt" : "Chưa đạt"}</strong></div>
-              <div><small>Face match</small><strong>{request.faceVerified ? "Đạt" : "Chưa đạt"}</strong></div>
-              <div><small>Face similarity</small><strong>{formatSimilarity(request.faceSimilarity)}</strong></div>
-              <div><small>eKYC lúc</small><strong>{formatDateTime(request.ekycProcessedAt)}</strong></div>
+              <div><small>Xác minh CCCD</small><strong>{request.ocrVerified ? "Đạt" : "Chưa đạt"}</strong></div>
+              <div><small>Xác minh khuôn mặt</small><strong>{request.ekycVerified ? "Đạt" : "Chưa đạt"}</strong></div>
+              <div><small>Xác minh lúc</small><strong>{formatDateTime(request.ekycProcessedAt)}</strong></div>
             </div>
 
             <div className="partner-pending-note">
               <ShieldCheck size={19} />
               <span>
-                Ảnh CCCD được lưu private trong Identity Service. Video liveness
-                không được lưu; eKYC Service chỉ xử lý các frame tạm thời trong request.
+                Thông tin xác minh được bảo vệ và chỉ dùng cho quá trình xét duyệt hồ sơ đối tác.
               </span>
             </div>
           </section>
@@ -633,13 +630,13 @@ export default function PartnerApplicationPage() {
                 <label className="partner-field">
                   <span>Số CCCD 12 chữ số *</span>
                   <input name="identityNumber" inputMode="numeric" value={form.identityNumber} onChange={updateIdentityNumber} maxLength={12} placeholder="079204012345" />
-                  <small>OCR mặt trước phải đọc đúng số này.</small>
+                  <small>Số này phải khớp với thông tin trên CCCD.</small>
                 </label>
 
                 <label className="partner-field">
                   <span>Ngày sinh trên CCCD *</span>
                   <div className="partner-input-icon"><CalendarDays size={17} /><input type="date" name="dateOfBirth" value={form.dateOfBirth} onChange={updateField} /></div>
-                  <small>OCR sẽ đối chiếu ngày sinh.</small>
+                  <small>Ngày sinh phải khớp với thông tin trên CCCD.</small>
                 </label>
 
                 <label className="partner-field">
@@ -775,14 +772,14 @@ export default function PartnerApplicationPage() {
 
                 <label className="partner-field wide">
                   <span>Ghi chú</span>
-                  <textarea name="note" value={form.note} onChange={updateField} maxLength={1000} placeholder="Thông tin bổ sung cho System Admin..." />
+                  <textarea name="note" value={form.note} onChange={updateField} maxLength={1000} placeholder="Ghi chú thêm cho hồ sơ..." />
                 </label>
               </div>
 
               <div className="partner-form-consent">
                 <ShieldCheck size={19} />
                 <p>
-                  EnziuRooms xác minh <strong>OCR CCCD + liveness chính diện + SFace face match trước khi gửi</strong>. Bạn chỉ bấm bắt đầu một lần; camera tự quét đến khi vòng xanh xác nhận eKYC PASS.
+                  EnziuRooms sẽ <strong>kiểm tra CCCD, xác minh người thật và đối chiếu khuôn mặt</strong> trước khi gửi hồ sơ. Bạn chỉ cần bắt đầu một lần và giữ khuôn mặt trong khung đến khi xác minh thành công.
                 </p>
               </div>
 
@@ -798,13 +795,13 @@ export default function PartnerApplicationPage() {
               <span>QUY TRÌNH eKYC</span>
               <h2>Hệ thống kiểm tra gì?</h2>
               <ol>
-                <li><b>1</b><div><strong>OCR CCCD + MRZ</strong><small>Quét mặt trước và mặt sau, đối chiếu số CCCD, họ tên, ngày sinh và MRZ.</small></div></li>
-                <li><b>2</b><div><strong>Camera trực tiếp</strong><small>Không cho upload selfie có sẵn thay cho camera.</small></div></li>
-                <li><b>3</b><div><strong>Liveness challenge</strong><small>Chỉ nhìn thẳng vào camera; sau một lần bấm bắt đầu, hệ thống tự lấy mẫu liên tục đến khi vòng chuyển xanh.</small></div></li>
-                <li><b>4</b><div><strong>Face match</strong><small>So sánh khuôn mặt camera với ảnh chân dung trên CCCD bằng SFace.</small></div></li>
-                <li><b>5</b><div><strong>Admin kiểm duyệt</strong><small>Chỉ System Admin mới có quyền phê duyệt và cấp HOTEL_ADMIN.</small></div></li>
+                <li><b>1</b><div><strong>Kiểm tra CCCD hai mặt</strong><small>Đọc và đối chiếu thông tin trên mặt trước và mặt sau.</small></div></li>
+                <li><b>2</b><div><strong>Camera trực tiếp</strong><small>Sử dụng camera để xác minh khuôn mặt tại thời điểm đăng ký.</small></div></li>
+                <li><b>3</b><div><strong>Xác minh người thật</strong><small>Giữ khuôn mặt chính diện trong khung đến khi vòng chuyển xanh.</small></div></li>
+                <li><b>4</b><div><strong>Đối chiếu khuôn mặt</strong><small>So sánh khuôn mặt camera với ảnh chân dung trên CCCD.</small></div></li>
+                <li><b>5</b><div><strong>Xét duyệt hồ sơ</strong><small>Hồ sơ được kiểm tra trước khi tài khoản đối tác được kích hoạt.</small></div></li>
               </ol>
-              <div className="partner-guide-note"><Info size={18} /><p>Đây là lớp eKYC tự vận hành cho đồ án, không phải chứng nhận eKYC ngân hàng. Admin vẫn là lớp quyết định cuối cùng.</p></div>
+              <div className="partner-guide-note"><Info size={18} /><p>Thông tin xác minh được dùng để hỗ trợ xét duyệt và bảo vệ tài khoản đối tác.</p></div>
             </aside>
           </div>
         ) : null}

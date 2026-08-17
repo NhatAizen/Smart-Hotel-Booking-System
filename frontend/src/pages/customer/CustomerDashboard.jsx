@@ -1,4 +1,5 @@
 import {
+  Award,
   BedDouble,
   Bell,
   Bot,
@@ -22,7 +23,7 @@ export default function CustomerDashboard() {
       <div className="container">
         <section className="customer-dashboard-welcome">
           <div>
-            <span>ENZIUROOMS CUSTOMER</span>
+            <span>TRANG CỦA BẠN</span>
             <h1>Xin chào, {user?.fullName ?? "bạn"}!</h1>
             <p>
               Tìm khách sạn, theo dõi đơn đặt phòng và nhận hỗ trợ
@@ -62,6 +63,15 @@ export default function CustomerDashboard() {
           </Link>
 
           <Link
+            to="/customer/rewards"
+            className="customer-dashboard-card"
+          >
+            <Award size={25} />
+            <strong>Hạng & ưu đãi</strong>
+            <span>Xem cấp thành viên và quyền lợi hiện tại</span>
+          </Link>
+
+          <Link
             to="/customer/notifications"
             className="customer-dashboard-card"
           >
@@ -86,7 +96,7 @@ export default function CustomerDashboard() {
           >
             <Handshake size={25} />
             <strong>Đăng ký làm đối tác</strong>
-            <span>Đăng ký Hotel Admin và đưa khách sạn lên EnziuRooms</span>
+            <span>Đưa khách sạn của bạn lên EnziuRooms</span>
           </Link>
 
           <button

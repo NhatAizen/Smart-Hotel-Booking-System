@@ -22,6 +22,7 @@ function statusLabel(value) {
       CONFIRMED: "Đã xác nhận",
       CHECKED_IN: "Đang lưu trú",
       CHECKED_OUT: "Đã trả phòng",
+      NO_SHOW: "Không đến nhận phòng",
       CANCELLED: "Đã hủy",
     }[value] ?? value ?? "Chưa xác định"
   );
@@ -29,7 +30,7 @@ function statusLabel(value) {
 
 function statusTone(value) {
   if (["CONFIRMED", "CHECKED_IN"].includes(value)) return "success";
-  if (["CANCELLED", "CHECKED_OUT"].includes(value)) return "neutral";
+  if (["CANCELLED", "CHECKED_OUT", "NO_SHOW"].includes(value)) return "neutral";
   return "warning";
 }
 

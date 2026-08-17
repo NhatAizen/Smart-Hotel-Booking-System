@@ -22,6 +22,7 @@ import apiClient from "../../api/apiClient";
 import Loading from "../../components/common/Loading";
 
 import "./ManageRoomTypesPage.css";
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 
 function money(value) {
   return `${Number(value ?? 0).toLocaleString("vi-VN")} đ`;
@@ -166,6 +167,8 @@ export default function ManageRoomTypesPage() {
     loadPending();
   }, []);
 
+  useRealtimeRefresh("NOTIFICATION_CREATED", loadPending, { debounceMs: 120 });
+
   useEffect(() => {
     if (!detailRoomType) {
       document.body.style.removeProperty("overflow");
@@ -260,7 +263,7 @@ export default function ManageRoomTypesPage() {
     const normalizedReason = reason.trim();
 
     if (!normalizedReason) {
-      setError("Vui lòng nhập lý do từ chối để Hotel Admin biết cần sửa gì.");
+      setError("Vui lòng nhập lý do từ chối để đối tác biết cần chỉnh sửa gì.");
       return;
     }
 
@@ -319,7 +322,7 @@ export default function ManageRoomTypesPage() {
     <div className="admin-roomtype-page">
       <section className="admin-roomtype-heading">
         <div>
-          <span className="admin-roomtype-kicker">ROOM TYPE APPROVAL</span>
+          <span className="admin-roomtype-kicker">DUYỆT LOẠI PHÒNG</span>
           <h1>Loại phòng chờ duyệt</h1>
           <p>
             Xem đúng nội dung khách hàng sẽ nhìn thấy: hình ảnh, mô tả, giá,
@@ -350,7 +353,7 @@ export default function ManageRoomTypesPage() {
         <section className="admin-roomtype-empty">
           <BadgeCheck size={52} />
           <h2>Không có loại phòng đang chờ duyệt</h2>
-          <p>Các yêu cầu mới của Hotel Admin sẽ xuất hiện tại đây.</p>
+          <p>Các loại phòng mới gửi duyệt sẽ xuất hiện tại đây.</p>
         </section>
       ) : (
         <section className="admin-roomtype-list">
@@ -439,7 +442,7 @@ export default function ManageRoomTypesPage() {
 
                     <span>
                       <BedDouble size={16} />
-                      {roomType.roomCount ?? 0} phòng thực tế
+                      {roomType.roomCount ?? 0} phòng
                     </span>
                   </div>
 
@@ -645,7 +648,7 @@ export default function ManageRoomTypesPage() {
                 </div>
 
                 <div>
-                  <small>Phòng thực tế</small>
+                  <small>Phòng</small>
                   <strong>{detailRoomType.roomCount ?? 0}</strong>
                 </div>
 
@@ -659,7 +662,7 @@ export default function ManageRoomTypesPage() {
                 <h3>Mô tả loại phòng</h3>
                 <p>
                   {detailRoomType.description ||
-                    "Hotel Admin chưa cung cấp mô tả."}
+                    "Chưa có mô tả."}
                 </p>
               </section>
 
@@ -736,7 +739,7 @@ export default function ManageRoomTypesPage() {
                     ))}
                   </div>
                 ) : (
-                  <p>Hotel Admin chưa cập nhật tiện nghi.</p>
+                  <p>Chưa cập nhật tiện nghi.</p>
                 )}
               </section>
 
@@ -746,7 +749,7 @@ export default function ManageRoomTypesPage() {
                   <strong>Kiểm tra trước khi duyệt</strong>
                   <p>
                     Hình ảnh, mô tả, giá, sức chứa, chính sách và tiện nghi ở
-                    trên là dữ liệu sẽ được dùng để công khai cho Customer sau
+                    trên là thông tin sẽ hiển thị cho khách hàng sau
                     khi phê duyệt.
                   </p>
                 </div>

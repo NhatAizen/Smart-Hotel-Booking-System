@@ -284,6 +284,51 @@
   box-shadow: 0 0 0 3px rgba(24, 166, 153, .09);
 }
 
+.enziu-fai-trip-applied {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid #cfe9e3;
+  border-radius: 10px;
+  background: #f0fbf8;
+}
+
+.enziu-fai-trip-applied > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #39736b;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.enziu-fai-trip-applied > div svg {
+  flex: 0 0 auto;
+  color: #119783;
+}
+
+.enziu-fai-trip-applied button {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #0f9f94, #187fc0);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.enziu-fai-trip-applied button:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
 .enziu-fai-messages {
   flex: 1;
   min-height: 0;
@@ -471,6 +516,62 @@
 
 .enziu-fai-hotel-meta .neutral {
   color: #8897a3;
+}
+
+.enziu-fai-discount-price {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+  border-radius: 9px;
+  background: #eefaf6;
+  border: 1px solid #d2eee5;
+}
+
+.enziu-fai-discount-price > span {
+  color: #4f776c;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.enziu-fai-discount-price > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.enziu-fai-discount-price del {
+  color: #99a5aa;
+  font-size: 8px;
+}
+
+.enziu-fai-discount-price strong {
+  color: #0b8a72;
+  font-size: 13px;
+}
+
+.enziu-fai-discount-price small {
+  color: #5c7a72;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.enziu-fai-discount-price .promo-code {
+  width: fit-content;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #fff4dc;
+  color: #93650f;
+  font-weight: 800;
+}
+
+.enziu-fai-discount-price.pending {
+  background: #f7f9fa;
+  border-color: #e3e9ed;
+}
+
+.enziu-fai-discount-price.pending strong {
+  color: #4e687a;
 }
 
 .enziu-fai-reasons {
@@ -751,4 +852,395 @@
   .enziu-fai-trip-fields {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* ===== Enziu AI Booking Copilot enhancement ===== */
+.enziu-fai-grounding {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-bottom: 1px solid #dceeea;
+  background: #f0fbf8;
+  color: #4f786f;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.enziu-fai-hotel-badges {
+  position: absolute;
+  inset: 8px 8px auto 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.enziu-fai-hotel-badges > span {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 7px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 900;
+  box-shadow: 0 5px 12px rgba(19, 61, 78, .18);
+}
+
+.enziu-fai-hotel-badges .rank {
+  background: rgba(20, 54, 77, .9);
+}
+
+.enziu-fai-hotel-badges .match {
+  margin-left: auto;
+  background: rgba(8, 133, 121, .94);
+}
+
+.enziu-fai-rating {
+  display: grid;
+  gap: 1px;
+  text-align: center;
+}
+
+.enziu-fai-rating small {
+  color: #6b8ca0;
+  font-size: 6px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.enziu-fai-reasons span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.enziu-fai-reasons span svg {
+  color: #149178;
+}
+
+.enziu-fai-understood {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #d9eaf2;
+  border-radius: 10px;
+  background: #f3f9fc;
+}
+
+.enziu-fai-understood > strong {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #2b6687;
+  font-size: 8px;
+}
+
+.enziu-fai-understood > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.enziu-fai-understood span {
+  padding: 4px 6px;
+  border: 1px solid #dceaf1;
+  border-radius: 999px;
+  background: #fff;
+  color: #557386;
+  font-size: 7px;
+}
+
+.enziu-fai-followup,
+.enziu-fai-compare {
+  width: 100%;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.enziu-fai-followup {
+  border: 1px solid #cfe7e1;
+  background: #f1faf7;
+  color: #197866;
+}
+
+.enziu-fai-compare {
+  border: 1px solid #d8e4f2;
+  background: #f5f8fc;
+  color: #3f6685;
+}
+
+.enziu-fai-followup:hover,
+.enziu-fai-compare:hover {
+  transform: translateY(-1px);
+}
+
+.enziu-fai-methodology {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 7px 8px;
+  border-radius: 9px;
+  background: #f7faf9;
+  color: #80908c;
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.enziu-fai-methodology svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: #4d8d7f;
+}
+
+/* Enziu AI Copilot: pricing quote shown as the authoritative stay total. */
+.enziu-fai-stay-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+}
+
+.enziu-fai-stay-price small {
+  flex-basis: 100%;
+  color: #718695;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.enziu-fai-stay-price strong {
+  font-size: 13px;
+}
+
+.enziu-fai-stay-price em {
+  color: #718695;
+  font-size: 8px;
+  font-style: normal;
+}
+/* =========================================================
+ * AI ROOM TYPE CARD
+ * Hiển thị khi người dùng muốn xem một loại phòng cụ thể.
+ * ========================================================= */
+
+.enziu-fai-room-card {
+  overflow: hidden;
+  border: 1px solid #d9e7ed;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(24, 66, 90, .08);
+}
+
+.enziu-fai-room-card-image {
+  position: relative;
+  height: 150px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, #eef7f8, #f4f7fb);
+}
+
+.enziu-fai-room-card-image > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.enziu-fai-room-card-placeholder {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  color: #8aa0af;
+  font-size: 9px;
+}
+
+.enziu-fai-room-card-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(15, 126, 145, .92);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 800;
+  backdrop-filter: blur(5px);
+}
+
+.enziu-fai-room-thumbs {
+  min-height: 47px;
+  display: flex;
+  gap: 5px;
+  padding: 6px 8px 0;
+  overflow-x: auto;
+  background: #fff;
+  scrollbar-width: none;
+}
+
+.enziu-fai-room-thumbs::-webkit-scrollbar {
+  display: none;
+}
+
+.enziu-fai-room-thumbs img {
+  width: 58px;
+  height: 42px;
+  flex: 0 0 auto;
+  border: 1px solid #dfe8ed;
+  border-radius: 7px;
+  object-fit: cover;
+}
+
+.enziu-fai-room-thumbs > span {
+  width: 58px;
+  height: 42px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: #edf5f7;
+  color: #557488;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.enziu-fai-room-card-body {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.enziu-fai-room-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.enziu-fai-room-card-heading > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.enziu-fai-room-card-heading small {
+  overflow: hidden;
+  color: #8496a3;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enziu-fai-room-card-heading strong {
+  color: #173a52;
+  font-size: 13px;
+}
+
+.enziu-fai-room-card-heading > span {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.enziu-fai-room-card-heading > span.available {
+  background: #e9f8f1;
+  color: #18815f;
+}
+
+.enziu-fai-room-card-heading > span.sold-out {
+  background: #fff0f0;
+  color: #b54a4a;
+}
+
+.enziu-fai-room-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.enziu-fai-room-facts span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: #f0f6f8;
+  color: #5b7485;
+  font-size: 8px;
+}
+
+.enziu-fai-room-price {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+  border: 1px solid #d3ece5;
+  border-radius: 9px;
+  background: #effaf7;
+}
+
+.enziu-fai-room-price > span {
+  color: #5d7d75;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.enziu-fai-room-price > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.enziu-fai-room-price del {
+  color: #98a4aa;
+  font-size: 8px;
+}
+
+.enziu-fai-room-price strong {
+  color: #0c8a77;
+  font-size: 13px;
+}
+
+.enziu-fai-room-amenities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.enziu-fai-room-amenities span {
+  padding: 4px 6px;
+  border: 1px solid #e0e9ed;
+  border-radius: 6px;
+  background: #fff;
+  color: #617989;
+  font-size: 8px;
+}
+
+.enziu-fai-room-open {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid #0f988f;
+  border-radius: 8px;
+  background: #0f988f;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
 }

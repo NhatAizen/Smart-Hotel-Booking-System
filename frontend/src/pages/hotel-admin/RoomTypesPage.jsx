@@ -38,6 +38,7 @@ import {
 } from "./hotelCatalogOptions";
 
 import "./HotelCatalogAdmin.css";
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 
 const emptyForm = {
   name: "",
@@ -167,6 +168,8 @@ function amenityGroupFor(roomType, group) {
 }
 
 export default function RoomTypesPage() {
+  const [realtimeTick, setRealtimeTick] = useState(0);
+  useRealtimeRefresh("NOTIFICATION_CREATED", () => setRealtimeTick((value) => value + 1), { debounceMs: 120 });
   const [searchParams, setSearchParams] = useSearchParams();
   const setSearchParamsRef = useRef(setSearchParams);
   const roomTypesRequestRef = useRef(0);
@@ -266,7 +269,7 @@ export default function RoomTypesPage() {
     }
 
     load();
-  }, []);
+  }, [realtimeTick]);
 
   useEffect(() => {
     if (!hotelId) {
@@ -300,7 +303,7 @@ export default function RoomTypesPage() {
     }
 
     loadTypes();
-  }, [hotelId]);
+  }, [hotelId, realtimeTick]);
 
   useEffect(() => {
     if (!hotelId || hotels.length === 0) return;
@@ -659,9 +662,9 @@ export default function RoomTypesPage() {
 
         const roomMessage =
           roomSync.added > 0
-            ? ` Đã tạo thêm ${roomSync.added} phòng thực tế.`
+            ? ` Đã tạo thêm ${roomSync.added} phòng.`
             : roomSync.removed > 0
-              ? ` Đã ngừng hoạt động ${roomSync.removed} phòng thực tế.`
+              ? ` Đã ngừng hoạt động ${roomSync.removed} phòng.`
               : "";
 
         setMessage(`Đã cập nhật loại phòng.${roomMessage}`);
@@ -757,14 +760,14 @@ export default function RoomTypesPage() {
   }
 
   async function handleSubmitApproval(roomType) {
-    if (!window.confirm(`Gửi loại phòng “${roomType.name}” cho System Admin xét duyệt?`)) {
+    if (!window.confirm(`Gửi loại phòng “${roomType.name}” để xét duyệt?`)) {
       return;
     }
     setError("");
     try {
       const updated = await submitRoomType(roomType.id);
       setRoomTypes((current) => current.map((item) => item.id === roomType.id ? updated : item));
-      setMessage("Đã gửi loại phòng chờ System Admin xét duyệt.");
+      setMessage("Đã gửi loại phòng để xét duyệt.");
     } catch (requestError) {
       setError(errorMessage(requestError));
     }
@@ -796,7 +799,7 @@ export default function RoomTypesPage() {
           <h1>Loại phòng khách sạn</h1>
           <p>
             Mỗi loại phòng có giá, sức chứa, diện tích, tiện nghi, nhiều hình
-            ảnh và số lượng phòng thực tế riêng.
+            ảnh và số lượng phòng riêng.
           </p>
         </div>
 
@@ -837,7 +840,7 @@ export default function RoomTypesPage() {
           <div className="catalog-meta">
             <BedDouble size={18} />
             {selectedHotel.roomTypeCount ?? 0} loại phòng ·{" "}
-            {selectedHotel.roomCount ?? 0} phòng thực tế
+            {selectedHotel.roomCount ?? 0} phòng
           </div>
         ) : null}
       </section>
@@ -1331,8 +1334,8 @@ export default function RoomTypesPage() {
             <div className="catalog-field">
                 <span>
                   {editingId
-                    ? "Điều chỉnh số lượng phòng thực tế"
-                    : "Tạo phòng thực tế cùng lúc"}
+                    ? "Điều chỉnh số lượng phòng"
+                    : "Tạo phòng cùng lúc"}
                 </span>
 
                 {editingId ? (
@@ -1536,7 +1539,7 @@ export default function RoomTypesPage() {
                   <small>Giá cơ bản mỗi đêm</small>
                   <strong>{money(detailRoomType.basePrice)}</strong>
                 </div>
-                <span>{detailRoomType.roomCount ?? 0} phòng thực tế</span>
+                <span>{detailRoomType.roomCount ?? 0} phòng</span>
               </div>
 
               <section className="room-detail-section">

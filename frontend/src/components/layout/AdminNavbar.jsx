@@ -15,6 +15,7 @@ import {
 
 import { useAuth } from "../../auth/AuthContext";
 import NotificationBell from "../notifications/NotificationBell";
+import "./AdminNavbarEnhancements.css";
 
 function itemMatchesPath(item, pathname) {
   if (item.end) return pathname === item.to;
@@ -46,6 +47,9 @@ export default function AdminNavbar({
   roleDescription,
   homePath,
   brandIcon: BrandIcon,
+  brandImageUrl,
+  brandImageAlt,
+  accountAvatarUrl,
   items,
   desktopNavigation,
   profilePath,
@@ -59,7 +63,7 @@ export default function AdminNavbar({
   const [accountOpen, setAccountOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState(null);
 
-  const avatarUrl = user?.avatarUrl ?? user?.avatar ?? null;
+  const avatarUrl = accountAvatarUrl ?? user?.avatarUrl ?? user?.avatar ?? null;
   const avatarText = user?.fullName?.trim()?.charAt(0)?.toUpperCase() ??
     (variant === "hotel" ? "H" : "A");
 
@@ -117,8 +121,17 @@ export default function AdminNavbar({
           onClick={closeMenus}
           aria-label={`EnziuRooms ${roleLabel} - Tổng quan`}
         >
-          <span className="admin-navbar-brand-icon">
-            <BrandIcon size={24} aria-hidden="true" />
+          <span className={`admin-navbar-brand-icon ${brandImageUrl ? "has-image" : ""}`}>
+            {brandImageUrl ? (
+              <img
+                src={brandImageUrl}
+                alt={brandImageAlt ?? roleLabel ?? "Ảnh khách sạn"}
+              />
+            ) : BrandIcon ? (
+              <BrandIcon size={24} aria-hidden="true" />
+            ) : (
+              <span aria-hidden="true">E</span>
+            )}
           </span>
           <span className="admin-navbar-brand-copy">
             <span className="admin-navbar-wordmark">

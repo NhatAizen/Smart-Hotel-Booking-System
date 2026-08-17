@@ -1,0 +1,1014 @@
+/* =========================================================
+   EnziuRooms — Hotel Admin Experience Refresh
+   Scope: HOTEL ADMIN ONLY.
+   Business logic/data sources are untouched; this file only
+   standardizes hierarchy, spacing, cards, tables, forms, modal
+   surfaces and responsive behavior.
+   ========================================================= */
+
+.hotel-admin-experience {
+  --ha-bg: #f3f7f9;
+  --ha-card: #ffffff;
+  --ha-card-soft: #f8fbfc;
+  --ha-text: #17324b;
+  --ha-muted: #71869a;
+  --ha-border: #dfe8ee;
+  --ha-border-soft: #eaf0f4;
+  --ha-accent: #0d9488;
+  --ha-accent-dark: #08786f;
+  --ha-accent-soft: #eaf8f5;
+  --ha-blue: #2676c7;
+  --ha-warning: #bd7812;
+  --ha-danger: #c64f47;
+  --ha-shadow: 0 15px 38px rgba(30, 58, 81, 0.07);
+  --ha-shadow-soft: 0 8px 24px rgba(30, 58, 81, 0.045);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(18, 162, 149, 0.06), transparent 28rem),
+    radial-gradient(circle at 88% 10%, rgba(45, 118, 199, 0.045), transparent 30rem),
+    var(--ha-bg);
+  color: var(--ha-text);
+}
+
+.hotel-admin-experience .hotel-admin-main {
+  min-height: calc(100vh - 74px);
+  background: transparent;
+}
+
+.hotel-admin-experience .hotel-admin-content {
+  width: min(1520px, 100%);
+  padding: 30px clamp(20px, 3vw, 42px) 54px;
+}
+
+/* ---------- Top navigation ---------- */
+.admin-navbar-hotel {
+  border-bottom-color: rgba(214, 229, 233, 0.95);
+  background: rgba(255, 255, 255, 0.965);
+  box-shadow: 0 8px 28px rgba(18, 58, 73, 0.055);
+}
+
+.admin-navbar-hotel .admin-navbar-inner {
+  width: min(1520px, calc(100% - 34px));
+  min-height: 72px;
+  gap: 18px;
+}
+
+.admin-navbar-hotel .admin-navbar-brand-icon {
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0ea397, #087f78);
+  box-shadow: 0 10px 24px rgba(13, 148, 136, 0.23);
+}
+
+.admin-navbar-hotel .admin-navbar-wordmark {
+  font-size: 19px;
+  letter-spacing: -0.55px;
+}
+
+.admin-navbar-hotel .admin-navbar-brand-copy small {
+  color: #8a9ba8;
+}
+
+.admin-navbar-hotel .admin-navbar-link,
+.admin-navbar-hotel .admin-navbar-group-button {
+  min-height: 42px;
+  padding-inline: 11px;
+  border-radius: 12px;
+  color: #445b70;
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.admin-navbar-hotel .admin-navbar-link.active,
+.admin-navbar-hotel .admin-navbar-group-button.active {
+  box-shadow: none;
+  color: var(--ha-accent-dark);
+  background: #e9f8f5;
+}
+
+.admin-navbar-hotel .admin-navbar-link:hover,
+.admin-navbar-hotel .admin-navbar-group-button:hover {
+  transform: translateY(-1px);
+}
+
+.admin-navbar-hotel .admin-navbar-dropdown {
+  width: 250px;
+  padding: 9px;
+  border-color: #dce8ec;
+  border-radius: 16px;
+  box-shadow: 0 22px 56px rgba(21, 55, 76, 0.15);
+}
+
+.admin-navbar-hotel .admin-navbar-dropdown-link {
+  min-height: 46px;
+  justify-content: flex-start;
+}
+
+.admin-navbar-hotel .admin-navbar-account-button {
+  min-height: 48px;
+  border: 1px solid #e1eaee;
+  background: #fbfdfe;
+}
+
+.admin-navbar-hotel .admin-navbar-account-button:hover,
+.admin-navbar-hotel .admin-navbar-account-button.active {
+  border-color: #bfddd8;
+  background: #f2fbf9;
+}
+
+/* ---------- Shared page headings ---------- */
+.hotel-admin-experience :is(
+  .catalog-heading,
+  .wallet-page-heading,
+  .current-stays-heading,
+  .hotel-messages-heading,
+  .hotel-checkin-heading,
+  .notification-center-heading,
+  .profile-page-heading,
+  .promo-hero
+) {
+  position: relative;
+  margin-bottom: 2px;
+}
+
+.hotel-admin-experience :is(
+  .catalog-heading h1,
+  .wallet-page-heading h1,
+  .current-stays-heading h1,
+  .hotel-messages-heading h1,
+  .hotel-checkin-heading h1,
+  .notification-center-heading h1,
+  .profile-page-heading h1,
+  .promo-hero h1
+) {
+  color: #142f48;
+  font-size: clamp(29px, 3vw, 38px);
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+
+.hotel-admin-experience :is(
+  .catalog-heading p,
+  .wallet-page-heading p,
+  .current-stays-heading p,
+  .hotel-messages-heading p,
+  .hotel-checkin-heading p,
+  .notification-center-heading p,
+  .profile-page-heading p,
+  .promo-hero p
+) {
+  color: #73879a;
+  line-height: 1.65;
+}
+
+.hotel-admin-experience :is(
+  .catalog-kicker,
+  .wallet-page-kicker,
+  .promo-kicker,
+  .profile-page-kicker,
+  .notification-center-heading > div:first-child > span,
+  .current-stays-heading > div > span,
+  .hotel-messages-heading > div > span,
+  .hotel-checkin-heading > span
+) {
+  color: var(--ha-accent);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+}
+
+/* ---------- Universal cards ---------- */
+.hotel-admin-experience :is(
+  .catalog-card,
+  .wallet-panel,
+  .wallet-balance-card,
+  .promo-form-card,
+  .promo-table-card,
+  .promo-card,
+  .membership-card,
+  .current-stay-card,
+  .current-stays-summary article,
+  .checkin-scanner-card,
+  .checkin-result-card,
+  .profile-card,
+  .notification-center-list,
+  .hotel-chat-workspace
+) {
+  border-color: var(--ha-border);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: var(--ha-shadow-soft);
+}
+
+.hotel-admin-experience :is(
+  .catalog-card,
+  .wallet-panel,
+  .promo-form-card,
+  .promo-table-card,
+  .current-stay-card,
+  .checkin-scanner-card,
+  .checkin-result-card,
+  .profile-card,
+  .hotel-chat-workspace
+) {
+  border-radius: 20px;
+}
+
+/* ---------- Buttons ---------- */
+.hotel-admin-experience :is(
+  .catalog-primary,
+  .wallet-primary-button,
+  .promo-primary,
+  .profile-primary-button,
+  .checkin-input-row > button,
+  .checkin-complete-button,
+  .current-stay-actions button
+) {
+  border-color: var(--ha-accent);
+  background: linear-gradient(135deg, #11a397, #0b8e85);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(13, 148, 136, 0.16);
+}
+
+.hotel-admin-experience :is(
+  .catalog-primary,
+  .catalog-secondary,
+  .wallet-primary-button,
+  .wallet-secondary-button,
+  .wallet-refresh-button,
+  .promo-primary,
+  .promo-secondary,
+  .profile-primary-button,
+  .profile-secondary-button,
+  .hotel-messages-heading > button,
+  .current-stays-heading button
+) {
+  min-height: 43px;
+  border-radius: 11px;
+  font-weight: 820;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.hotel-admin-experience :is(
+  .catalog-primary,
+  .catalog-secondary,
+  .wallet-primary-button,
+  .wallet-secondary-button,
+  .wallet-refresh-button,
+  .promo-primary,
+  .promo-secondary,
+  .profile-primary-button,
+  .profile-secondary-button,
+  .hotel-messages-heading > button,
+  .current-stays-heading button
+):hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.hotel-admin-experience :is(
+  .catalog-secondary,
+  .wallet-secondary-button,
+  .wallet-refresh-button,
+  .promo-secondary,
+  .profile-secondary-button,
+  .hotel-messages-heading > button,
+  .current-stays-heading button
+) {
+  color: #365d72;
+  background: #ffffff;
+  border: 1px solid #d8e6eb;
+  box-shadow: none;
+}
+
+/* ---------- Inputs ---------- */
+.hotel-admin-experience :is(
+  .catalog-field input,
+  .catalog-field select,
+  .catalog-field textarea,
+  .wallet-form input,
+  .wallet-form select,
+  .wallet-form textarea,
+  .promo-form input,
+  .promo-form select,
+  .promo-form textarea,
+  .profile-input-wrap,
+  .profile-plain-input,
+  .profile-field textarea,
+  .notification-center-toolbar input,
+  .notification-center-toolbar select,
+  .hotel-chat-list-search,
+  .hotel-chat-admin-composer textarea
+) {
+  border-color: #d7e4ea;
+  border-radius: 11px;
+  background: #fff;
+}
+
+.hotel-admin-experience :is(
+  .catalog-field input,
+  .catalog-field select,
+  .catalog-field textarea,
+  .wallet-form input,
+  .wallet-form select,
+  .wallet-form textarea,
+  .promo-form input,
+  .promo-form select,
+  .promo-form textarea,
+  .profile-plain-input,
+  .profile-field textarea
+):focus {
+  border-color: #5bc0b7;
+  box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.09);
+}
+
+/* ---------- Tables ---------- */
+.hotel-admin-experience :is(.catalog-room-table, .wallet-table) {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.hotel-admin-experience :is(.catalog-room-table th, .wallet-table th) {
+  background: #f6f9fb;
+  color: #667b8d;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.hotel-admin-experience :is(.catalog-room-table td, .wallet-table td) {
+  color: #3f566c;
+}
+
+.hotel-admin-experience :is(.catalog-room-table tbody tr, .wallet-table tbody tr) {
+  transition: background 0.15s ease;
+}
+
+.hotel-admin-experience :is(.catalog-room-table tbody tr, .wallet-table tbody tr):hover {
+  background: #fbfefe;
+}
+
+/* ---------- Hotel catalog / create hotel / room types ---------- */
+.hotel-admin-experience .catalog-page {
+  width: min(1420px, 100%);
+  gap: 20px;
+}
+
+.hotel-admin-experience .catalog-heading {
+  align-items: flex-end;
+}
+
+.hotel-admin-experience .catalog-card {
+  padding: 22px;
+}
+
+.hotel-admin-experience .catalog-section-title > span {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  color: var(--ha-accent);
+  background: var(--ha-accent-soft);
+}
+
+.hotel-admin-experience .catalog-section-title h2 {
+  color: #17344c;
+  font-size: 19px;
+}
+
+.hotel-admin-experience .catalog-hotel-grid {
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 18px;
+}
+
+.hotel-admin-experience .catalog-hotel-card {
+  border-color: var(--ha-border);
+  border-radius: 20px;
+  box-shadow: var(--ha-shadow-soft);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.hotel-admin-experience .catalog-hotel-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--ha-shadow);
+}
+
+.hotel-admin-experience .catalog-hotel-cover {
+  height: 220px;
+}
+
+.hotel-admin-experience .catalog-hotel-body {
+  padding: 20px;
+}
+
+.hotel-admin-experience .catalog-hotel-body h2 {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+.hotel-admin-experience .catalog-counts div {
+  padding: 12px;
+  background: #f7fafb;
+  border: 1px solid #edf2f4;
+  border-radius: 11px;
+}
+
+.hotel-admin-experience .catalog-type-card {
+  border-radius: 18px;
+  border-color: #dfe9ee;
+  box-shadow: 0 8px 24px rgba(28, 58, 81, 0.045);
+}
+
+.hotel-admin-experience .catalog-tags span {
+  background: #f7fafb;
+  border-color: #e3eaee;
+  border-radius: 8px;
+}
+
+.hotel-admin-experience .catalog-modal {
+  border-radius: 22px;
+  box-shadow: 0 30px 90px rgba(9, 28, 43, 0.28);
+}
+
+/* ---------- Current stays ---------- */
+.hotel-admin-experience .current-stays-page {
+  width: min(1420px, 100%);
+  margin-inline: auto;
+  padding: 0;
+}
+
+.hotel-admin-experience .current-stays-summary {
+  gap: 14px;
+}
+
+.hotel-admin-experience .current-stays-summary article {
+  min-height: 106px;
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.hotel-admin-experience .current-stays-summary article > span {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  color: var(--ha-accent);
+  background: var(--ha-accent-soft);
+}
+
+.hotel-admin-experience .current-stay-top {
+  padding: 20px 22px;
+  background: linear-gradient(180deg, #ffffff, #fcfefe);
+}
+
+.hotel-admin-experience .current-stay-grid {
+  gap: 14px;
+}
+
+.hotel-admin-experience .current-stay-info {
+  min-height: 142px;
+  border: 1px solid #e7eef2;
+  border-radius: 14px;
+  background: #f8fbfc;
+}
+
+.hotel-admin-experience .current-stay-info.important {
+  border-color: #cfe6e2;
+  background: #f3fbf9;
+}
+
+.hotel-admin-experience .current-stay-actions {
+  background: #fbfdfd;
+}
+
+/* ---------- Check-in ---------- */
+.hotel-admin-experience .hotel-checkin-page {
+  width: min(1380px, 100%);
+  margin-inline: auto;
+}
+
+.hotel-admin-experience .checkin-scanner-card,
+.hotel-admin-experience .checkin-result-card {
+  padding: 24px;
+}
+
+.hotel-admin-experience .checkin-scanner-copy > span,
+.hotel-admin-experience .checkin-result-icon {
+  color: var(--ha-accent);
+  background: var(--ha-accent-soft);
+}
+
+.hotel-admin-experience .checkin-camera-frame {
+  border: 5px solid #f2f7f8;
+  box-shadow: 0 18px 44px rgba(16, 43, 60, 0.14);
+}
+
+.hotel-admin-experience .checkin-camera-guide span {
+  border-color: #36d6b3;
+}
+
+.hotel-admin-experience .checkin-guest-card,
+.hotel-admin-experience .checkin-stay-card,
+.hotel-admin-experience .checkin-payment-card {
+  border-color: #e2ebef;
+  border-radius: 15px;
+  background: #f8fbfc;
+}
+
+/* ---------- Wallet + refunds ---------- */
+.hotel-admin-experience .wallet-page {
+  width: min(1450px, 100%);
+  margin-inline: auto;
+  gap: 20px;
+}
+
+.hotel-admin-experience .wallet-balance-grid {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+.hotel-admin-experience .wallet-balance-card {
+  min-height: 132px;
+  padding: 18px;
+  border-radius: 18px;
+}
+
+.hotel-admin-experience .wallet-balance-card .icon {
+  color: var(--ha-accent);
+  background: var(--ha-accent-soft);
+}
+
+.hotel-admin-experience .wallet-panel-header {
+  padding: 18px 20px;
+  background: linear-gradient(180deg, #ffffff, #fcfefe);
+}
+
+.hotel-admin-experience .wallet-panel-header h2 {
+  color: #17344d;
+}
+
+.hotel-admin-experience .wallet-helper {
+  color: #537285;
+  background: #f1f8f7;
+  border: 1px solid #dceeea;
+}
+
+.hotel-admin-experience .wallet-debt-notice {
+  border-radius: 15px;
+}
+
+.hotel-admin-experience .refund-workflow-panel {
+  border-color: #d8e7ec;
+  box-shadow: var(--ha-shadow);
+}
+
+.hotel-admin-experience .refund-workflow-panel .wallet-panel-header {
+  background: linear-gradient(135deg, #f4fbfa, #ffffff);
+}
+
+.hotel-admin-experience .refund-flow-help {
+  margin: 0 20px 18px;
+  border: 1px solid #d7e8f2;
+  border-radius: 14px;
+  background: #f3f9fd;
+  color: #547088;
+  line-height: 1.6;
+}
+
+.hotel-admin-experience .refund-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.hotel-admin-experience .refund-action-buttons button {
+  min-height: 34px;
+  padding: 0 11px;
+  border-radius: 9px;
+  font-weight: 800;
+}
+
+.hotel-admin-experience .refund-action-buttons button.primary {
+  color: #fff;
+  border: 1px solid var(--ha-accent);
+  background: var(--ha-accent);
+}
+
+.hotel-admin-experience .refund-action-buttons button.danger {
+  color: #b64842;
+  border: 1px solid #f0d0cd;
+  background: #fff5f4;
+}
+
+.hotel-admin-experience .refund-bank-mini {
+  margin-top: 7px;
+  color: #7b8f9e;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.hotel-admin-experience .wallet-modal-backdrop {
+  background: rgba(11, 31, 46, 0.58);
+  backdrop-filter: blur(5px);
+}
+
+.hotel-admin-experience :is(.wallet-withdrawal-modal, .wallet-proof-modal, .wallet-qr-modal) {
+  border-radius: 22px;
+  box-shadow: 0 30px 90px rgba(8, 26, 39, 0.3);
+}
+
+/* ---------- Promotions ---------- */
+.hotel-admin-experience .promo-page {
+  width: min(1420px, 100%);
+  margin-inline: auto;
+  gap: 20px;
+}
+
+.hotel-admin-experience .hotel-admin-page-hero {
+  align-items: flex-end;
+}
+
+.hotel-admin-experience .hotel-admin-mini-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.hotel-admin-experience .hotel-admin-mini-stat-grid article {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 98px;
+  padding: 17px;
+  border: 1px solid var(--ha-border);
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: var(--ha-shadow-soft);
+}
+
+.hotel-admin-experience .hotel-admin-mini-stat-grid article > span {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  border-radius: 13px;
+  color: var(--ha-accent);
+  background: var(--ha-accent-soft);
+}
+
+.hotel-admin-experience .hotel-admin-mini-stat-grid article div {
+  display: grid;
+  gap: 3px;
+}
+
+.hotel-admin-experience .hotel-admin-mini-stat-grid small {
+  color: #8194a5;
+  font-size: 11px;
+}
+
+.hotel-admin-experience .hotel-admin-mini-stat-grid strong {
+  color: #17344d;
+  font-size: 24px;
+}
+
+.hotel-admin-experience .hotel-admin-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 18px;
+}
+
+.hotel-admin-experience .hotel-admin-card-heading > span {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: var(--ha-accent);
+  background: var(--ha-accent-soft);
+}
+
+.hotel-admin-experience .hotel-admin-card-heading h2 {
+  margin: 0;
+  color: #17344c;
+  font-size: 18px;
+}
+
+.hotel-admin-experience .hotel-admin-card-heading p {
+  margin: 4px 0 0;
+  color: #8495a4;
+  font-size: 11px;
+}
+
+.hotel-admin-experience .promo-two-col {
+  grid-template-columns: minmax(0, 1.02fr) minmax(390px, 0.78fr);
+}
+
+.hotel-admin-experience .promo-item {
+  border-color: #e3ecef;
+  border-radius: 15px;
+  background: #fbfdfd;
+}
+
+.hotel-admin-experience .promo-code {
+  color: #087b72;
+  background: #eaf8f5;
+}
+
+.hotel-admin-experience .promo-discount {
+  color: #17344d;
+}
+
+.hotel-admin-experience .promo-status.active {
+  color: #087b61;
+  background: #e7f8f2;
+}
+
+.hotel-admin-experience .hotel-admin-empty-soft {
+  min-height: 240px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: #8698a6;
+  text-align: center;
+}
+
+.hotel-admin-experience .hotel-admin-empty-soft strong {
+  color: #345066;
+}
+
+/* ---------- Messages ---------- */
+.hotel-admin-experience .hotel-messages-page {
+  width: min(1480px, 100%);
+  min-height: auto;
+  margin-inline: auto;
+  padding: 0;
+  background: transparent;
+}
+
+.hotel-admin-experience .hotel-chat-workspace {
+  max-width: none;
+  height: min(760px, calc(100vh - 180px));
+  min-height: 610px;
+  border-radius: 22px;
+}
+
+.hotel-admin-experience .hotel-chat-list-panel {
+  background: #fbfdfd;
+}
+
+.hotel-admin-experience .hotel-chat-list-summary {
+  background: linear-gradient(180deg, #f4fbf9, #fbfdfd);
+}
+
+.hotel-admin-experience .hotel-chat-conversation-item:hover,
+.hotel-admin-experience .hotel-chat-conversation-item.active {
+  background: #eaf8f5;
+}
+
+.hotel-admin-experience .hotel-chat-conversation-item.active {
+  box-shadow: inset 3px 0 var(--ha-accent);
+}
+
+.hotel-admin-experience .hotel-chat-conversation-avatar {
+  background: linear-gradient(135deg, #0fa194, #2a86bd);
+}
+
+.hotel-admin-experience .hotel-chat-thread-panel {
+  background: #f8fbfc;
+}
+
+.hotel-admin-experience .hotel-chat-bot-control {
+  background: #f1faf8;
+  border-color: #d6ece8;
+}
+
+.hotel-admin-experience .hotel-chat-admin-composer {
+  background: #fff;
+  border-top-color: #e3ecef;
+}
+
+/* ---------- Notifications ---------- */
+.hotel-admin-experience .notification-center {
+  width: min(1350px, 100%);
+  margin-inline: auto;
+}
+
+.hotel-admin-experience .notification-center-summary {
+  gap: 12px;
+}
+
+.hotel-admin-experience .notification-center-summary > div {
+  border: 1px solid var(--ha-border);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--ha-shadow-soft);
+}
+
+.hotel-admin-experience .notification-center-list {
+  overflow: hidden;
+  border-radius: 20px;
+}
+
+.hotel-admin-experience .notification-center-item {
+  padding: 18px 20px;
+}
+
+.hotel-admin-experience .notification-center-item.unread {
+  background: #f3fbf9;
+}
+
+/* ---------- Profile ---------- */
+.hotel-admin-experience .profile-page-shell {
+  width: min(1380px, 100%);
+  margin-inline: auto;
+}
+
+.hotel-admin-experience .profile-card {
+  border-radius: 20px;
+}
+
+.hotel-admin-experience .profile-identity-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbfb 100%);
+}
+
+.hotel-admin-experience .profile-role-pill,
+.hotel-admin-experience .profile-role-badge {
+  color: #087a72;
+  background: #eaf8f5;
+}
+
+.hotel-admin-experience .profile-title-icon.teal,
+.hotel-admin-experience .profile-title-icon {
+  color: var(--ha-accent);
+  background: var(--ha-accent-soft);
+}
+
+/* ---------- Empty states / alerts ---------- */
+.hotel-admin-experience :is(
+  .catalog-empty,
+  .current-stays-empty,
+  .notification-center-empty,
+  .hotel-chat-admin-empty,
+  .hotel-chat-thread-empty,
+  .wallet-empty
+) {
+  color: #8296a6;
+}
+
+.hotel-admin-experience :is(.catalog-notice.success, .wallet-message, .current-stays-success, .promo-message) {
+  color: #117052;
+  background: #ebf8f2;
+  border-color: #ccebdd;
+}
+
+.hotel-admin-experience :is(.catalog-notice.error, .wallet-error, .promo-message.error, .hotel-chat-admin-error) {
+  color: #a8423d;
+  background: #fff3f2;
+  border-color: #f1d0cd;
+}
+
+/* ---------- Dashboard additions ---------- */
+.hotel-admin-experience .hotel-dashboard-v2 {
+  width: min(1480px, 100%);
+  margin-inline: auto;
+}
+
+.hotel-admin-experience .hotel-dashboard-focus-card,
+.hotel-admin-experience .hotel-dashboard-panel,
+.hotel-admin-experience .hotel-dashboard-revenue-card,
+.hotel-admin-experience .hotel-dashboard-operation-card,
+.hotel-admin-experience .hotel-dashboard-quick-links > a {
+  border-color: var(--ha-border);
+}
+
+.hotel-admin-experience .hotel-dashboard-focus-card {
+  box-shadow: var(--ha-shadow);
+}
+
+/* ---------- Modal standardization ---------- */
+.hotel-admin-experience :is(.catalog-modal-backdrop, .wallet-modal-backdrop, .admin-modal-layer, .room-detail-backdrop) {
+  background: rgba(10, 29, 42, 0.58);
+  backdrop-filter: blur(5px);
+}
+
+.hotel-admin-experience :is(.catalog-modal, .admin-modal, .room-detail-modal) {
+  border: 1px solid rgba(221, 232, 237, 0.9);
+  border-radius: 22px;
+  box-shadow: 0 30px 90px rgba(8, 26, 39, 0.3);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1280px) {
+  .hotel-admin-experience .hotel-admin-content {
+    padding-inline: 24px;
+  }
+
+  .hotel-admin-experience .hotel-admin-mini-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hotel-admin-experience .promo-two-col,
+  .hotel-admin-experience .wallet-content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .hotel-admin-experience .hotel-admin-content {
+    padding: 24px 16px 42px;
+  }
+
+  .hotel-admin-experience :is(
+    .catalog-heading,
+    .wallet-page-heading,
+    .current-stays-heading,
+    .hotel-messages-heading,
+    .promo-hero
+  ) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hotel-admin-experience .hotel-admin-mini-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hotel-admin-experience .wallet-balance-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hotel-admin-experience .hotel-chat-workspace {
+    height: auto;
+    min-height: 680px;
+  }
+}
+
+@media (max-width: 620px) {
+  .hotel-admin-experience .hotel-admin-content {
+    padding-inline: 12px;
+  }
+
+  .hotel-admin-experience .wallet-balance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hotel-admin-experience .catalog-card,
+  .hotel-admin-experience .promo-form-card,
+  .hotel-admin-experience .promo-table-card,
+  .hotel-admin-experience .wallet-panel {
+    border-radius: 17px;
+  }
+}
+
+.hotel-admin-experience .hotel-dashboard-booking-row {
+  grid-template-columns: minmax(130px, 1.15fr) minmax(150px, .95fr) 65px 92px 95px auto;
+}
+
+.hotel-admin-experience .hotel-dashboard-no-show-button {
+  min-height: 34px;
+  align-self: center;
+  justify-self: end;
+  border-radius: 9px;
+  border: 1px solid #f0c89a;
+  background: #fff7ed;
+  color: #b85a0d;
+}
+
+@media (max-width: 800px) {
+  .hotel-admin-experience .hotel-dashboard-booking-row {
+    grid-template-columns: 1fr auto;
+  }
+}
+
+.hotel-admin-experience .refund-workflow-panel > .wallet-helper {
+  margin: 18px 20px;
+  border: 1px solid #d7e8f2;
+  border-radius: 14px;
+  background: #f3f9fd;
+  color: #547088;
+  line-height: 1.6;
+}
+
+.hotel-admin-experience .wallet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.hotel-admin-experience .wallet-actions > button {
+  min-height: 34px;
+  padding: 0 11px;
+  border-radius: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hotel-admin-experience .wallet-actions > button.primary {
+  border: 1px solid var(--ha-accent);
+  background: var(--ha-accent);
+  color: #fff;
+}
+
+.hotel-admin-experience .wallet-actions > button.danger {
+  border: 1px solid #f0d0cd;
+  background: #fff5f4;
+  color: #b64842;
+}

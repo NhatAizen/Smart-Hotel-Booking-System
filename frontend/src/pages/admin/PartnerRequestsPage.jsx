@@ -30,6 +30,7 @@ import {
   rejectPartnerDeactivationRequest,
   rejectPartnerRequest,
 } from "../../services/adminService";
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 
 const DEACTIVATION_CHECKS = [
   ["currentStayCount", "Khách đang lưu trú"],
@@ -148,6 +149,8 @@ export default function PartnerRequestsPage() {
     loadItems();
   }, [loadItems]);
 
+  useRealtimeRefresh("NOTIFICATION_CREATED", loadItems, { debounceMs: 120 });
+
   useEffect(() => {
     let active = true;
     let frontUrl = "";
@@ -177,7 +180,7 @@ export default function PartnerRequestsPage() {
         if (active) {
           setDocumentsError(
             requestError.response?.data?.message ??
-              "Không thể tải ảnh CCCD private.",
+              "Không thể tải ảnh CCCD.",
           );
         }
       } finally {
@@ -228,7 +231,7 @@ export default function PartnerRequestsPage() {
         if (active) {
           setEvidenceError(
             requestError.response?.data?.message ??
-              "Không thể tải ảnh camera eKYC private.",
+              "Không thể tải ảnh xác minh khuôn mặt.",
           );
         }
       } finally {
@@ -313,7 +316,7 @@ export default function PartnerRequestsPage() {
       setDeactivationEligibility(null);
       setDeactivationError(
         requestError.response?.data?.message ??
-          "Không thể kiểm tra điều kiện chuyển tài khoản về Customer.",
+          "Không thể kiểm tra điều kiện chuyển tài khoản về khách hàng.",
       );
       return null;
     } finally {
@@ -349,7 +352,7 @@ export default function PartnerRequestsPage() {
       return;
     }
     if (deactivationAction === "approve" && !deactivationEligibility?.eligible) {
-      setDeactivationError("Tài khoản chưa đáp ứng đủ điều kiện để chuyển về Customer.");
+      setDeactivationError("Tài khoản chưa đáp ứng đủ điều kiện để chuyển về khách hàng.");
       return;
     }
 
@@ -386,7 +389,7 @@ export default function PartnerRequestsPage() {
     <div className="admin-page">
       <div className="admin-page-heading">
         <div>
-          <span className="admin-eyebrow">PARTNER REQUESTS</span>
+          <span className="admin-eyebrow">HỒ SƠ ĐỐI TÁC</span>
           <h1>Yêu cầu đối tác</h1>
           <p>
             Duyệt hồ sơ trở thành đối tác và yêu cầu ngừng đối tác trên EnziuRooms.
@@ -402,8 +405,8 @@ export default function PartnerRequestsPage() {
       <div className="admin-partner-section-heading">
         <div>
           <span>ĐĂNG KÝ ĐỐI TÁC</span>
-          <h2>Yêu cầu trở thành Hotel Admin</h2>
-          <p>Kiểm tra OCR, eKYC và ảnh CCCD private trước khi cấp quyền.</p>
+          <h2>Hồ sơ đăng ký đối tác</h2>
+          <p>Kiểm tra thông tin CCCD và kết quả xác minh trước khi duyệt.</p>
         </div>
         <strong>{items.length}</strong>
       </div>
@@ -482,7 +485,7 @@ export default function PartnerRequestsPage() {
           <div className="admin-partner-section-heading">
             <div>
               <span>NGỪNG ĐỐI TÁC</span>
-              <h2>Yêu cầu chuyển về Customer</h2>
+              <h2>Yêu cầu ngừng làm đối tác</h2>
               <p>Kiểm tra lại toàn bộ điều kiện vận hành và tài chính trước khi duyệt.</p>
             </div>
             <strong>{deactivationItems.length}</strong>
@@ -497,7 +500,7 @@ export default function PartnerRequestsPage() {
           ) : (
             <div className="admin-card-list">
               {deactivationItems.map((item) => {
-                const fullName = item.fullName ?? item.userFullName ?? item.requesterName ?? "Hotel Admin";
+                const fullName = item.fullName ?? item.userFullName ?? item.requesterName ?? "Đối tác";
                 const email = item.email ?? item.userEmail ?? "—";
                 return (
                   <article key={item.id} className="admin-review-card admin-deactivation-card">
@@ -533,7 +536,7 @@ export default function PartnerRequestsPage() {
                         className="admin-approve-button"
                         onClick={() => openDeactivationReview(item, "approve")}
                       >
-                        <Building2 size={17} /> Chuyển về Customer
+                        <Building2 size={17} /> Chuyển về khách hàng
                       </button>
                     </div>
                   </article>
@@ -565,7 +568,7 @@ export default function PartnerRequestsPage() {
               <div>
                 <strong>{selected.ekycVerified ? "eKYC đã xác minh người thật" : "eKYC chưa hợp lệ"}</strong>
                 <small>
-                  Liveness: {selected.livenessVerified ? "Đạt" : "Chưa đạt"} · Face match: {selected.faceVerified ? "Đạt" : "Chưa đạt"} · Cosine similarity: {formatSimilarity(selected.faceSimilarity)} · Ảnh bằng chứng: {selected.ekycEvidenceAvailable ? "Có" : "Thiếu"}
+                  Người thật: {selected.livenessVerified ? "Đạt" : "Chưa đạt"} · Khuôn mặt: {selected.faceVerified ? "Khớp" : "Chưa khớp"} · Độ tương đồng: {formatSimilarity(selected.faceSimilarity)} · Ảnh đối chiếu: {selected.ekycEvidenceAvailable ? "Có" : "Thiếu"}
                 </small>
               </div>
             </div>
@@ -573,13 +576,13 @@ export default function PartnerRequestsPage() {
             <div className="partner-admin-identity-compare">
               <div className="partner-admin-documents-heading">
                 <span>ĐỐI CHIẾU DANH TÍNH eKYC</span>
-                <small>Ảnh camera được lưu tự động từ đúng lần quét đã PASS; người dùng không thể thay ảnh sau khi xác minh.</small>
+                <small>Ảnh camera được lấy từ lần xác minh thành công để đối chiếu với CCCD.</small>
               </div>
 
               <div className="partner-admin-compare-status">
                 <ShieldCheck size={18} />
                 <div>
-                  <strong>System Admin kiểm tra thủ công trước khi duyệt</strong>
+                  <strong>Kiểm tra thủ công trước khi duyệt</strong>
                   <small>So sánh khuôn mặt trên CCCD với ảnh camera eKYC thành công bên dưới.</small>
                 </div>
               </div>
@@ -599,13 +602,13 @@ export default function PartnerRequestsPage() {
                     </div>
                     <figcaption>
                       <ScanLine size={16} />
-                      <span><strong>Ảnh CCCD mặt trước</strong><small>Nguồn: hồ sơ định danh private</small></span>
+                      <span><strong>Ảnh CCCD mặt trước</strong><small>Ảnh từ hồ sơ xác minh</small></span>
                     </figcaption>
                   </figure>
                   <figure className="verified-evidence">
                     <div className="partner-admin-compare-image">
                       <img src={evidenceUrl} alt="Ảnh camera lúc eKYC thành công" />
-                      <span className="partner-admin-evidence-badge"><CheckCircle2 size={14} /> eKYC PASS</span>
+                      <span className="partner-admin-evidence-badge"><CheckCircle2 size={14} /> Đã xác minh</span>
                     </div>
                     <figcaption>
                       <Camera size={16} />
@@ -649,7 +652,7 @@ export default function PartnerRequestsPage() {
             <div className="partner-admin-documents">
               <div className="partner-admin-documents-heading">
                 <span>ẢNH CCCD PRIVATE</span>
-                <small>Ảnh CCCD và ảnh eKYC đều private, chỉ System Admin có quyền kiểm duyệt mới tải được.</small>
+                <small>Ảnh CCCD và ảnh xác minh chỉ hiển thị trong màn hình xét duyệt này.</small>
               </div>
               {documentsLoading ? (
                 <div className="partner-admin-doc-loading"><Loading /></div>
@@ -661,7 +664,7 @@ export default function PartnerRequestsPage() {
                   <figure><img src={documentUrls.back} alt="CCCD mặt sau" /><figcaption>Mặt sau</figcaption></figure>
                 </div>
               ) : (
-                <div className="partner-admin-doc-error">Hồ sơ cũ chưa có ảnh CCCD private.</div>
+                <div className="partner-admin-doc-error">Hồ sơ cũ chưa có ảnh CCCD để đối chiếu.</div>
               )}
             </div>
           </section>
@@ -700,10 +703,10 @@ export default function PartnerRequestsPage() {
           >
             <div className="admin-modal-header">
               <div>
-                <span>PARTNER DEACTIVATION</span>
+                <span>NGỪNG LÀM ĐỐI TÁC</span>
                 <h2 id="admin-deactivation-review-title">
                   {deactivationAction === "approve"
-                    ? "Chuyển về Customer"
+                    ? "Chuyển về khách hàng"
                     : "Từ chối yêu cầu"}
                 </h2>
               </div>
@@ -724,7 +727,7 @@ export default function PartnerRequestsPage() {
                   {deactivationReview.fullName ??
                     deactivationReview.userFullName ??
                     deactivationReview.requesterName ??
-                    "Hotel Admin"}
+                    "Đối tác"}
                 </strong>
                 <small>{deactivationReview.email ?? deactivationReview.userEmail ?? "—"}</small>
                 <p>{deactivationReview.reason || "Không có lý do từ người gửi."}</p>
@@ -763,7 +766,7 @@ export default function PartnerRequestsPage() {
             ) : (
               <div className="admin-role-change-note reject">
                 <AlertTriangle size={20} />
-                <p>Tài khoản vẫn giữ quyền Hotel Admin khi yêu cầu bị từ chối.</p>
+                <p>Tài khoản đối tác vẫn hoạt động khi yêu cầu bị từ chối.</p>
               </div>
             )}
 
@@ -827,7 +830,7 @@ export default function PartnerRequestsPage() {
                 {busyId === deactivationReview.id
                   ? "Đang xử lý..."
                   : deactivationAction === "approve"
-                    ? "Xác nhận chuyển về Customer"
+                    ? "Xác nhận chuyển về khách hàng"
                     : "Xác nhận từ chối"}
               </button>
             </div>

@@ -10,6 +10,7 @@ import {
   Hotel,
   ImageOff,
   MapPin,
+  MessageCircle,
   QrCode,
   ReceiptText,
   RefreshCw,
@@ -29,9 +30,11 @@ import {
 import { Link, useLocation } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
 import ReviewFormModal from "../../components/review/ReviewFormModal";
+import CustomerHotelChat from "../../components/chat/CustomerHotelChat";
 import {
   cancelBooking,
   getBookingQrBlob,
@@ -44,7 +47,13 @@ import {
   getRoomById,
   getRoomTypeById,
 } from "../../services/hotelService";
-import { createPayOsCheckout } from "../../services/paymentService";
+import {
+  createPayOsCheckout,
+  createRefundRequest,
+  getMyRefundRequests,
+  getRefundHotelProof,
+} from "../../services/paymentService";
+import { getCustomerConversations } from "../../services/chatService";
 import { scrollToHashTarget } from "../../utils/notificationNavigation";
 import "./BookingsPage.css";
 
@@ -111,6 +120,7 @@ function statusLabel(value) {
       CONFIRMED: "Đã xác nhận",
       CHECKED_IN: "Đang lưu trú",
       CHECKED_OUT: "Đã trả phòng",
+      NO_SHOW: "Không đến nhận phòng",
       CANCELLED: "Đã hủy",
     }[value] ?? value
   );
@@ -120,6 +130,7 @@ function statusTone(value) {
   if (value === "CONFIRMED") return "confirmed";
   if (value === "CHECKED_IN") return "staying";
   if (value === "CHECKED_OUT") return "completed";
+  if (value === "NO_SHOW") return "no-show";
   if (value === "CANCELLED") return "cancelled";
   return "pending";
 }
@@ -163,7 +174,7 @@ function bookingMatchesFilter(booking, filter) {
 
   if (filter === "PAYMENT") {
     return Number(booking.remainingAmount ?? 0) > 0
-      && !["CANCELLED", "CHECKED_OUT"].includes(booking.status);
+      && !["CANCELLED", "CHECKED_OUT", "NO_SHOW"].includes(booking.status);
   }
 
   if (filter === "UPCOMING") {
@@ -172,16 +183,20 @@ function bookingMatchesFilter(booking, filter) {
 
   if (filter === "STAYING") return booking.status === "CHECKED_IN";
   if (filter === "COMPLETED") return booking.status === "CHECKED_OUT";
-  if (filter === "CANCELLED") return booking.status === "CANCELLED";
+  if (filter === "CANCELLED") return ["CANCELLED", "NO_SHOW"].includes(booking.status);
   return true;
 }
 
 function canHideBooking(booking) {
-  return ["CANCELLED", "CHECKED_OUT"].includes(booking.status);
+  return ["CANCELLED", "CHECKED_OUT", "NO_SHOW"].includes(booking.status);
 }
 
 function canCancelBooking(booking) {
-  return !["CANCELLED", "CHECKED_IN", "CHECKED_OUT"].includes(booking.status);
+  return !["CANCELLED", "CHECKED_IN", "CHECKED_OUT", "NO_SHOW"].includes(booking.status);
+}
+
+function canChatWithHotel(booking) {
+  return ["CONFIRMED", "CHECKED_IN", "CHECKED_OUT", "NO_SHOW"].includes(booking.status);
 }
 
 function canContinuePayment(booking) {
@@ -189,6 +204,25 @@ function canContinuePayment(booking) {
     && Number(booking.remainingAmount ?? 0) > 0
     && ["PENDING_PAYMENT", "CONFIRMED"].includes(booking.status)
     && booking.paymentStatus !== "PAID";
+}
+
+function canRequestRefund(booking) {
+  if (Number(booking?.paidAmount ?? 0) <= 0 || booking?.paymentStatus === "REFUNDED") return false;
+
+  // Không cho khách tự yêu cầu hoàn chỉ vì đã tới ngày check-in.
+  // Hotel Admin phải xác nhận NO_SHOW (sau grace period) hoặc booking đã CANCELLED.
+  // Nhờ vậy UI không tạo cảm giác NO_SHOW = tự động được hoàn tiền.
+  return ["NO_SHOW", "CANCELLED"].includes(booking?.status);
+}
+
+function refundStatusLabel(value) {
+  return ({
+    PENDING_HOTEL_REVIEW: "Chờ khách sạn duyệt",
+    APPROVED: "Đã duyệt - chờ hoàn",
+    PARTIALLY_COMPLETED: "Đã hoàn một phần",
+    COMPLETED: "Đã hoàn tất",
+    REJECTED: "Bị từ chối",
+  }[value] ?? value);
 }
 
 export default function BookingsPage() {
@@ -207,6 +241,19 @@ export default function BookingsPage() {
   const [modalLoading, setModalLoading] = useState(false);
   const [reviewsByBooking, setReviewsByBooking] = useState({});
   const [reviewBooking, setReviewBooking] = useState(null);
+  const [chatBooking, setChatBooking] = useState(null);
+  const [chatByBooking, setChatByBooking] = useState({});
+  const [refundByBooking, setRefundByBooking] = useState({});
+  const [refundBooking, setRefundBooking] = useState(null);
+  const [refundBusy, setRefundBusy] = useState(false);
+  const [refundProofUrl, setRefundProofUrl] = useState("");
+  const [refundForm, setRefundForm] = useState({
+    reasonCode: "CANNOT_ARRIVE",
+    note: "",
+    bankName: "",
+    accountNumber: "",
+    accountName: "",
+  });
 
   const loadMetadata = useCallback(async (items) => {
     const entries = await Promise.all(
@@ -234,6 +281,22 @@ export default function BookingsPage() {
     setMetadata(Object.fromEntries(entries));
   }, []);
 
+  const loadChatSummaries = useCallback(async () => {
+    try {
+      const conversations = await getCustomerConversations();
+      setChatByBooking(
+        Object.fromEntries(
+          conversations
+            .filter((conversation) => conversation?.bookingId)
+            .map((conversation) => [String(conversation.bookingId), conversation]),
+        ),
+      );
+    } catch {
+      // Chat service có thể chưa khởi động; không được làm hỏng trang booking.
+      setChatByBooking({});
+    }
+  }, []);
+
   const loadBookings = useCallback(async () => {
     if (!customerId) return;
 
@@ -241,12 +304,14 @@ export default function BookingsPage() {
     setError("");
 
     try {
-      const [data, reviewData] = await Promise.all([
+      const [data, reviewData, refundData] = await Promise.all([
         getMyBookings(customerId),
         getMyReviews().catch(() => []),
+        getMyRefundRequests().catch(() => []),
       ]);
       const normalized = Array.isArray(data) ? data : [];
       const normalizedReviews = Array.isArray(reviewData) ? reviewData : [];
+      const normalizedRefunds = Array.isArray(refundData) ? refundData : [];
 
       setBookings(normalized);
       setReviewsByBooking(
@@ -254,7 +319,15 @@ export default function BookingsPage() {
           normalizedReviews.map((review) => [review.bookingId, review]),
         ),
       );
-      await loadMetadata(normalized);
+      setRefundByBooking(
+        Object.fromEntries(
+          normalizedRefunds.map((item) => [String(item.bookingId), item]),
+        ),
+      );
+      await Promise.all([
+        loadMetadata(normalized),
+        loadChatSummaries(),
+      ]);
     } catch (requestError) {
       setError(
         requestError.response?.data?.message
@@ -263,11 +336,17 @@ export default function BookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [customerId, loadMetadata]);
+  }, [customerId, loadChatSummaries, loadMetadata]);
 
   useEffect(() => {
     void loadBookings();
   }, [loadBookings]);
+
+  useRealtimeRefresh(
+    ["NOTIFICATION_CREATED", "AVAILABILITY_CHANGED"],
+    loadBookings,
+    { debounceMs: 140 },
+  );
 
   useEffect(() => {
     if (!location.hash || loading) return undefined;
@@ -298,6 +377,94 @@ export default function BookingsPage() {
   useEffect(() => () => {
     if (qrUrl) URL.revokeObjectURL(qrUrl);
   }, [qrUrl]);
+
+  useEffect(() => () => {
+    if (refundProofUrl) URL.revokeObjectURL(refundProofUrl);
+  }, [refundProofUrl]);
+
+  function openRefundRequest(booking) {
+    setRefundBooking(booking);
+    setRefundForm({
+      reasonCode: "CANNOT_ARRIVE",
+      note: "",
+      bankName: "",
+      accountNumber: "",
+      accountName: "",
+    });
+    if (refundProofUrl) URL.revokeObjectURL(refundProofUrl);
+    setRefundProofUrl("");
+  }
+
+  function closeRefundRequest() {
+    setRefundBooking(null);
+    if (refundProofUrl) URL.revokeObjectURL(refundProofUrl);
+    setRefundProofUrl("");
+  }
+
+  async function submitRefundRequest(event) {
+    event.preventDefault();
+    if (!refundBooking || refundBusy) return;
+    setRefundBusy(true);
+    setError("");
+    try {
+      const created = await createRefundRequest({
+        bookingId: refundBooking.id,
+        ...refundForm,
+      });
+      setRefundByBooking((current) => ({
+        ...current,
+        [String(refundBooking.id)]: created,
+      }));
+      await loadBookings();
+    } catch (requestError) {
+      setError(requestError.response?.data?.message ?? "Không thể gửi yêu cầu hoàn tiền.");
+    } finally {
+      setRefundBusy(false);
+    }
+  }
+
+  async function openRefundProof(item) {
+    if (!item?.hotelRefundProofAvailable) return;
+    setRefundBusy(true);
+    try {
+      const blob = await getRefundHotelProof(item.id);
+      if (refundProofUrl) URL.revokeObjectURL(refundProofUrl);
+      setRefundProofUrl(URL.createObjectURL(blob));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message ?? "Không thể tải chứng từ hoàn tiền.");
+    } finally {
+      setRefundBusy(false);
+    }
+  }
+
+  const handleConversationUpdated = useCallback((conversation) => {
+    if (!conversation?.bookingId) return;
+
+    const bookingId = String(conversation.bookingId);
+
+    setChatByBooking((current) => {
+      const previous = current[bookingId];
+
+      if (
+        previous?.id === conversation.id &&
+        previous?.unreadCount === conversation.unreadCount &&
+        previous?.arrivalStatus === conversation.arrivalStatus &&
+        previous?.expectedArrivalTime === conversation.expectedArrivalTime &&
+        previous?.humanTakeover === conversation.humanTakeover &&
+        previous?.lastMessageAt === conversation.lastMessageAt
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [bookingId]: {
+          ...(previous ?? {}),
+          ...conversation,
+        },
+      };
+    });
+  }, []);
 
   const filteredBookings = useMemo(
     () => bookings.filter((booking) => bookingMatchesFilter(booking, filter)),
@@ -386,7 +553,7 @@ export default function BookingsPage() {
 
   async function handleHide(booking) {
     const accepted = window.confirm(
-      "Ẩn đơn này khỏi danh sách của bạn? Dữ liệu vẫn được hệ thống lưu để đối soát.",
+      "Ẩn đơn này khỏi danh sách của bạn? Đơn vẫn được lưu trong lịch sử để tra cứu khi cần.",
     );
     if (!accepted) return;
 
@@ -616,6 +783,24 @@ export default function BookingsPage() {
                         Xem chi tiết
                       </button>
 
+                      {canChatWithHotel(booking) ? (
+                        <button
+                          type="button"
+                          className="booking-v2-chat-action"
+                          onClick={() => setChatBooking(booking)}
+                        >
+                          <MessageCircle size={17} />
+                          <span>
+                            Chat với khách sạn
+                            {Number(chatByBooking[String(booking.id)]?.unreadCount ?? 0) > 0 ? (
+                              <b className="booking-v2-chat-unread">
+                                {Math.min(99, Number(chatByBooking[String(booking.id)]?.unreadCount))}
+                              </b>
+                            ) : null}
+                          </span>
+                        </button>
+                      ) : null}
+
                       {canContinuePayment(booking) ? (
                         <button
                           type="button"
@@ -637,6 +822,20 @@ export default function BookingsPage() {
                         >
                           <XCircle size={17} />
                           Hủy booking
+                        </button>
+                      ) : null}
+
+                      {canRequestRefund(booking) ? (
+                        <button
+                          type="button"
+                          className="booking-v2-refund-action"
+                          disabled={working}
+                          onClick={() => openRefundRequest(booking)}
+                        >
+                          <ReceiptText size={17} />
+                          {refundByBooking[String(booking.id)]
+                            ? refundStatusLabel(refundByBooking[String(booking.id)].status)
+                            : "Yêu cầu hoàn tiền"}
                         </button>
                       ) : null}
 
@@ -793,7 +992,7 @@ export default function BookingsPage() {
                   </div>
                 )}
 
-                <p>Đưa mã này cho Hotel Admin khi đến nhận phòng.</p>
+                <p>Đưa mã này cho lễ tân khi đến nhận phòng.</p>
 
                 {canContinuePayment(selectedBooking) ? (
                   <button
@@ -832,6 +1031,111 @@ export default function BookingsPage() {
             </div>
           </section>
         </div>
+      ) : null}
+
+      {refundBooking ? (
+        <div
+          className="booking-v2-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeRefundRequest();
+          }}
+        >
+          <section className="booking-v2-refund-modal" role="dialog" aria-modal="true">
+            <button type="button" className="booking-v2-modal-close" onClick={closeRefundRequest}>
+              <X size={22} />
+            </button>
+            <div className="booking-v2-modal-header">
+              <div>
+                <span>HOÀN TIỀN BOOKING</span>
+                <h2>{refundBooking.bookingCode}</h2>
+                <p>Tiền EnziuRooms giữ và tiền khách sạn thu trực tiếp được xử lý tách riêng.</p>
+              </div>
+            </div>
+
+            {refundByBooking[String(refundBooking.id)] ? (() => {
+              const item = refundByBooking[String(refundBooking.id)];
+              return (
+                <div className="booking-v2-refund-status-view">
+                  <div className={`booking-v2-refund-state ${String(item.status).toLowerCase()}`}>
+                    {refundStatusLabel(item.status)}
+                  </div>
+                  <div className="booking-v2-refund-policy">
+                    <strong>Chính sách áp dụng</strong>
+                    <p>{item.policyMessage}</p>
+                  </div>
+                  <div className="booking-v2-refund-money-grid">
+                    <div><small>Đã thanh toán</small><strong>{money(item.totalPaidAmount)}</strong></div>
+                    <div><small>EnziuRooms xử lý</small><strong>{money(item.platformHeldAmount)}</strong></div>
+                    <div><small>Khách sạn hoàn trực tiếp</small><strong>{money(item.hotelDirectAmount)}</strong></div>
+                    <div><small>Đối soát thủ công</small><strong>{money(item.manualReconciliationAmount)}</strong></div>
+                  </div>
+                  {item.reviewNote ? (
+                    <div className="booking-v2-refund-note"><strong>Phản hồi khách sạn</strong><p>{item.reviewNote}</p></div>
+                  ) : null}
+                  {Number(item.hotelDirectAmount ?? 0) > 0 ? (
+                    <div className="booking-v2-refund-destination">
+                      <strong>Tài khoản nhận phần khách sạn hoàn trực tiếp</strong>
+                      <span>{item.refundBankName} · {item.refundAccountNumber} · {item.refundAccountName}</span>
+                    </div>
+                  ) : null}
+                  {item.hotelRefundProofAvailable ? (
+                    <button type="button" className="booking-v2-refund-proof-button" disabled={refundBusy} onClick={() => void openRefundProof(item)}>
+                      Xem chứng từ khách sạn hoàn tiền
+                    </button>
+                  ) : null}
+                  {refundProofUrl ? <img className="booking-v2-refund-proof-image" src={refundProofUrl} alt="Chứng từ hoàn tiền" /> : null}
+                </div>
+              );
+            })() : (
+              <form className="booking-v2-refund-form" onSubmit={submitRefundRequest}>
+                <div className="booking-v2-refund-warning">
+                  <strong>Không đến nhận phòng không đồng nghĩa tự động được hoàn tiền.</strong>
+                  <span>Khách sạn sẽ xét chính sách. Nếu khách sạn đã thu tiền trực tiếp, khách sạn phải tự hoàn và tải chứng từ.</span>
+                </div>
+                <div className="booking-v2-refund-summary">
+                  <div><small>Trạng thái</small><strong>{statusLabel(refundBooking.status)}</strong></div>
+                  <div><small>Đã thanh toán</small><strong>{money(refundBooking.paidAmount)}</strong></div>
+                </div>
+                <label>
+                  Lý do
+                  <select value={refundForm.reasonCode} onChange={(event) => setRefundForm((current) => ({ ...current, reasonCode: event.target.value }))}>
+                    <option value="CANNOT_ARRIVE">Tôi không thể đến</option>
+                    <option value="HOTEL_APPROVED">Khách sạn đã đồng ý cho hủy</option>
+                    <option value="PERSONAL_ISSUE">Sự cố cá nhân</option>
+                    <option value="OTHER">Lý do khác</option>
+                  </select>
+                </label>
+                <label>
+                  Ghi chú
+                  <textarea rows={3} maxLength={1000} value={refundForm.note} onChange={(event) => setRefundForm((current) => ({ ...current, note: event.target.value }))} placeholder="Mô tả ngắn lý do hoặc trao đổi đã có với khách sạn" />
+                </label>
+                <div className="booking-v2-refund-bank">
+                  <strong>Tài khoản nhận hoàn tiền (dùng khi khách sạn phải hoàn trực tiếp)</strong>
+                  <input required placeholder="Ngân hàng, VD: TPBank" value={refundForm.bankName} onChange={(event) => setRefundForm((current) => ({ ...current, bankName: event.target.value }))} />
+                  <input required placeholder="Số tài khoản" value={refundForm.accountNumber} onChange={(event) => setRefundForm((current) => ({ ...current, accountNumber: event.target.value }))} />
+                  <input required placeholder="Tên chủ tài khoản" value={refundForm.accountName} onChange={(event) => setRefundForm((current) => ({ ...current, accountName: event.target.value }))} />
+                </div>
+                <button type="submit" className="booking-v2-refund-submit" disabled={refundBusy}>
+                  {refundBusy ? "Đang gửi..." : "Gửi yêu cầu hoàn tiền"}
+                </button>
+              </form>
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {chatBooking ? (
+        <CustomerHotelChat
+          open
+          booking={chatBooking}
+          hotel={metadata[chatBooking.id]?.hotel}
+          onClose={() => {
+            setChatBooking(null);
+            void loadChatSummaries();
+          }}
+          onConversationUpdated={handleConversationUpdated}
+        />
       ) : null}
 
       {reviewBooking ? (

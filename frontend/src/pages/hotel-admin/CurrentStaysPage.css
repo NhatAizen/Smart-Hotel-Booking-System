@@ -430,3 +430,201 @@
     width: 100%;
   }
 }
+
+/* ===== HOTEL ADMIN EXPERIENCE REFRESH ===== */
+.current-stays-page {
+  display: grid;
+  gap: 18px;
+  padding: 26px clamp(18px, 3vw, 36px) 48px;
+  background: #f6f9fc;
+}
+
+.current-stays-heading {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.current-stays-heading > div > span {
+  color: #0c8c84;
+  letter-spacing: .11em;
+}
+
+.current-stays-heading h1 {
+  margin: 6px 0 5px;
+  color: #142d46;
+  font-size: clamp(28px, 3vw, 36px);
+  letter-spacing: -.03em;
+}
+
+.current-stays-heading p {
+  max-width: 760px;
+  color: #708397;
+  line-height: 1.65;
+}
+
+.current-stays-heading button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid #d9e7ed;
+  background: #fff;
+  color: #0d7c77;
+  box-shadow: 0 8px 20px rgba(31, 64, 88, .05);
+}
+
+.current-stays-summary {
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.current-stays-summary article {
+  min-height: 104px;
+  border-color: #e3ebf1;
+  border-radius: 18px;
+  box-shadow: 0 10px 26px rgba(24, 52, 76, .045);
+}
+
+.current-stays-summary article:nth-child(1) > span {
+  color: #0a8f87;
+  background: #eaf9f6;
+}
+
+.current-stays-summary article:nth-child(2) > span {
+  color: #2467d6;
+  background: #edf4ff;
+}
+
+.current-stays-summary article:nth-child(3):not(.danger) > span {
+  color: #cb8417;
+  background: #fff5e7;
+}
+
+.current-stays-summary small {
+  font-weight: 750;
+}
+
+.current-stays-summary strong {
+  color: #15324b;
+  font-size: 28px;
+}
+
+.current-stays-list {
+  gap: 14px;
+}
+
+.current-stay-card {
+  border-color: #e2ebf1;
+  border-radius: 20px;
+  box-shadow: 0 12px 32px rgba(24, 52, 76, .055);
+}
+
+.current-stay-card.soon {
+  border-color: #f2d49d;
+}
+
+.current-stay-card.overdue {
+  border-color: #f0bbb6;
+  box-shadow: 0 12px 32px rgba(190, 63, 50, .07);
+}
+
+.current-stay-top {
+  padding: 18px 20px;
+  background: linear-gradient(135deg, #fbfefd 0%, #ffffff 100%);
+}
+
+.current-stay-code {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #edf8f6;
+  color: #0c877f;
+  font-size: 11px;
+}
+
+.current-stay-top h2 {
+  margin: 8px 0 5px;
+  color: #15324b;
+  font-size: 22px;
+}
+
+.current-stay-top p {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.current-stay-grid {
+  gap: 10px;
+  padding: 16px 20px;
+}
+
+.current-stay-info {
+  min-height: 142px;
+  border: 1px solid #e8eef3;
+  border-radius: 15px;
+  background: #fbfdff;
+}
+
+.current-stay-info.important {
+  border-color: #d9e9f6;
+  background: #f7fbff;
+}
+
+.current-stay-info h3 {
+  color: #496278;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.current-stay-info strong {
+  color: #17344d;
+  font-size: 16px;
+}
+
+.current-stay-actions {
+  padding: 14px 20px 18px;
+  background: #fff;
+}
+
+.current-stay-actions button {
+  min-height: 42px;
+  border-radius: 11px;
+  background: #0c9188;
+}
+
+.current-stay-collection-panel,
+.late-checkout-panel {
+  margin-left: 20px;
+  margin-right: 20px;
+  border-radius: 15px;
+}
+
+.current-stays-empty {
+  border-color: #e2ebf1;
+  border-radius: 20px;
+  box-shadow: 0 10px 26px rgba(24, 52, 76, .04);
+}
+
+@media (max-width: 1100px) {
+  .current-stay-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .current-stays-page {
+    padding: 20px 14px 36px;
+  }
+
+  .current-stays-heading,
+  .current-stay-top,
+  .current-stay-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .current-stays-summary,
+  .current-stay-grid {
+    grid-template-columns: 1fr;
+  }
+}

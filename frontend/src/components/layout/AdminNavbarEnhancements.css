@@ -1,0 +1,20 @@
+/* Hotel Admin uses the hotel image uploaded by the partner instead of a generated hotel icon. */
+.admin-navbar-brand-icon.has-image {
+  overflow: hidden;
+  padding: 0;
+  background: #fff;
+  border: 1px solid #dfe9ef;
+  box-shadow: 0 8px 18px rgba(20, 48, 70, 0.08);
+}
+
+.admin-navbar-brand-icon.has-image img,
+.admin-navbar-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.admin-navbar-hotel .admin-navbar-brand-icon.has-image {
+  border-radius: 12px;
+}

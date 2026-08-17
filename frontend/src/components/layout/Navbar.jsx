@@ -1,6 +1,6 @@
 import {
+  Award,
   Bot,
-  Building2,
   CalendarCheck2,
   ChevronDown,
   Heart,
@@ -31,6 +31,7 @@ import {
 
 import { useAuth } from "../../auth/AuthContext";
 import { useAiAssistant } from "../../ai/AiAssistantContext";
+import enziuLogo from "../../assets/enziu-logo.png";
 import NotificationBell from "../notifications/NotificationBell";
 
 export default function Navbar() {
@@ -206,16 +207,20 @@ export default function Navbar() {
         ================================================== */}
         <Link
           to="/"
-          className="brand"
+          className="brand enziu-brand"
           onClick={closeMenu}
+          aria-label="EnziuRooms - Trang chủ"
         >
-          <span className="brand-icon">
-            <Building2 size={25} />
+          <span className="enziu-brand-logo">
+            <img
+              src={enziuLogo}
+              alt="Logo EnziuRooms"
+              className="enziu-brand-logo-image"
+            />
           </span>
 
-          <span>
-            <strong>Enziu</strong>
-            Rooms
+          <span className="enziu-brand-name">
+            <strong>Enziu</strong>Rooms
           </span>
         </Link>
 
@@ -434,6 +439,11 @@ export default function Navbar() {
                     {/* ======================================
                         FAVORITES
                     ====================================== */}
+                    <Link to="/customer/rewards" className="account-dropdown-item" role="menuitem" onClick={closeMenu}>
+                      <Award size={19} />
+                      <span><strong>Chương trình khách hàng thân thiết Enziu</strong><small>Cấp thành viên, quyền lợi và voucher của bạn</small></span>
+                    </Link>
+
                     <Link
                       to="/customer/favorites"
                       className="account-dropdown-item"

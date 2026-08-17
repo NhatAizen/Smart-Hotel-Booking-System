@@ -113,9 +113,9 @@ function normalizeUser(user = {}) {
 }
 
 function roleLabel(role) {
-  if (role === "SYSTEM_ADMIN") return "System Admin";
-  if (role === "HOTEL_ADMIN") return "Hotel Admin";
-  return "Customer";
+  if (role === "SYSTEM_ADMIN") return "Quản trị";
+  if (role === "HOTEL_ADMIN") return "Đối tác";
+  return "Khách hàng";
 }
 
 function statusLabel(status) {
@@ -192,7 +192,7 @@ export default function ManageUsersPage() {
       setError(
         apiMessage(
           err,
-          "Không thể tải danh sách tài khoản. Hãy kiểm tra identity-service và API Gateway.",
+          "Không thể tải danh sách tài khoản. Vui lòng thử lại.",
         ),
       );
     } finally {
@@ -344,7 +344,7 @@ export default function ManageUsersPage() {
       setRoleActionError(
         apiMessage(
           err,
-          "Không thể kiểm tra điều kiện chuyển tài khoản về Customer.",
+          "Không thể kiểm tra điều kiện chuyển tài khoản về khách hàng.",
         ),
       );
       return null;
@@ -384,11 +384,11 @@ export default function ManageUsersPage() {
     const normalizedReason = roleReason.trim();
     if (!target?.id || !["CUSTOMER", "HOTEL_ADMIN"].includes(target.role)) return;
     if (!normalizedReason) {
-      setRoleActionError("Vui lòng nhập lý do thay đổi vai trò để ghi audit log.");
+      setRoleActionError("Vui lòng nhập lý do thay đổi vai trò.");
       return;
     }
     if (target.role === "HOTEL_ADMIN" && !roleEligibility?.eligible) {
-      setRoleActionError("Tài khoản chưa đáp ứng đủ điều kiện để chuyển về Customer.");
+      setRoleActionError("Tài khoản chưa đáp ứng đủ điều kiện để chuyển về khách hàng.");
       return;
     }
 
@@ -418,8 +418,8 @@ export default function ManageUsersPage() {
       );
       setNotice(
         nextRole === "HOTEL_ADMIN"
-          ? `Đã chuyển ${target.email} thành Hotel Admin.`
-          : `Đã chuyển ${target.email} về Customer. Các khách sạn liên quan đã được ngừng hoạt động theo quy trình.`,
+          ? `Đã chuyển ${target.email} thành đối tác.`
+          : `Đã chuyển ${target.email} về tài khoản khách hàng. Các khách sạn liên quan đã được ngừng hoạt động.`,
       );
       setRoleTarget(null);
       setRoleReason("");
@@ -444,13 +444,13 @@ export default function ManageUsersPage() {
     <div className="admin-page admin-users-page">
       <div className="admin-page-heading">
         <div>
-          <span className="admin-eyebrow">IDENTITY CONTROL</span>
+          <span className="admin-eyebrow">QUẢN LÝ TÀI KHOẢN</span>
           <h1>Quản lý tài khoản</h1>
-          <p>Tra cứu, khóa/mở khóa và quản lý tài khoản người dùng trên EnziuRooms. Tài khoản đã xóa được ẩn khỏi danh sách.</p>
+          <p>Tìm kiếm, khóa, mở khóa và quản lý tài khoản người dùng.</p>
         </div>
         <button className="admin-secondary-button" type="button" onClick={loadUsers} disabled={loading}>
           <RefreshCw size={17} className={loading ? "admin-spin-icon" : ""} />
-          Làm mới dữ liệu
+          Làm mới
         </button>
       </div>
 
@@ -471,15 +471,15 @@ export default function ManageUsersPage() {
       <div className="admin-user-stat-grid">
         <div className="admin-user-stat-card">
           <span className="admin-user-stat-icon blue"><Users size={22} /></span>
-          <div><small>Tổng tài khoản</small><strong>{stats.total}</strong><p>Tất cả người dùng hệ thống</p></div>
+          <div><small>Tổng tài khoản</small><strong>{stats.total}</strong><p>Tất cả tài khoản</p></div>
         </div>
         <div className="admin-user-stat-card">
           <span className="admin-user-stat-icon cyan"><UserCog size={22} /></span>
-          <div><small>Customer</small><strong>{stats.customers}</strong><p>Tài khoản khách hàng</p></div>
+          <div><small>Khách hàng</small><strong>{stats.customers}</strong><p>Tài khoản khách hàng</p></div>
         </div>
         <div className="admin-user-stat-card">
           <span className="admin-user-stat-icon violet"><ShieldCheck size={22} /></span>
-          <div><small>Hotel Admin</small><strong>{stats.hotelAdmins}</strong><p>Tài khoản đối tác khách sạn</p></div>
+          <div><small>Đối tác</small><strong>{stats.hotelAdmins}</strong><p>Tài khoản đối tác khách sạn</p></div>
         </div>
         <div className="admin-user-stat-card">
           <span className="admin-user-stat-icon red"><Lock size={22} /></span>
@@ -487,7 +487,7 @@ export default function ManageUsersPage() {
         </div>
         <div className="admin-user-stat-card">
           <span className="admin-user-stat-icon red"><Trash2 size={22} /></span>
-          <div><small>Đã xóa</small><strong>{stats.deleted}</strong><p>Được giữ lại để đối soát</p></div>
+          <div><small>Đã xóa</small><strong>{stats.deleted}</strong><p>Tài khoản ngừng hoạt động</p></div>
         </div>
       </div>
 
@@ -504,9 +504,9 @@ export default function ManageUsersPage() {
 
           <select value={role} onChange={(event) => setRole(event.target.value)} aria-label="Lọc vai trò">
             <option value="ALL">Tất cả vai trò</option>
-            <option value="CUSTOMER">Customer</option>
-            <option value="HOTEL_ADMIN">Hotel Admin</option>
-            <option value="SYSTEM_ADMIN">System Admin</option>
+            <option value="CUSTOMER">Khách hàng</option>
+            <option value="HOTEL_ADMIN">Đối tác</option>
+            <option value="SYSTEM_ADMIN">Quản trị</option>
           </select>
 
           <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Lọc trạng thái">
@@ -561,13 +561,13 @@ export default function ManageUsersPage() {
                                 className={`admin-users-state-button role ${item.role === "CUSTOMER" ? "promote" : "demote"}`}
                                 title={
                                   item.role === "CUSTOMER"
-                                    ? "Chuyển trực tiếp thành Hotel Admin"
-                                    : "Kiểm tra điều kiện và chuyển về Customer"
+                                    ? "Chuyển thành đối tác"
+                                    : "Kiểm tra điều kiện và chuyển về khách hàng"
                                 }
                                 onClick={() => openRoleChange(item)}
                               >
                                 {item.role === "CUSTOMER" ? <Hotel size={16} /> : <UserRound size={16} />}
-                                {item.role === "CUSTOMER" ? "Chuyển thành Hotel Admin" : "Chuyển về Customer"}
+                                {item.role === "CUSTOMER" ? "Chuyển thành đối tác" : "Chuyển về khách hàng"}
                               </button>
                             ) : null}
                             <button
@@ -605,7 +605,7 @@ export default function ManageUsersPage() {
         <div className="admin-modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setSelected(null)}>
           <section className="admin-modal admin-user-detail-modal" role="dialog" aria-modal="true">
             <div className="admin-modal-header">
-              <div><span>ACCOUNT DETAIL</span><h2>Chi tiết tài khoản</h2></div>
+              <div><span>THÔNG TIN TÀI KHOẢN</span><h2>Chi tiết tài khoản</h2></div>
               <button type="button" onClick={() => setSelected(null)} aria-label="Đóng"><X size={19} /></button>
             </div>
 
@@ -615,7 +615,7 @@ export default function ManageUsersPage() {
               <span className={`admin-account-status ${statusClass(selected.status)}`}><span />{statusLabel(selected.status)}</span>
             </div>
 
-            {detailLoading ? <div className="admin-user-detail-loading">Đang tải dữ liệu chi tiết...</div> : null}
+            {detailLoading ? <div className="admin-user-detail-loading">Đang tải thông tin...</div> : null}
 
             <div className="admin-detail-grid">
               <div><span>Mã tài khoản</span><strong>{selected.id ?? "—"}</strong></div>
@@ -637,7 +637,7 @@ export default function ManageUsersPage() {
                       onClick={() => openRoleChange(selected)}
                     >
                       {selected.role === "CUSTOMER" ? <Hotel size={16} /> : <UserRound size={16} />}
-                      {selected.role === "CUSTOMER" ? "Chuyển thành Hotel Admin" : "Chuyển về Customer"}
+                      {selected.role === "CUSTOMER" ? "Chuyển thành đối tác" : "Chuyển về khách hàng"}
                     </button>
                   ) : null}
                   <button
@@ -659,7 +659,7 @@ export default function ManageUsersPage() {
                   </button>
                 </>
               ) : (
-                <span className="admin-deleted-hint">Tài khoản đã xóa mềm, dữ liệu lịch sử vẫn được giữ.</span>
+                <span className="admin-deleted-hint">Tài khoản đã ngừng hoạt động; lịch sử liên quan vẫn được giữ.</span>
               )}
             </div>
           </section>
@@ -682,11 +682,11 @@ export default function ManageUsersPage() {
           >
             <div className="admin-modal-header">
               <div>
-                <span>ROLE MANAGEMENT</span>
+                <span>THAY ĐỔI VAI TRÒ</span>
                 <h2 id="admin-role-change-title">
                   {roleTarget.role === "CUSTOMER"
-                    ? "Chuyển thành Hotel Admin"
-                    : "Chuyển về Customer"}
+                    ? "Chuyển thành đối tác"
+                    : "Chuyển về khách hàng"}
                 </h2>
               </div>
               <button
@@ -723,15 +723,13 @@ export default function ManageUsersPage() {
               <div className="admin-role-change-note promote">
                 <ShieldCheck size={20} />
                 <p>
-                  System Admin có thể cấp quyền Hotel Admin trực tiếp, không cần
-                  partner request hoặc eKYC. Tài khoản và toàn bộ lịch sử được giữ nguyên.
+                  Có thể chuyển trực tiếp tài khoản khách hàng thành đối tác. Lịch sử tài khoản được giữ nguyên.
                 </p>
               </div>
             ) : (
               <>
                 <p className="admin-role-change-description">
-                  Chỉ có thể chuyển về Customer khi mọi nghiệp vụ lưu trú, booking,
-                  withdrawal và tài chính đã được xử lý xong.
+                  Chỉ có thể chuyển về tài khoản khách hàng khi các booking, khách lưu trú và khoản tài chính còn lại đã được xử lý.
                 </p>
                 {roleEligibilityLoading ? (
                   <div className="admin-role-eligibility-loading">
@@ -811,8 +809,8 @@ export default function ManageUsersPage() {
                 {actionLoading
                   ? "Đang xử lý..."
                   : roleTarget.role === "CUSTOMER"
-                    ? "Xác nhận chuyển thành Hotel Admin"
-                    : "Xác nhận chuyển về Customer"}
+                    ? "Xác nhận chuyển thành đối tác"
+                    : "Xác nhận chuyển về khách hàng"}
               </button>
             </div>
           </section>
@@ -848,7 +846,7 @@ export default function ManageUsersPage() {
             <h2>Xóa tài khoản?</h2>
             <p>
               Tài khoản <strong>{deleteTarget.email}</strong> sẽ không thể đăng nhập lại.
-              Lịch sử booking, payment, refund và dữ liệu đối soát vẫn được giữ nguyên.
+              Lịch sử đặt phòng, thanh toán và hoàn tiền vẫn được giữ nguyên.
             </p>
             <div className="admin-soft-delete-note">Đây là xóa mềm (Soft Delete), không xóa bản ghi khỏi database.</div>
             <div className="admin-modal-actions">

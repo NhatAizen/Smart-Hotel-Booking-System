@@ -23,8 +23,14 @@ import {
   getMyWithdrawals,
   getWithdrawalReceiverQr,
   getWithdrawalTransferProof,
+  getHotelRefundRequests,
+  approveRefundRequest,
+  rejectRefundRequest,
+  submitHotelRefundProof,
+  getRefundHotelProof,
 } from "../../services/paymentService";
 import "../shared/WalletPage.css";
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 
 const INITIAL_FORM = {
   amount: "",
@@ -63,6 +69,27 @@ function transactionLabel(type) {
   return labels[type] ?? type;
 }
 
+function refundReasonLabel(value) {
+  return ({
+    PERSONAL_ISSUE: "Sự cố cá nhân",
+    HOTEL_AGREED: "Khách sạn đồng ý hoàn",
+    CANNOT_ARRIVE: "Không thể đến nhận phòng",
+    DUPLICATE_PAYMENT: "Thanh toán trùng",
+    OTHER: "Lý do khác",
+  }[value] ?? value ?? "Chưa có lý do");
+}
+
+function withdrawalStatusLabel(value) {
+  return ({
+    PENDING: "Chờ xử lý",
+    PROCESSING: "Đang xử lý",
+    PAID: "Đã chuyển tiền",
+    REJECTED: "Đã từ chối",
+    FAILED: "Xử lý thất bại",
+    CANCELLED: "Đã hủy",
+  }[value] ?? value);
+}
+
 function payoutMethodLabel(value) {
   if (value === "PERSONAL_QR") return "QR cá nhân";
   if (value === "BANK_AND_QR") return "Ngân hàng + QR cá nhân";
@@ -86,6 +113,11 @@ export default function HotelWalletPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [refundRequests, setRefundRequests] = useState([]);
+  const [refundBusyId, setRefundBusyId] = useState("");
+  const [refundDraft, setRefundDraft] = useState(null);
+  const [refundProofItem, setRefundProofItem] = useState(null);
+  const [refundProofUrl, setRefundProofUrl] = useState("");
 
   const needBank = ["BANK_ACCOUNT", "BANK_AND_QR"].includes(form.payoutMethod);
   const needQr = ["PERSONAL_QR", "BANK_AND_QR"].includes(form.payoutMethod);
@@ -94,14 +126,16 @@ export default function HotelWalletPage() {
     setLoading(true);
     setError("");
     try {
-      const [walletData, transactionData, withdrawalData] = await Promise.all([
+      const [walletData, transactionData, withdrawalData, refundData] = await Promise.all([
         getMyWallet(),
         getMyWalletTransactions(),
         getMyWithdrawals(),
+        getHotelRefundRequests().catch(() => []),
       ]);
       setWallet(walletData);
       setTransactions(Array.isArray(transactionData) ? transactionData : []);
       setWithdrawals(Array.isArray(withdrawalData) ? withdrawalData : []);
+      setRefundRequests(Array.isArray(refundData) ? refundData : []);
     } catch (requestError) {
       setError(requestError.response?.data?.message ?? "Không thể tải ví khách sạn.");
     } finally {
@@ -112,6 +146,8 @@ export default function HotelWalletPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useRealtimeRefresh("NOTIFICATION_CREATED", load, { debounceMs: 120 });
 
   useEffect(() => {
     if (!qrImage) {
@@ -126,7 +162,8 @@ export default function HotelWalletPage() {
   useEffect(() => () => {
     if (historyQrUrl) URL.revokeObjectURL(historyQrUrl);
     if (proofUrl) URL.revokeObjectURL(proofUrl);
-  }, [historyQrUrl, proofUrl]);
+    if (refundProofUrl) URL.revokeObjectURL(refundProofUrl);
+  }, [historyQrUrl, proofUrl, refundProofUrl]);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -195,7 +232,7 @@ export default function HotelWalletPage() {
 
       await createHotelWithdrawal(payload);
       setMessage(
-        "Đã gửi yêu cầu rút tiền thật. Số tiền đã được khóa; System Admin sẽ dùng đúng tài khoản/QR này để chuyển tiền và phải tải chứng từ trước khi xác nhận đã trả.",
+        "Đã gửi yêu cầu rút tiền. Số tiền sẽ được giữ lại cho đến khi yêu cầu được xử lý.",
       );
       setForm((current) => ({
         ...INITIAL_FORM,
@@ -245,7 +282,7 @@ export default function HotelWalletPage() {
     } catch (requestError) {
       setError(
         requestError.response?.data?.message
-          ?? "Không thể tải chứng từ chuyển khoản của System Admin.",
+          ?? "Không thể tải chứng từ chuyển khoản.",
       );
     } finally {
       setProofLoadingId("");
@@ -256,6 +293,86 @@ export default function HotelWalletPage() {
     setProofWithdrawal(null);
     if (proofUrl) URL.revokeObjectURL(proofUrl);
     setProofUrl("");
+  }
+
+  async function handleApproveRefund(item) {
+    const note = window.prompt(
+      "Ghi chú duyệt hoàn tiền (có thể để trống):",
+      item.policyCode === "NO_SHOW_REVIEW"
+        ? "Duyệt ngoại lệ cho booking không đến nhận phòng."
+        : "Đồng ý hoàn tiền theo yêu cầu của khách.",
+    );
+    if (note === null) return;
+    setRefundBusyId(item.id);
+    setError("");
+    setMessage("");
+    try {
+      await approveRefundRequest(item.id, note);
+      setMessage("Đã duyệt yêu cầu hoàn tiền. Các phần tiền sẽ được xử lý đúng theo nơi đang giữ tiền.");
+      await load();
+    } catch (requestError) {
+      setError(requestError.response?.data?.message ?? "Không thể duyệt yêu cầu hoàn tiền.");
+    } finally {
+      setRefundBusyId("");
+    }
+  }
+
+  async function handleRejectRefund(item) {
+    const note = window.prompt("Nhập lý do từ chối hoàn tiền:", "Không đáp ứng chính sách hoàn tiền/no-show của khách sạn.");
+    if (note === null || !note.trim()) return;
+    setRefundBusyId(item.id);
+    setError("");
+    try {
+      await rejectRefundRequest(item.id, note.trim());
+      setMessage("Đã từ chối yêu cầu hoàn tiền và thông báo cho khách.");
+      await load();
+    } catch (requestError) {
+      setError(requestError.response?.data?.message ?? "Không thể từ chối yêu cầu hoàn tiền.");
+    } finally {
+      setRefundBusyId("");
+    }
+  }
+
+  async function submitRefundProof(event) {
+    event.preventDefault();
+    if (!refundDraft?.item || !refundDraft?.reference?.trim() || !refundDraft?.file) return;
+    const item = refundDraft.item;
+    setRefundBusyId(item.id);
+    setError("");
+    try {
+      await submitHotelRefundProof(item.id, refundDraft.reference.trim(), refundDraft.file);
+      setRefundDraft(null);
+      setMessage("Đã lưu chứng từ hoàn tiền trực tiếp cho khách.");
+      await load();
+    } catch (requestError) {
+      setError(requestError.response?.data?.message ?? "Không thể lưu chứng từ hoàn tiền.");
+    } finally {
+      setRefundBusyId("");
+    }
+  }
+
+  async function openHotelRefundProof(item) {
+    setRefundBusyId(item.id);
+    try {
+      const blob = await getRefundHotelProof(item.id);
+      if (refundProofUrl) URL.revokeObjectURL(refundProofUrl);
+      setRefundProofUrl(URL.createObjectURL(blob));
+      setRefundProofItem(item);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message ?? "Không thể tải chứng từ hoàn tiền.");
+    } finally {
+      setRefundBusyId("");
+    }
+  }
+
+  function refundStatusLabel(value) {
+    return ({
+      PENDING_HOTEL_REVIEW: "Chờ duyệt",
+      APPROVED: "Đã duyệt",
+      PARTIALLY_COMPLETED: "Đã hoàn một phần",
+      COMPLETED: "Hoàn tất",
+      REJECTED: "Từ chối",
+    }[value] ?? value);
   }
 
   const cards = useMemo(() => [
@@ -270,11 +387,11 @@ export default function HotelWalletPage() {
     <div className="wallet-page hotel-wallet-page">
       <header className="wallet-page-heading">
         <div>
-          <span className="wallet-page-kicker">TÀI CHÍNH ĐỐI TÁC</span>
-          <h1>Ví khách sạn</h1>
+          <span className="wallet-page-kicker">TÀI CHÍNH</span>
+          <h1>Ví & đối soát khách sạn</h1>
           <p>
-            Doanh thu online được giữ để bảo đảm hoàn tiền và tự giải ngân sau checkout.
-            Khi rút tiền, bạn cung cấp tài khoản ngân hàng thật hoặc QR nhận tiền thật để System Admin chuyển khoản.
+            Một nơi để theo dõi tiền đang có, tiền đang giữ, yêu cầu hoàn của khách và lịch sử rút tiền.
+            Các khoản hoàn của booking “Không đến” được tách theo đúng nơi đang giữ tiền.
           </p>
         </div>
         <button className="wallet-refresh-button" type="button" onClick={load} disabled={loading}>
@@ -309,7 +426,7 @@ export default function HotelWalletPage() {
       <section className="wallet-content-grid">
         <div className="wallet-panel">
           <div className="wallet-panel-header">
-            <h2><History size={18} /> Lịch sử ví</h2>
+            <h2><History size={18} /> Giao dịch gần đây</h2>
             <span>{transactions.length} giao dịch</span>
           </div>
           <div className="wallet-table-wrap">
@@ -359,7 +476,7 @@ export default function HotelWalletPage() {
           </aside>
 
           <aside className="wallet-panel">
-            <div className="wallet-panel-header"><h2><Banknote size={18} /> Yêu cầu rút tiền thật</h2></div>
+            <div className="wallet-panel-header"><h2><Banknote size={18} /> Yêu cầu rút tiền</h2></div>
             <form className="wallet-form" onSubmit={handleSubmit}>
               <label>Số tiền muốn rút
                 <input name="amount" type="number" min="10000" step="1000" value={form.amount} onChange={handleChange} required />
@@ -376,14 +493,14 @@ export default function HotelWalletPage() {
               {needBank ? (
                 <>
                   <div className="wallet-form-row">
-                    <label>Ngân hàng thật
+                    <label>Ngân hàng
                       <input name="bankName" value={form.bankName} onChange={handleChange} placeholder="Ví dụ: ACB" required />
                     </label>
                     <label>Mã BIN
                       <input name="bankBin" inputMode="numeric" maxLength="6" value={form.bankBin} onChange={handleChange} required />
                     </label>
                   </div>
-                  <label>Số tài khoản thật
+                  <label>Số tài khoản
                     <input name="accountNumber" inputMode="numeric" value={form.accountNumber} onChange={handleChange} required />
                   </label>
                   <label>Tên chủ tài khoản
@@ -410,7 +527,7 @@ export default function HotelWalletPage() {
               ) : null}
 
               <div className="wallet-helper wallet-helper-real">
-                <strong>Luồng tiền thật:</strong> System Admin sẽ mở đúng thông tin/QR bạn gửi, chuyển tiền bằng ứng dụng ngân hàng thật, sau đó bắt buộc nhập mã giao dịch và tải ảnh chứng từ. Chỉ lúc đó yêu cầu mới được đánh dấu Đã chuyển.
+                <strong>Quy trình rút tiền:</strong> Yêu cầu sẽ được kiểm tra theo thông tin nhận tiền bạn cung cấp. Khi hoàn tất, bạn có thể xem mã giao dịch và chứng từ chuyển khoản.
               </div>
               <button
                 className="wallet-primary-button"
@@ -425,6 +542,58 @@ export default function HotelWalletPage() {
               </button>
             </form>
           </aside>
+        </div>
+      </section>
+
+      <section className="wallet-panel refund-workflow-panel">
+        <div className="wallet-panel-header">
+          <h2><CheckCircle2 size={18} /> Hoàn tiền cần xử lý</h2>
+          <span>{refundRequests.length} yêu cầu</span>
+        </div>
+        <div className="wallet-helper wallet-helper-real">
+          Booking “Không đến” không tự động được hoàn. Nếu bạn duyệt: phần EnziuRooms đang giữ sẽ do System Admin xử lý; phần khách sạn đã thu trực tiếp phải được khách sạn hoàn và tải chứng từ.
+        </div>
+        <div className="wallet-table-wrap">
+          <table className="wallet-table">
+            <thead><tr><th>Booking</th><th>Khách đã trả</th><th>Phân luồng hoàn</th><th>Chính sách</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+            <tbody>
+              {refundRequests.map((item) => (
+                <tr key={`hotel-refund-${item.id}`}>
+                  <td><strong>{item.bookingCode}</strong><br /><small>{dateTime(item.requestedAt)}</small></td>
+                  <td><strong>{money(item.totalPaidAmount)}</strong><br /><small>{refundReasonLabel(item.reasonCode)}</small></td>
+                  <td>
+                    <small>EnziuRooms: <strong>{money(item.platformHeldAmount)}</strong></small><br />
+                    <small>Khách sạn: <strong>{money(item.hotelDirectAmount)}</strong></small>
+                    {Number(item.manualReconciliationAmount ?? 0) > 0 ? <><br /><small>Đối soát: <strong>{money(item.manualReconciliationAmount)}</strong></small></> : null}
+                  </td>
+                  <td><small>{item.policyMessage}</small></td>
+                  <td><span className={`wallet-status ${String(item.status).toLowerCase()}`}>{refundStatusLabel(item.status)}</span></td>
+                  <td>
+                    <div className="wallet-actions">
+                      {item.status === "PENDING_HOTEL_REVIEW" ? (
+                        <>
+                          <button className="primary" type="button" disabled={refundBusyId === item.id} onClick={() => void handleApproveRefund(item)}>Duyệt</button>
+                          <button className="danger" type="button" disabled={refundBusyId === item.id} onClick={() => void handleRejectRefund(item)}>Từ chối</button>
+                        </>
+                      ) : null}
+                      {["APPROVED", "PARTIALLY_COMPLETED"].includes(item.status) && Number(item.hotelDirectAmount ?? 0) > 0 && !item.hotelRefundCompleted ? (
+                        <button className="primary" type="button" onClick={() => setRefundDraft({ item, reference: "", file: null })}>Đã hoàn trực tiếp</button>
+                      ) : null}
+                      {item.hotelRefundProofAvailable ? (
+                        <button className="wallet-proof-view-button" type="button" disabled={refundBusyId === item.id} onClick={() => void openHotelRefundProof(item)}>Xem chứng từ</button>
+                      ) : null}
+                    </div>
+                    {Number(item.hotelDirectAmount ?? 0) > 0 ? (
+                      <div className="refund-bank-mini">{item.refundBankName} · {item.refundAccountNumber}<br />{item.refundAccountName}</div>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+              {!loading && refundRequests.length === 0 ? (
+                <tr><td colSpan="6" className="wallet-empty">Chưa có yêu cầu hoàn tiền từ khách.</td></tr>
+              ) : null}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -445,7 +614,7 @@ export default function HotelWalletPage() {
                     ) : null}
                   </td>
                   <td>{money(item.amount)}</td>
-                  <td><span className={`wallet-status ${String(item.status).toLowerCase()}`}>{item.status}</span></td>
+                  <td><span className={`wallet-status ${String(item.status).toLowerCase()}`}>{withdrawalStatusLabel(item.status)}</span></td>
                   <td>
                     {item.reviewNote ? <div className="wallet-withdrawal-note">{item.reviewNote}</div> : null}
                     {item.failureReason ? <div className="wallet-withdrawal-failure">{item.failureReason}</div> : null}
@@ -473,7 +642,7 @@ export default function HotelWalletPage() {
                       <small className="wallet-proof-pending">
                         {item.status === "PAID"
                           ? "Chưa có ảnh chứng từ để hiển thị."
-                          : "Chứng từ sẽ xuất hiện sau khi System Admin chuyển tiền."}
+                          : "Chứng từ sẽ xuất hiện sau khi yêu cầu được hoàn tất."}
                       </small>
                     )}
                   </td>
@@ -486,6 +655,40 @@ export default function HotelWalletPage() {
           </table>
         </div>
       </section>
+
+      {refundDraft ? (
+        <div className="wallet-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setRefundDraft(null); }}>
+          <form className="wallet-withdrawal-modal refund-proof-form" onSubmit={submitRefundProof}>
+            <button className="wallet-modal-close" type="button" onClick={() => setRefundDraft(null)}><X size={20} /></button>
+            <span className="wallet-page-kicker">HOÀN TIỀN TRỰC TIẾP</span>
+            <h2>Booking {refundDraft.item.bookingCode}</h2>
+            <p>Chuyển đúng <strong>{money(refundDraft.item.hotelDirectAmount)}</strong> tới tài khoản khách đã cung cấp, sau đó tải chứng từ.</p>
+            <div className="wallet-proof-bank">
+              <Banknote size={18} />
+              <div><small>Tài khoản nhận</small><strong>{refundDraft.item.refundBankName} · {refundDraft.item.refundAccountNumber}</strong><span>{refundDraft.item.refundAccountName}</span></div>
+            </div>
+            <label>Mã giao dịch
+              <input value={refundDraft.reference} onChange={(event) => setRefundDraft((current) => ({ ...current, reference: event.target.value }))} required />
+            </label>
+            <label className="wallet-upload-label">
+              <ImageUp size={19} />
+              <span>Ảnh chứng từ hoàn tiền</span>
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setRefundDraft((current) => ({ ...current, file: event.target.files?.[0] ?? null }))} required />
+            </label>
+            <button className="wallet-primary-button" type="submit" disabled={refundBusyId === refundDraft.item.id}>Xác nhận đã hoàn tiền</button>
+          </form>
+        </div>
+      ) : null}
+
+      {refundProofItem && refundProofUrl ? (
+        <div className="wallet-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setRefundProofItem(null); URL.revokeObjectURL(refundProofUrl); setRefundProofUrl(""); } }}>
+          <section className="wallet-proof-modal">
+            <button className="wallet-modal-close" type="button" onClick={() => { setRefundProofItem(null); URL.revokeObjectURL(refundProofUrl); setRefundProofUrl(""); }}><X size={20} /></button>
+            <div className="wallet-proof-modal-head"><div className="wallet-proof-success-icon"><CheckCircle2 size={25} /></div><div><span className="wallet-page-kicker">CHỨNG TỪ HOÀN TIỀN</span><h3>Đã hoàn cho khách</h3><p>Booking {refundProofItem.bookingCode} · {money(refundProofItem.hotelDirectAmount)}</p></div></div>
+            <img className="wallet-proof-customer-image" src={refundProofUrl} alt="Chứng từ hoàn tiền" />
+          </section>
+        </div>
+      ) : null}
 
       {historyQr && historyQrUrl ? (
         <div className="wallet-modal-backdrop" onMouseDown={(event) => {
@@ -530,15 +733,15 @@ export default function HotelWalletPage() {
                 <CheckCircle2 size={25} />
               </div>
               <div>
-                <span className="wallet-page-kicker">PAYOUT RECEIPT</span>
-                <h3>System Admin đã chuyển tiền</h3>
+                <span className="wallet-page-kicker">CHỨNG TỪ CHUYỂN KHOẢN</span>
+                <h3>Đã chuyển tiền</h3>
                 <p>Đây là chứng từ chuyển khoản được lưu khi yêu cầu rút tiền được hoàn tất.</p>
               </div>
             </div>
 
             <div className="wallet-proof-summary">
               <div><small>Số tiền đã chuyển</small><strong>{money(proofWithdrawal.amount)}</strong></div>
-              <div><small>Trạng thái</small><span className={`wallet-status ${String(proofWithdrawal.status).toLowerCase()}`}>{proofWithdrawal.status}</span></div>
+              <div><small>Trạng thái</small><span className={`wallet-status ${String(proofWithdrawal.status).toLowerCase()}`}>{withdrawalStatusLabel(proofWithdrawal.status)}</span></div>
               <div><small>Mã giao dịch</small><strong>{proofWithdrawal.payoutReference || "—"}</strong></div>
               <div><small>Thời gian chuyển</small><strong>{dateTime(proofWithdrawal.paidAt)}</strong></div>
             </div>
@@ -565,7 +768,7 @@ export default function HotelWalletPage() {
               <img
                 className="wallet-proof-customer-image"
                 src={proofUrl}
-                alt="Chứng từ chuyển khoản của System Admin"
+                alt="Chứng từ chuyển khoản"
               />
             </div>
 

@@ -33,6 +33,7 @@ import {
 } from "../../services/hotelAdminService";
 
 import "./HotelCatalogAdmin.css";
+import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 
 const HOTEL_CATALOG_CHANGED_KEY = "enziu:hotel-catalog-changed";
 
@@ -51,6 +52,13 @@ function resolveImageUrl(image) {
   if (!image) return "";
   if (typeof image === "string") return image;
   return image.imageUrl ?? image.url ?? image.fileUrl ?? image.publicUrl ?? "";
+}
+
+
+function notifyHotelImagesChanged() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("enziu:hotel-images-changed"));
+  window.localStorage.setItem(HOTEL_CATALOG_CHANGED_KEY, String(Date.now()));
 }
 
 function hotelImages(hotel) {
@@ -105,6 +113,8 @@ export default function MyHotelsPage() {
     loadHotels();
   }, []);
 
+  useRealtimeRefresh("NOTIFICATION_CREATED", loadHotels, { debounceMs: 120 });
+
   async function refreshHotel(hotelId) {
     const updated = await getMyHotel(hotelId);
     setEditingHotel(updated);
@@ -118,7 +128,7 @@ export default function MyHotelsPage() {
     try {
       const updated = await submitHotel(hotelId);
       setHotels((current) => current.map((hotel) => (hotel.id === hotelId ? updated : hotel)));
-      setMessage("Đã gửi hồ sơ khách sạn cho System Admin xét duyệt.");
+      setMessage("Đã gửi hồ sơ khách sạn để xét duyệt.");
     } catch (requestError) {
       setError(errorMessage(requestError));
     } finally {
@@ -273,6 +283,7 @@ export default function MyHotelsPage() {
     setError("");
     try {
       await uploadHotelImages(editingHotel.id, newFiles);
+      notifyHotelImagesChanged();
       setNewFiles([]);
       await refreshHotel(editingHotel.id);
       setMessage("Đã tải thêm ảnh khách sạn.");
@@ -288,8 +299,9 @@ export default function MyHotelsPage() {
     setError("");
     try {
       await setHotelCover(editingHotel.id, imageId);
+      notifyHotelImagesChanged();
       await refreshHotel(editingHotel.id);
-      setMessage("Đã đặt ảnh bìa. Ảnh này sẽ hiển thị ngoài danh sách khách sạn.");
+      setMessage("Đã đặt ảnh bìa. Ảnh này cũng được dùng làm logo/ảnh đại diện khách sạn trong khu Hotel Admin.");
     } catch (requestError) {
       setError(errorMessage(requestError));
     } finally {
@@ -303,6 +315,7 @@ export default function MyHotelsPage() {
     setError("");
     try {
       await deleteHotelImage(editingHotel.id, imageId);
+      notifyHotelImagesChanged();
       await refreshHotel(editingHotel.id);
       setMessage("Đã xóa ảnh khách sạn.");
     } catch (requestError) {
@@ -320,7 +333,7 @@ export default function MyHotelsPage() {
         <div>
           <span className="catalog-kicker">QUẢN LÝ CƠ SỞ LƯU TRÚ</span>
           <h1>Khách sạn của tôi</h1>
-          <p>Quản lý thông tin, ảnh bìa, loại phòng và các phòng thực tế.</p>
+          <p>Quản lý thông tin, hình ảnh, loại phòng và danh sách phòng.</p>
         </div>
         <Link to="/hotel-admin/hotels/create" className="catalog-primary">
           <Plus size={18} /> Đăng ký khách sạn
@@ -440,7 +453,7 @@ export default function MyHotelsPage() {
                 <input type="time" value={timeForm.checkOutTime} onChange={(event) => setTimeForm((current) => ({ ...current, checkOutTime: event.target.value }))} required />
               </label>
             </div>
-            <p className="hotel-stay-time-note">Giờ này sẽ hiển thị cho Customer và được dùng để tính thời hạn checkout tại quầy.</p>
+            <p className="hotel-stay-time-note">Giờ này sẽ hiển thị cho khách và được dùng để tính thời điểm trả phòng.</p>
             <div className="catalog-form-actions">
               <button type="button" className="catalog-secondary" onClick={() => setTimeHotel(null)}>Hủy</button>
               <button type="submit" className="catalog-primary" disabled={busyId === "stay-times"}>{busyId === "stay-times" ? "Đang lưu..." : "Lưu giờ nhận/trả"}</button>

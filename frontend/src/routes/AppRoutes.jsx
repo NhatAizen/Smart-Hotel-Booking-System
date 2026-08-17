@@ -37,6 +37,7 @@ import FavoritesPage from "../pages/customer/FavoritesPage";
 import MyReviewsPage from "../pages/customer/MyReviewsPage";
 import CustomerWalletPage from "../pages/customer/CustomerWalletPage";
 import PartnerApplicationPage from "../pages/customer/PartnerApplicationPage";
+import RewardsPage from "../pages/customer/RewardsPage";
 
 import { AiAssistantProvider } from "../ai/AiAssistantContext";
 import FloatingAiAssistant from "../components/ai/FloatingAiAssistant";
@@ -49,6 +50,7 @@ import ManageHotelsPage from "../pages/admin/ManageHotelsPage";
 import ManageRoomTypesPage from "../pages/admin/ManageRoomTypesPage";
 import PlatformWalletPage from "../pages/admin/PlatformWalletPage";
 import SystemNotificationsPage from "../pages/admin/SystemNotificationsPage";
+import MarketingPage from "../pages/admin/MarketingPage";
 
 import HotelAdminDashboard from "../pages/hotel-admin/HotelAdminDashboard";
 import MyHotelsPage from "../pages/hotel-admin/MyHotelsPage";
@@ -60,6 +62,8 @@ import HotelWalletPage from "../pages/hotel-admin/HotelWalletPage";
 import CheckInPage from "../pages/hotel-admin/CheckInPage";
 import CurrentStaysPage from "../pages/hotel-admin/CurrentStaysPage";
 import HotelAdminProfilePage from "../pages/hotel-admin/HotelAdminProfilePage";
+import PromotionsPage from "../pages/hotel-admin/PromotionsPage";
+import HotelMessagesPage from "../pages/hotel-admin/HotelMessagesPage";
 
 export default function AppRoutes() {
   return (
@@ -175,10 +179,8 @@ export default function AppRoutes() {
                 element={<CustomerWalletPage />}
               />
 
-              <Route
-                path="/customer/partner"
-                element={<PartnerApplicationPage />}
-              />
+              <Route path="/customer/partner" element={<PartnerApplicationPage />} />
+              <Route path="/customer/rewards" element={<RewardsPage />} />
 
               <Route
                 path="/customer/payments"
@@ -270,10 +272,9 @@ export default function AppRoutes() {
                 element={<CheckInPage />}
               />
 
-              <Route
-                path="/hotel-admin/current-stays"
-                element={<CurrentStaysPage />}
-              />
+              <Route path="/hotel-admin/current-stays" element={<CurrentStaysPage />} />
+              <Route path="/hotel-admin/promotions" element={<PromotionsPage />} />
+              <Route path="/hotel-admin/messages" element={<HotelMessagesPage />} />
             </Route>
           </Route>
 
@@ -316,10 +317,8 @@ export default function AppRoutes() {
                 element={<PlatformWalletPage />}
               />
 
-              <Route
-                path="/admin/notifications"
-                element={<SystemNotificationsPage />}
-              />
+              <Route path="/admin/notifications" element={<SystemNotificationsPage />} />
+              <Route path="/admin/marketing" element={<MarketingPage />} />
 
             </Route>
           </Route>

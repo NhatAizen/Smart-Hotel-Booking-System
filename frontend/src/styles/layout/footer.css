@@ -1,0 +1,60 @@
+/* Extracted from legacy global.css: lines 915-971.
+   Keep import order in styles/index.css to preserve cascade. */
+
+/* Footer */
+
+.main-footer {
+  padding-top: 55px;
+  color: #d4deea;
+  background: #07192d;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr 1fr 1.2fr;
+  gap: 45px;
+  padding-bottom: 45px;
+}
+
+.footer-brand {
+  margin-bottom: 15px;
+  color: #ffffff;
+  font-size: 26px;
+  font-weight: 850;
+}
+
+.footer-brand span {
+  color: #3ac3ff;
+}
+
+.footer-grid h4 {
+  margin-top: 0;
+  color: #ffffff;
+}
+
+.footer-grid > div {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+}
+
+.footer-grid p,
+.footer-grid a {
+  margin: 0;
+  color: #9eb0c4;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.footer-grid a:hover {
+  color: #ffffff;
+}
+
+.footer-bottom {
+  padding: 18px;
+  color: #8195aa;
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  font-size: 13px;
+}
+

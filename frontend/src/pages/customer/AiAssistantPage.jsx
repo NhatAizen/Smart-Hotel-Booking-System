@@ -257,7 +257,7 @@ export default function AiAssistantPage() {
     {
       role: "assistant",
       content:
-        "Chào bạn, mình là Enziu AI. Mình có thể tìm và so sánh khách sạn bằng dữ liệu thật, tóm tắt review, hoặc kiểm tra booking của chính bạn. Bạn muốn bắt đầu với điều gì?",
+        "Chào bạn, mình là Enziu AI. Mình có thể giúp tìm và so sánh khách sạn, tóm tắt đánh giá hoặc tra cứu booking của bạn. Bạn muốn bắt đầu với điều gì?",
       hotels: [],
       bookings: [],
       suggestedPrompts: QUICK_PROMPTS,
@@ -345,7 +345,7 @@ export default function AiAssistantPage() {
         <section className="enziu-ai-hero">
           <div>
             <span className="enziu-ai-eyebrow"><WandSparkles size={15} /> ENZIU AI</span>
-            <h1>Trợ lý du lịch dùng dữ liệu thật</h1>
+            <h1>Trợ lý du lịch EnziuRooms</h1>
             <p>
               Tìm khách sạn, so sánh lựa chọn, đọc review thật và hỏi về booking của chính bạn trong một cuộc trò chuyện.
             </p>
@@ -410,7 +410,7 @@ export default function AiAssistantPage() {
             <div className="enziu-ai-sidebar-note">
               <Sparkles size={15} />
               <p>
-                Không chọn ngày vẫn có thể hỏi AI. Tuy nhiên hệ thống chỉ khẳng định <strong>còn phòng</strong> khi có đủ ngày nhận và trả phòng.
+                Bạn vẫn có thể hỏi khi chưa chọn ngày. Kết quả <strong>còn phòng</strong> sẽ chính xác hơn khi có đủ ngày nhận và trả phòng.
               </p>
             </div>
 
@@ -427,7 +427,7 @@ export default function AiAssistantPage() {
               <div className="enziu-ai-bot-mark"><Bot size={23} /></div>
               <div>
                 <strong>Enziu AI Assistant</strong>
-                <span><i /> Đang kết nối dữ liệu EnziuRooms</span>
+                <span><i /> Đang chuẩn bị thông tin</span>
               </div>
             </header>
 
@@ -445,7 +445,7 @@ export default function AiAssistantPage() {
               {sending ? (
                 <div className="enziu-ai-thinking">
                   <div className="enziu-ai-avatar"><Sparkles size={16} /></div>
-                  <div><span /><span /><span /> <em>Enziu AI đang kiểm tra dữ liệu thật...</em></div>
+                  <div><span /><span /><span /> <em>Enziu AI đang tìm thông tin phù hợp...</em></div>
                 </div>
               ) : null}
               <div ref={bottomRef} />
@@ -479,7 +479,7 @@ export default function AiAssistantPage() {
               </button>
             </form>
             <p className="enziu-ai-disclaimer">
-              Enziu AI chỉ tư vấn trên dữ liệu hệ thống và không tự thực hiện thanh toán, hủy hay check-in thay bạn.
+              Enziu AI hỗ trợ tư vấn; các thao tác thanh toán, hủy phòng và check-in vẫn cần bạn xác nhận.
             </p>
           </section>
         </section>
