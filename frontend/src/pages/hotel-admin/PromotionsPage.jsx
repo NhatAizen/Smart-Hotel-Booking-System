@@ -63,6 +63,11 @@ function formatDateTime(value) {
   }).format(date);
 }
 
+function localDateTimeMin(date = new Date()) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
 function lifecycleMeta(value) {
   return {
     ACTIVE: { label: "Đang áp dụng", tone: "success" },
@@ -103,6 +108,9 @@ function validatePromotion(form) {
   const endAt = new Date(form.endAt);
   if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
     return "Vui lòng chọn đầy đủ thời gian bắt đầu và kết thúc.";
+  }
+  if (startAt.getTime() < Date.now() - 60_000) {
+    return "Thời gian bắt đầu không được ở trong quá khứ.";
   }
   if (endAt <= startAt) {
     return "Thời gian kết thúc phải sau thời gian bắt đầu.";
@@ -351,12 +359,12 @@ export default function PromotionsPage() {
 
             <label>
               Bắt đầu
-              <input name="startAt" type="datetime-local" value={form.startAt} onChange={change} required />
+              <input name="startAt" type="datetime-local" value={form.startAt} min={localDateTimeMin()} onChange={change} required />
             </label>
 
             <label>
               Kết thúc
-              <input name="endAt" type="datetime-local" value={form.endAt} min={form.startAt || undefined} onChange={change} required />
+              <input name="endAt" type="datetime-local" value={form.endAt} min={form.startAt || localDateTimeMin()} onChange={change} required />
             </label>
 
             <label>
@@ -374,7 +382,7 @@ export default function PromotionsPage() {
               <textarea name="description" value={form.description} onChange={change} maxLength="600" />
             </label>
 
-            <button className="promo-primary full" disabled={busy}>
+            <button type="submit" className="promo-primary full" disabled={busy}>
               {busy ? "Đang tạo..." : "Tạo khuyến mãi"}
             </button>
           </form>

@@ -1,5 +1,6 @@
 package com.smarthotel.booking.booking.realtime;
 
+import com.smarthotel.booking.realtime.RealtimeEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,6 +20,11 @@ public class AvailabilityRealtimeService {
     private static final long SSE_TIMEOUT_MS = 30L * 60L * 1000L;
 
     private final ConcurrentHashMap<UUID, Set<SseEmitter>> emittersByHotel = new ConcurrentHashMap<>();
+    private final RealtimeEventPublisher eventPublisher;
+
+    public AvailabilityRealtimeService(RealtimeEventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
+    }
 
     public SseEmitter subscribe(UUID hotelId) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
@@ -46,6 +52,10 @@ public class AvailabilityRealtimeService {
 
     public void publish(AvailabilityEvent event) {
         if (event == null || event.hotelId() == null) return;
+
+        // Giữ SSE cũ để tương thích, đồng thời phát RabbitMQ -> WebSocket cho toàn hệ thống.
+        eventPublisher.availabilityChanged(event);
+
         Set<SseEmitter> emitters = emittersByHotel.get(event.hotelId());
         if (emitters == null || emitters.isEmpty()) return;
 

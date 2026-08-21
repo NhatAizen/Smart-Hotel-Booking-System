@@ -730,7 +730,7 @@ export default function BookingsPage() {
                   <article className="booking-v2-card" key={booking.id}>
                     <div className="booking-v2-cover">
                       {coverUrl ? (
-                        <img src={coverUrl} alt={hotel?.name ?? "Khách sạn"} />
+                        <img src={coverUrl} alt={hotel?.name ?? "Khách sạn"} loading="lazy" decoding="async" />
                       ) : (
                         <div className="booking-v2-cover-empty">
                           <ImageOff size={34} />

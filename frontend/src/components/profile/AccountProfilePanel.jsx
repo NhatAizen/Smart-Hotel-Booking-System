@@ -418,7 +418,9 @@ export default function AccountProfilePanel({ mode = "customer" }) {
             </div>
 
             <h2>{profile?.fullName ?? "Người dùng EnziuRooms"}</h2>
-            <p className="profile-muted">{profile?.email}</p>
+            <p className="profile-muted">
+              {profile?.email ?? (profile?.username ? `@${profile.username}` : "Chưa thêm email")}
+            </p>
 
             <div className="profile-badge-row">
               <span className="profile-role-badge">{displayRole}</span>

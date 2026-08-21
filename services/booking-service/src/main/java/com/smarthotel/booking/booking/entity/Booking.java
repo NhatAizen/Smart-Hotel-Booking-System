@@ -75,6 +75,30 @@ public class Booking {
     @Column(name = "special_date_surcharge_amount", nullable = false, precision = 14, scale = 2)
     private BigDecimal specialDateSurchargeAmount;
 
+    @Column(name = "gross_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal grossAmount;
+
+    @Column(name = "membership_level", nullable = false)
+    private Integer membershipLevel;
+
+    @Column(name = "membership_discount_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal membershipDiscountAmount;
+
+    @Column(name = "hotel_promotion_code", length = 40)
+    private String hotelPromotionCode;
+
+    @Column(name = "hotel_promotion_discount_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal hotelPromotionDiscountAmount;
+
+    @Column(name = "platform_promotion_code", length = 40)
+    private String platformPromotionCode;
+
+    @Column(name = "platform_promotion_discount_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal platformPromotionDiscountAmount;
+
+    @Column(name = "total_discount_amount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal totalDiscountAmount;
+
     @Column(name = "late_checkout_fee", nullable = false, precision = 14, scale = 2)
     private BigDecimal lateCheckoutFee;
 
@@ -113,6 +137,43 @@ public class Booking {
 
     @Column(name = "booker_phone", length = 30)
     private String bookerPhone;
+
+    @Column(name = "booker_date_of_birth")
+    private LocalDate bookerDateOfBirth;
+
+    @Column(name = "age_confirmed", nullable = false)
+    private boolean ageConfirmed;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "identity_verification_status", nullable = false, length = 20)
+    private CheckInIdentityStatus identityVerificationStatus;
+
+    @Column(name = "identity_name_matched")
+    private Boolean identityNameMatched;
+
+    @Column(name = "identity_date_of_birth_matched")
+    private Boolean identityDateOfBirthMatched;
+
+    @Column(name = "identity_age_eligible")
+    private Boolean identityAgeEligible;
+
+    @Column(name = "identity_age_at_check_in")
+    private Integer identityAgeAtCheckIn;
+
+    @Column(name = "identity_number_last4", length = 4)
+    private String identityNumberLast4;
+
+    @Column(name = "identity_verified_by")
+    private UUID identityVerifiedBy;
+
+    @Column(name = "identity_verified_at")
+    private Instant identityVerifiedAt;
+
+    @Column(name = "identity_verification_failure_reason", length = 80)
+    private String identityVerificationFailureReason;
+
+    @Column(name = "identity_verification_method", length = 20)
+    private String identityVerificationMethod;
 
     @Column(name = "booker_is_guest", nullable = false)
     private boolean bookerIsGuest;
@@ -186,6 +247,8 @@ public class Booking {
             String bookerLastName,
             String bookerEmail,
             String bookerPhone,
+            LocalDate bookerDateOfBirth,
+            boolean ageConfirmed,
             boolean bookerIsGuest,
             String guestFirstName,
             String guestLastName,
@@ -217,6 +280,14 @@ public class Booking {
         this.baseAccommodationAmount = this.totalPrice;
         this.weekendSurchargeAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         this.specialDateSurchargeAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        this.grossAmount = this.totalPrice;
+        this.membershipLevel = 1;
+        this.membershipDiscountAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        this.hotelPromotionCode = null;
+        this.hotelPromotionDiscountAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        this.platformPromotionCode = null;
+        this.platformPromotionDiscountAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        this.totalDiscountAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         this.lateCheckoutFee = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         this.lateFeeAssessedAt = null;
         this.paidAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
@@ -236,6 +307,18 @@ public class Booking {
         this.bookerLastName = normalize(bookerLastName);
         this.bookerEmail = normalizeEmail(bookerEmail);
         this.bookerPhone = normalize(bookerPhone);
+        this.bookerDateOfBirth = bookerDateOfBirth;
+        this.ageConfirmed = ageConfirmed;
+        this.identityVerificationStatus = CheckInIdentityStatus.PENDING;
+        this.identityNameMatched = null;
+        this.identityDateOfBirthMatched = null;
+        this.identityAgeEligible = null;
+        this.identityAgeAtCheckIn = null;
+        this.identityNumberLast4 = null;
+        this.identityVerifiedBy = null;
+        this.identityVerifiedAt = null;
+        this.identityVerificationFailureReason = null;
+        this.identityVerificationMethod = null;
         this.bookerIsGuest = bookerIsGuest;
         this.guestFirstName = bookerIsGuest ? this.bookerFirstName : normalize(guestFirstName);
         this.guestLastName = bookerIsGuest ? this.bookerLastName : normalize(guestLastName);
@@ -265,32 +348,74 @@ public class Booking {
         this.specialDateSurchargeAmount = money(specialDateSurchargeAmount);
         this.lateCheckoutFee = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         this.lateFeeAssessedAt = null;
-        this.totalPrice = money(
+        this.grossAmount = money(
                 this.baseAccommodationAmount
                         .add(this.weekendSurchargeAmount)
                         .add(this.specialDateSurchargeAmount)
         );
+        this.membershipDiscountAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        this.hotelPromotionDiscountAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        this.platformPromotionDiscountAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        this.totalDiscountAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        this.totalPrice = this.grossAmount;
         this.remainingAmount = this.totalPrice;
+        this.updatedAt = Instant.now();
+    }
+
+    public void applyDiscountSnapshot(
+            Integer membershipLevel,
+            BigDecimal membershipDiscount,
+            String hotelPromotionCode,
+            BigDecimal hotelPromotionDiscount,
+            String platformPromotionCode,
+            BigDecimal platformPromotionDiscount
+    ) {
+        if (paidAmount != null && paidAmount.signum() > 0) {
+            throw new IllegalStateException("Không thể thay đổi ưu đãi sau khi booking đã thanh toán");
+        }
+        this.membershipLevel = membershipLevel == null ? 1 : membershipLevel;
+        this.membershipDiscountAmount = money(membershipDiscount);
+        this.hotelPromotionCode = normalizeNullable(hotelPromotionCode);
+        this.hotelPromotionDiscountAmount = money(hotelPromotionDiscount);
+        this.platformPromotionCode = normalizeNullable(platformPromotionCode);
+        this.platformPromotionDiscountAmount = money(platformPromotionDiscount);
+        this.totalDiscountAmount = money(this.membershipDiscountAmount
+                .add(this.hotelPromotionDiscountAmount)
+                .add(this.platformPromotionDiscountAmount));
+        if (this.totalDiscountAmount.compareTo(this.grossAmount) > 0) {
+            throw new IllegalArgumentException("Tổng ưu đãi vượt quá giá booking");
+        }
+        this.totalPrice = money(this.grossAmount.subtract(this.totalDiscountAmount).add(this.lateCheckoutFee));
+        this.remainingAmount = money(this.totalPrice.subtract(this.paidAmount).max(BigDecimal.ZERO));
         this.updatedAt = Instant.now();
     }
 
     public void assessLateCheckoutFee(BigDecimal fee, Instant assessedAt) {
         ensureStatus(BookingStatus.CHECKED_IN);
-        if (lateFeeAssessedAt != null) {
-            return;
-        }
 
         BigDecimal normalizedFee = money(fee == null ? BigDecimal.ZERO : fee);
         if (normalizedFee.signum() < 0) {
             throw new IllegalArgumentException("Phí trả phòng trễ không được âm");
         }
 
+        // Phí trả trễ là khoản đang tích lũy trong lúc khách vẫn CHECKED_IN.
+        // Không khóa ở lần tính đầu tiên: khi khách tiếp tục ở quá giờ và bước sang
+        // mốc phí cao hơn, booking phải được cập nhật lên mức mới.
+        BigDecimal currentFee = lateCheckoutFee == null
+                ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+                : money(lateCheckoutFee);
+        if (normalizedFee.compareTo(currentFee) < 0) {
+            normalizedFee = currentFee;
+        }
+
         this.lateCheckoutFee = normalizedFee;
+        // Trường này được dùng như thời điểm mức phí hiện tại được cập nhật gần nhất.
+        // Sau CHECKED_OUT số tiền không còn thay đổi nữa vì assessLateCheckoutFee
+        // chỉ cho phép trạng thái CHECKED_IN.
         this.lateFeeAssessedAt = assessedAt != null ? assessedAt : Instant.now();
         this.totalPrice = money(
-                this.baseAccommodationAmount
-                        .add(this.weekendSurchargeAmount)
-                        .add(this.specialDateSurchargeAmount)
+                this.grossAmount
+                        .subtract(this.totalDiscountAmount)
                         .add(this.lateCheckoutFee)
         );
         this.remainingAmount = money(this.totalPrice.subtract(this.paidAmount).max(BigDecimal.ZERO));
@@ -447,6 +572,92 @@ public class Booking {
         this.updatedAt = now;
     }
 
+
+    public void recordIdentityVerification(
+            boolean nameMatched,
+            boolean dateOfBirthMatched,
+            boolean ageEligible,
+            Integer ageAtCheckIn,
+            String identityNumberLast4,
+            UUID verifiedBy,
+            String failureReason
+    ) {
+        this.identityNameMatched = nameMatched;
+        this.identityDateOfBirthMatched = dateOfBirthMatched;
+        this.identityAgeEligible = ageEligible;
+        this.identityAgeAtCheckIn = ageAtCheckIn;
+        this.identityNumberLast4 = normalizeLast4(identityNumberLast4);
+        this.identityVerifiedBy = verifiedBy;
+        this.identityVerifiedAt = Instant.now();
+        this.identityVerificationFailureReason = normalizeNullable(failureReason);
+        this.identityVerificationMethod = "QR_CCCD";
+        // Họ tên không phải điều kiện bắt buộc vì tên tài khoản/booking có thể
+        // được người dùng nhập tự do. QR CCCD được dùng để xác thực ngày sinh
+        // và điều kiện đủ 18 tuổi. nameMatched vẫn được lưu để tham khảo/audit.
+        this.identityVerificationStatus = dateOfBirthMatched && ageEligible
+                ? CheckInIdentityStatus.VERIFIED
+                : CheckInIdentityStatus.FAILED;
+        this.updatedAt = this.identityVerifiedAt;
+    }
+
+    public void recordManualIdentityVerification(
+            Boolean dateOfBirthMatched,
+            Boolean ageEligible,
+            Integer ageAtCheckIn,
+            UUID verifiedBy
+    ) {
+        this.identityNameMatched = true;
+        this.identityDateOfBirthMatched = dateOfBirthMatched;
+        this.identityAgeEligible = ageEligible;
+        this.identityAgeAtCheckIn = ageAtCheckIn;
+        this.identityNumberLast4 = null;
+        this.identityVerifiedBy = verifiedBy;
+        this.identityVerifiedAt = Instant.now();
+        this.identityVerificationFailureReason = null;
+        this.identityVerificationMethod = "MANUAL";
+        this.identityVerificationStatus = CheckInIdentityStatus.VERIFIED;
+        this.updatedAt = this.identityVerifiedAt;
+    }
+
+    public void captureLegacyBookerDateOfBirth(LocalDate dateOfBirth) {
+        if (this.bookerDateOfBirth == null && dateOfBirth != null) {
+            this.bookerDateOfBirth = dateOfBirth;
+            this.updatedAt = Instant.now();
+        }
+    }
+
+
+    public void resetFailedIdentityVerification() {
+        if (this.identityVerificationStatus != CheckInIdentityStatus.FAILED) {
+            return;
+        }
+        this.identityVerificationStatus = CheckInIdentityStatus.PENDING;
+        this.identityNameMatched = null;
+        this.identityDateOfBirthMatched = null;
+        this.identityAgeEligible = null;
+        this.identityAgeAtCheckIn = null;
+        this.identityNumberLast4 = null;
+        this.identityVerifiedBy = null;
+        this.identityVerifiedAt = null;
+        this.identityVerificationFailureReason = null;
+        this.identityVerificationMethod = null;
+        this.updatedAt = Instant.now();
+    }
+
+    public boolean isIdentityVerified() {
+        return identityVerificationStatus == CheckInIdentityStatus.VERIFIED;
+    }
+
+    public void markNoShow() {
+        if (status == BookingStatus.NO_SHOW) {
+            return;
+        }
+        ensureStatus(BookingStatus.CONFIRMED);
+        this.status = BookingStatus.NO_SHOW;
+        this.paymentExpiresAt = null;
+        this.updatedAt = Instant.now();
+    }
+
     public void cancel() {
         if (status == BookingStatus.CANCELLED) {
             return;
@@ -464,6 +675,10 @@ public class Booking {
 
     public void markRefunded() {
         this.paymentStatus = BookingPaymentStatus.REFUNDED;
+        if (status == BookingStatus.NO_SHOW) {
+            this.updatedAt = Instant.now();
+            return;
+        }
         cancel();
     }
 
@@ -471,7 +686,9 @@ public class Booking {
         if (requestingCustomerId == null || !customerId.equals(requestingCustomerId)) {
             throw new IllegalStateException("Bạn không có quyền ẩn booking này");
         }
-        if (status != BookingStatus.CANCELLED && status != BookingStatus.CHECKED_OUT) {
+        if (status != BookingStatus.CANCELLED
+                && status != BookingStatus.CHECKED_OUT
+                && status != BookingStatus.NO_SHOW) {
             throw new IllegalStateException(
                     "Chỉ có thể ẩn booking đã hủy hoặc đã hoàn tất"
             );
@@ -512,6 +729,12 @@ public class Booking {
         return normalized == null || normalized.isBlank() ? null : normalized;
     }
 
+    private static String normalizeLast4(String value) {
+        String digits = value == null ? "" : value.replaceAll("\\D", "");
+        if (digits.isBlank()) return null;
+        return digits.length() <= 4 ? digits : digits.substring(digits.length() - 4);
+    }
+
     private static String normalizeEmail(String value) {
         String normalized = normalize(value);
         return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
@@ -531,6 +754,14 @@ public class Booking {
     public Integer getAdults() { return adults; }
     public Integer getChildren() { return children; }
     public BigDecimal getTotalPrice() { return totalPrice; }
+    public BigDecimal getGrossAmount() { return grossAmount; }
+    public Integer getMembershipLevel() { return membershipLevel; }
+    public BigDecimal getMembershipDiscountAmount() { return membershipDiscountAmount; }
+    public String getHotelPromotionCode() { return hotelPromotionCode; }
+    public BigDecimal getHotelPromotionDiscountAmount() { return hotelPromotionDiscountAmount; }
+    public String getPlatformPromotionCode() { return platformPromotionCode; }
+    public BigDecimal getPlatformPromotionDiscountAmount() { return platformPromotionDiscountAmount; }
+    public BigDecimal getTotalDiscountAmount() { return totalDiscountAmount; }
     public BigDecimal getBaseAccommodationAmount() { return baseAccommodationAmount; }
     public BigDecimal getWeekendSurchargeAmount() { return weekendSurchargeAmount; }
     public BigDecimal getSpecialDateSurchargeAmount() { return specialDateSurchargeAmount; }
@@ -546,6 +777,18 @@ public class Booking {
     public String getBookerLastName() { return bookerLastName; }
     public String getBookerEmail() { return bookerEmail; }
     public String getBookerPhone() { return bookerPhone; }
+    public LocalDate getBookerDateOfBirth() { return bookerDateOfBirth; }
+    public boolean isAgeConfirmed() { return ageConfirmed; }
+    public CheckInIdentityStatus getIdentityVerificationStatus() { return identityVerificationStatus; }
+    public Boolean getIdentityNameMatched() { return identityNameMatched; }
+    public Boolean getIdentityDateOfBirthMatched() { return identityDateOfBirthMatched; }
+    public Boolean getIdentityAgeEligible() { return identityAgeEligible; }
+    public Integer getIdentityAgeAtCheckIn() { return identityAgeAtCheckIn; }
+    public String getIdentityNumberLast4() { return identityNumberLast4; }
+    public UUID getIdentityVerifiedBy() { return identityVerifiedBy; }
+    public Instant getIdentityVerifiedAt() { return identityVerifiedAt; }
+    public String getIdentityVerificationFailureReason() { return identityVerificationFailureReason; }
+    public String getIdentityVerificationMethod() { return identityVerificationMethod; }
     public boolean isBookerIsGuest() { return bookerIsGuest; }
     public String getGuestFirstName() { return guestFirstName; }
     public String getGuestLastName() { return guestLastName; }

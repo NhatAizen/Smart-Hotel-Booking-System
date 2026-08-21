@@ -1,33 +1,58 @@
 import {
   ArrowRight,
-  CheckCircle2,
-  Eye,
-  EyeOff,
+  Headphones,
+  Heart,
   Hotel,
-  LockKeyhole,
-  Mail,
   ShieldCheck,
-  Sparkles,
+  Tag,
 } from "lucide-react";
 import { useState } from "react";
-import {
-  Link,
-  useNavigate,
-} from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-import { useAuth } from "../../auth/AuthContext";
+import enziuLogo from "../../assets/enziu-logo.png";
 
-function SocialLoginButton({
-  provider,
-  label,
-  onUnavailable,
-}) {
-  function handleClick() {
-    const envName =
-      provider === "google"
-        ? "VITE_GOOGLE_OAUTH_URL"
-        : "VITE_FACEBOOK_OAUTH_URL";
+function GoogleMark() {
+  return (
+    <svg className="auth-provider-logo-svg" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12S17.4 12 24 12c3 0 5.7 1.1 7.8 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5Z" />
+      <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.7 1.1 7.8 3l5.7-5.7C34 6.1 29.3 4 24 4c-7.7 0-14.3 4.3-17.7 10.7Z" />
+      <path fill="#4CAF50" d="M24 44c5.1 0 9.7-2 13.2-5.2l-6.1-5.1C29.1 35.2 26.7 36 24 36c-5.2 0-9.6-3.3-11.2-7.9l-6.5 5C9.7 39.6 16.3 44 24 44Z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.2 5.7l6.1 5.1C36.8 39.2 44 34 44 24c0-1.2-.1-2.4-.4-3.5Z" />
+    </svg>
+  );
+}
 
+function FacebookMark() {
+  return <span className="auth-facebook-mark" aria-hidden="true">f</span>;
+}
+
+function ProviderCard({ provider, title, description, buttonLabel, onClick, children }) {
+  return (
+    <article className={`auth-provider-card auth-provider-card-${provider}`}>
+      <div className="auth-provider-card-decor" aria-hidden="true" />
+      <div className={`auth-provider-logo-shell${provider === "enziu" ? " auth-provider-logo-enziu" : ""}`}>
+        {children}
+      </div>
+      <h2>{title}</h2>
+      <p>{description}</p>
+      <button type="button" className="auth-provider-action" onClick={onClick}>
+        <span>{buttonLabel}</span>
+        <ArrowRight size={19} />
+      </button>
+    </article>
+  );
+}
+
+export default function LoginPage() {
+  const navigate = useNavigate();
+  const [notice, setNotice] = useState(() => {
+    const message = sessionStorage.getItem("enziuroomsAuthNotice") ?? "";
+    sessionStorage.removeItem("enziuroomsAuthNotice");
+    return message;
+  });
+
+  function handleSocialLogin(provider, label) {
+    const envName = provider === "google" ? "VITE_GOOGLE_OAUTH_URL" : "VITE_FACEBOOK_OAUTH_URL";
     const oauthUrl = import.meta.env[envName];
 
     if (oauthUrl) {
@@ -35,394 +60,80 @@ function SocialLoginButton({
       return;
     }
 
-    onUnavailable(
-      `${label} hiện chưa khả dụng. `
-        + "Vui lòng đăng nhập bằng email hoặc thử lại sau.",
-    );
+    setNotice(`${label} hiện chưa khả dụng. Bạn có thể đăng nhập bằng tài khoản EnziuRooms.`);
   }
 
   return (
-    <button
-      type="button"
-      className={`auth-social-button ${provider}`}
-      onClick={handleClick}
-    >
-      <span
-        className="auth-social-mark"
-        aria-hidden="true"
-      >
-        {provider === "google" ? "G" : "f"}
-      </span>
-
-      {label}
-    </button>
-  );
-}
-
-export default function LoginPage() {
-  const navigate = useNavigate();
-
-  const {
-    login,
-    loading,
-  } = useAuth();
-
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-  });
-
-  const [
-    showPassword,
-    setShowPassword,
-  ] = useState(false);
-
-  const [
-    rememberMe,
-    setRememberMe,
-  ] = useState(true);
-
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState(() => {
-    const message = sessionStorage.getItem("enziuroomsAuthNotice") ?? "";
-    sessionStorage.removeItem("enziuroomsAuthNotice");
-    return message;
-  });
-
-  function handleChange(event) {
-    const {
-      name,
-      value,
-    } = event.target;
-
-    setError("");
-    setNotice("");
-
-    setForm((current) => ({
-      ...current,
-      [name]: value,
-    }));
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-
-    setError("");
-    setNotice("");
-
-    try {
-      const user = await login(
-        form,
-        {
-          rememberMe,
-        },
-      );
-
-      /*
-       * SYSTEM_ADMIN vẫn vào trang quản trị hệ thống.
-       */
-      if (user.role === "SYSTEM_ADMIN") {
-        navigate(
-          "/admin",
-          {
-            replace: true,
-          },
-        );
-
-        return;
-      }
-
-      /*
-       * HOTEL_ADMIN vẫn vào trang quản lý khách sạn.
-       */
-      if (user.role === "HOTEL_ADMIN") {
-        navigate(
-          "/hotel-admin",
-          {
-            replace: true,
-          },
-        );
-
-        return;
-      }
-
-      /*
-       * Chỉ CUSTOMER quay về trang chủ.
-       * Navbar tại trang chủ sẽ tự đổi thành avatar,
-       * tên người dùng, thông báo và các menu khách hàng.
-       */
-      const pendingBookingUrl = localStorage.getItem(
-        "enziuroomsPendingBookingUrl",
-      );
-
-      if (pendingBookingUrl) {
-        localStorage.removeItem("enziuroomsPendingBookingUrl");
-        navigate(pendingBookingUrl, { replace: true });
-        return;
-      }
-
-      navigate(
-        "/",
-        {
-          replace: true,
-        },
-      );
-    } catch (requestError) {
-      setError(
-        requestError.response?.data?.message
-          ?? requestError.message
-          ?? "Đăng nhập thất bại. "
-            + "Vui lòng kiểm tra lại thông tin.",
-      );
-    }
-  }
-
-  return (
-    <main className="auth-page auth-page-login">
-      <section className="auth-shell">
-        <aside className="auth-showcase">
-          <Link
-            to="/"
-            className="auth-brand auth-brand-light"
-          >
-            <span>
-              <Hotel size={27} />
-            </span>
-
-            <strong>EnziuRooms</strong>
-          </Link>
-
-          <div className="auth-showcase-content">
-            <span className="auth-kicker">
-              <Sparkles size={16} />
-              Nền tảng đặt phòng thông minh
-            </span>
-
-            <h1>
-              Khám phá kỳ nghỉ phù hợp với bạn.
-            </h1>
-
-            <p>
-              Tìm kiếm khách sạn đã được kiểm duyệt,
-              đặt phòng thuận tiện và quản lý hành trình
-              trên một hệ thống duy nhất.
-            </p>
-
-            <div className="auth-benefits">
-              <div>
-                <ShieldCheck size={20} />
-
-                <span>
-                  Khách sạn và phòng được quản trị viên
-                  xét duyệt
-                </span>
-              </div>
-
-              <div>
-                <CheckCircle2 size={20} />
-
-                <span>
-                  Xác thực email và bảo vệ tài khoản
-                  bằng JWT
-                </span>
-              </div>
-
-              <div>
-                <Sparkles size={20} />
-
-                <span>
-                  Trợ lý AI hỗ trợ tìm kiếm và gợi ý
-                  khách sạn
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="auth-showcase-stat">
-            <strong>EnziuRooms</strong>
-
-            <span>
-              Đặt phòng nhanh chóng · Minh bạch · An toàn
-            </span>
-          </div>
-        </aside>
-
-        <section className="auth-form-panel">
-          <div className="auth-mobile-brand">
-            <Link
-              to="/"
-              className="auth-brand"
-            >
-              <span>
-                <Hotel size={24} />
-              </span>
-
-              <strong>EnziuRooms</strong>
+    <main className="auth-login-hub-page">
+      <div className="auth-login-hub-shell">
+        <section className="auth-login-hero" aria-label="EnziuRooms">
+          <div className="auth-login-hero-overlay" />
+          <div className="auth-login-hero-content">
+            <Link to="/" className="auth-login-hero-brand" aria-label="Về trang chủ EnziuRooms">
+              <img src={enziuLogo} alt="EnziuRooms" />
             </Link>
-          </div>
 
-          <div className="auth-form-heading">
-            <span className="auth-kicker dark">
-              CHÀO MỪNG TRỞ LẠI
-            </span>
+            <h1>Đặt phòng thông minh,<br />trải nghiệm trọn vẹn</h1>
 
-            <h2>Đăng nhập tài khoản</h2>
-
-            <p>
-              Tiếp tục hành trình đặt phòng cùng
-              EnziuRooms.
-            </p>
-          </div>
-
-          {error ? (
-            <div className="alert alert-error">
-              {error}
-            </div>
-          ) : null}
-
-          {notice ? (
-            <div className="alert alert-info">
-              {notice}
-            </div>
-          ) : null}
-
-          <div className="auth-social-grid">
-            <SocialLoginButton
-              provider="google"
-              label="Tiếp tục với Google"
-              onUnavailable={setNotice}
-            />
-
-            <SocialLoginButton
-              provider="facebook"
-              label="Tiếp tục với Facebook"
-              onUnavailable={setNotice}
-            />
-          </div>
-
-          <div className="auth-divider">
-            <span>
-              hoặc đăng nhập bằng email
-            </span>
-          </div>
-
-          <form
-            className="auth-form"
-            onSubmit={handleSubmit}
-          >
-            <label className="auth-field">
-              <span>Email</span>
-
-              <div className="auth-input-wrap">
-                <Mail size={19} />
-
-                <input
-                  type="email"
-                  name="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  placeholder="name@gmail.com"
-                  autoComplete="email"
-                  required
-                />
+            <div className="auth-login-hero-benefits">
+              <div>
+                <span><Hotel size={20} /></span>
+                <p><strong>Đa dạng lựa chọn</strong><small>Hàng ngàn khách sạn chất lượng</small></p>
               </div>
-            </label>
-
-            <label className="auth-field">
-              <span>Mật khẩu</span>
-
-              <div className="auth-input-wrap">
-                <LockKeyhole size={19} />
-
-                <input
-                  type={
-                    showPassword
-                      ? "text"
-                      : "password"
-                  }
-                  name="password"
-                  value={form.password}
-                  onChange={handleChange}
-                  placeholder="Nhập mật khẩu"
-                  autoComplete="current-password"
-                  required
-                />
-
-                <button
-                  type="button"
-                  className="auth-password-toggle"
-                  onClick={() =>
-                    setShowPassword(
-                      (value) => !value,
-                    )
-                  }
-                  aria-label={
-                    showPassword
-                      ? "Ẩn mật khẩu"
-                      : "Hiện mật khẩu"
-                  }
-                >
-                  {showPassword ? (
-                    <EyeOff size={19} />
-                  ) : (
-                    <Eye size={19} />
-                  )}
-                </button>
+              <div>
+                <span><Tag size={20} /></span>
+                <p><strong>Giá tốt mỗi ngày</strong><small>Cam kết giá tốt nhất cho bạn</small></p>
               </div>
-            </label>
-
-            <div className="auth-form-options">
-              <label className="auth-checkbox">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(event) =>
-                    setRememberMe(
-                      event.target.checked,
-                    )
-                  }
-                />
-
-                <span>
-                  Ghi nhớ đăng nhập
-                </span>
-              </label>
-
-              <Link to="/forgot-password">
-                Quên mật khẩu?
-              </Link>
+              <div>
+                <span><ShieldCheck size={20} /></span>
+                <p><strong>Đặt phòng an toàn</strong><small>Bảo mật thông tin, thanh toán an toàn</small></p>
+              </div>
             </div>
-
-            <button
-              className="auth-submit"
-              type="submit"
-              disabled={loading}
-            >
-              {loading
-                ? "Đang đăng nhập..."
-                : "Đăng nhập"}
-
-              {!loading ? (
-                <ArrowRight size={19} />
-              ) : null}
-            </button>
-          </form>
-
-          <p className="auth-switch">
-            Chưa có tài khoản?{" "}
-
-            <Link to="/register">
-              Đăng ký miễn phí
-            </Link>
-          </p>
-
-          <p className="auth-legal">
-            Bằng việc tiếp tục, bạn đồng ý với
-            Điều khoản sử dụng và Chính sách bảo mật
-            của EnziuRooms.
-          </p>
+          </div>
         </section>
-      </section>
+
+        {notice ? <div className="auth-hub-notice">{notice}</div> : null}
+
+        <section className="auth-provider-grid" aria-label="Chọn phương thức đăng nhập">
+          <ProviderCard
+            provider="enziu"
+            title="Tiếp tục với EnziuRooms"
+            description="Đăng nhập nhanh chóng và an toàn bằng tài khoản EnziuRooms của bạn."
+            buttonLabel="Tiếp tục với EnziuRooms"
+            onClick={() => navigate("/login/enziurooms")}
+          >
+            <img src={enziuLogo} alt="Logo EnziuRooms" />
+          </ProviderCard>
+
+          <ProviderCard
+            provider="google"
+            title="Tiếp tục với Google"
+            description="Đăng nhập nhanh chóng và an toàn bằng tài khoản Google của bạn."
+            buttonLabel="Tiếp tục với Google"
+            onClick={() => handleSocialLogin("google", "Google")}
+          >
+            <GoogleMark />
+          </ProviderCard>
+
+          <ProviderCard
+            provider="facebook"
+            title="Tiếp tục với Facebook"
+            description="Đăng nhập nhanh chóng và an toàn bằng tài khoản Facebook của bạn."
+            buttonLabel="Tiếp tục với Facebook"
+            onClick={() => handleSocialLogin("facebook", "Facebook")}
+          >
+            <FacebookMark />
+          </ProviderCard>
+        </section>
+
+        <footer className="auth-login-hub-footer">
+          <span><ShieldCheck size={17} /> Bảo mật thông tin tuyệt đối</span>
+          <i aria-hidden="true" />
+          <span><Headphones size={17} /> Hỗ trợ 24/7</span>
+          <i aria-hidden="true" />
+          <span><Heart size={17} /> Trải nghiệm đặt phòng tốt nhất</span>
+        </footer>
+      </div>
     </main>
   );
 }

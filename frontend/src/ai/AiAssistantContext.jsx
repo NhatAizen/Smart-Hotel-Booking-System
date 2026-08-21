@@ -7,8 +7,6 @@ import {
   useState,
 } from "react";
 
-import { enhanceAssistantResponse } from "./bookingCopilotEnhancer";
-import { runBookingAgent } from "./bookingAgent";
 import { askEnziuAssistant } from "../services/aiService";
 
 export const AI_QUICK_PROMPTS = [
@@ -245,6 +243,7 @@ export function AiAssistantProvider({ children }) {
          * Nó dùng Gemini để hiểu NGỮ NGHĨA và tự chọn dữ liệu cần lấy,
          * không ép người dùng nói đúng regex/form câu hỏi.
          */
+        const { runBookingAgent } = await import("./bookingAgent");
         const agentResponse = await runBookingAgent({
           question: currentQuestion,
           messages: currentMessages,
@@ -287,6 +286,7 @@ export function AiAssistantProvider({ children }) {
           history,
         });
 
+        const { enhanceAssistantResponse } = await import("./bookingCopilotEnhancer");
         const enhanced = await enhanceAssistantResponse({
           question: currentQuestion,
           response,

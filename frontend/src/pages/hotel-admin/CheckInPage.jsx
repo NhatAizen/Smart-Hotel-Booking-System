@@ -14,6 +14,7 @@ import {
   RefreshCw,
   ScanLine,
   ShieldAlert,
+  ShieldCheck,
   Square,
   UserRound,
   Users,
@@ -35,6 +36,8 @@ import {
 import {
   completeBookingCheckIn,
   verifyCheckInCode,
+  verifyCheckInIdentity,
+  verifyCheckInIdentityManual,
 } from "../../services/bookingService";
 import {
   collectCashAtHotel,
@@ -43,6 +46,7 @@ import {
 } from "../../services/paymentService";
 import {
   decodeQrImageFile,
+  decodeQrVideoElement,
   getQrText,
   loadZxingBrowser,
 } from "../../utils/qrReader";
@@ -117,6 +121,20 @@ function guestSummary(booking) {
   return parts.length ? parts.join(" · ") : "Chưa cập nhật số khách";
 }
 
+function identityFailureLabel(reason) {
+  if (reason === "DATE_OF_BIRTH_MISMATCH") {
+    return "Ngày sinh trên CCCD không khớp với ngày sinh đã khai khi đặt phòng.";
+  }
+  if (reason === "UNDERAGE") {
+    return "Người đại diện nhận phòng chưa đủ 18 tuổi.";
+  }
+  return "Thông tin CCCD chưa đáp ứng điều kiện nhận phòng.";
+}
+
+function identitySubjectLabel() {
+  return "Người đứng tên booking";
+}
+
 const CHECKIN_PAYMENT_CONTEXT_KEY = "enziuroomsHotelCheckInPayment";
 const CHECKIN_PAYMENT_CHANNEL = "enziurooms-payos-checkin";
 const CHECKIN_CONTEXT_MAX_AGE_MS = 6 * 60 * 60 * 1000;
@@ -167,32 +185,36 @@ export default function CheckInPage() {
   const [paymentOrder, setPaymentOrder] = useState(null);
   const [loading, setLoading] = useState(false);
   const [working, setWorking] = useState("");
+  const [identityLoading, setIdentityLoading] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
+  const [cameraMode, setCameraMode] = useState("BOOKING");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [identityError, setIdentityError] = useState("");
+  const [manualConfirmOpen, setManualConfirmOpen] = useState(false);
 
   const videoRef = useRef(null);
   const qrControlsRef = useRef(null);
   const qrLibraryRef = useRef(null);
+  const cameraStreamRef = useRef(null);
   const lastDetectedRef = useRef("");
 
   const stopCamera = useCallback(() => {
     try {
       qrControlsRef.current?.stop?.();
     } catch {
-      // The stream may already have stopped after a successful scan.
+      // Stream có thể đã tự dừng sau khi quét thành công.
     }
     qrControlsRef.current = null;
+
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks?.().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+    }
 
     if (videoRef.current?.srcObject) {
       videoRef.current.srcObject.getTracks?.().forEach((track) => track.stop());
       videoRef.current.srcObject = null;
-    }
-
-    try {
-      qrLibraryRef.current?.BrowserCodeReader?.releaseAllStreams?.();
-    } catch {
-      // Cleanup is best-effort across browsers.
     }
 
     setCameraActive(false);
@@ -209,10 +231,12 @@ export default function CheckInPage() {
 
     if (!silent) setLoading(true);
     setError("");
+    if (!silent) setIdentityError("");
     try {
       const data = await verifyCheckInCode(normalized);
       setCode(normalized);
       setResult(data);
+      setManualConfirmOpen(false);
       return data;
     } catch (requestError) {
       if (!silent) {
@@ -370,38 +394,149 @@ export default function CheckInPage() {
     };
   }, [code, paymentOrder, result?.paymentComplete, verify]);
 
-  async function startCamera() {
+  async function processIdentityQr(rawValue, { silent = false } = {}) {
+    const normalized = String(rawValue ?? "").trim();
+    if (!normalized) {
+      if (!silent) setIdentityError("Không đọc được dữ liệu QR CCCD.");
+      return null;
+    }
+    if (!result?.booking?.id || !code) {
+      if (!silent) setIdentityError("Hãy xác minh QR booking trước khi quét CCCD.");
+      return null;
+    }
+
+    if (!silent) setIdentityLoading(true);
     setError("");
+    setIdentityError("");
+    setMessage("");
+
+    try {
+      const data = await verifyCheckInIdentity(
+        result.booking.id,
+        code,
+        normalized,
+      );
+      setResult(data);
+
+      if (data?.identityVerification?.status === "VERIFIED") {
+        setIdentityError("");
+      } else {
+        setIdentityError(
+          identityFailureLabel(data?.identityVerification?.failureReason),
+        );
+      }
+      return data;
+    } catch (requestError) {
+      setIdentityError(
+        requestError.response?.data?.message
+          ?? requestError.response?.data?.detail
+          ?? requestError.message
+          ?? "Không thể xác minh QR CCCD.",
+      );
+      return null;
+    } finally {
+      if (!silent) setIdentityLoading(false);
+    }
+  }
+
+  async function startCamera(mode = "BOOKING") {
+    if (mode === "IDENTITY") {
+      setIdentityError("");
+    } else {
+      setError("");
+    }
     setMessage("");
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError("Thiết bị hoặc trình duyệt không hỗ trợ truy cập camera.");
+      const cameraMessage = "Thiết bị hoặc trình duyệt không hỗ trợ truy cập camera.";
+      if (mode === "IDENTITY") setIdentityError(cameraMessage);
+      else setError(cameraMessage);
       return;
     }
 
     stopCamera();
+    lastDetectedRef.current = "";
+    setCameraMode(mode);
     setCameraActive(true);
     setLoading(true);
 
     try {
-      const qrLibrary = await loadZxingBrowser();
-      qrLibraryRef.current = qrLibrary;
+      // Xin quyền camera trực tiếp trước để Chrome hiện prompt ngay và để UI
+      // phân biệt rõ lỗi quyền camera với lỗi thư viện QR.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+      cameraStreamRef.current = stream;
 
-      await new Promise((resolve) => window.requestAnimationFrame(resolve));
       if (!videoRef.current) {
         throw new Error("Không khởi tạo được vùng hiển thị camera.");
       }
 
-      const reader = new qrLibrary.BrowserQRCodeReader();
-      const controls = await reader.decodeFromConstraints(
-        {
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+      videoRef.current.srcObject = stream;
+      videoRef.current.muted = true;
+      await videoRef.current.play();
+
+      if (mode === "IDENTITY") {
+        // QR CCCD chứa nhiều dữ liệu hơn QR booking. ZXing Browser có thể
+        // nhận ra mã nhưng không giải mã được, vì vậy chế độ CCCD dùng jsQR
+        // đọc trực tiếp từng frame camera.
+        let stopped = false;
+        let scanning = false;
+        let timerId = null;
+
+        const controls = {
+          stop() {
+            stopped = true;
+            if (timerId) window.clearInterval(timerId);
+            timerId = null;
           },
-          audio: false,
-        },
+        };
+
+        const scanIdentityFrame = async () => {
+          if (stopped || scanning || !videoRef.current) return;
+          scanning = true;
+
+          try {
+            const rawValue = await decodeQrVideoElement(videoRef.current);
+            if (!rawValue || rawValue === lastDetectedRef.current) return;
+
+            lastDetectedRef.current = rawValue;
+            controls.stop();
+            qrControlsRef.current = null;
+
+            if (cameraStreamRef.current) {
+              cameraStreamRef.current.getTracks?.().forEach((track) => track.stop());
+              cameraStreamRef.current = null;
+            }
+            if (videoRef.current) videoRef.current.srcObject = null;
+            setCameraActive(false);
+
+            void processIdentityQr(rawValue);
+          } finally {
+            scanning = false;
+          }
+        };
+
+        timerId = window.setInterval(() => {
+          void scanIdentityFrame();
+        }, 220);
+
+        qrControlsRef.current = controls;
+        void scanIdentityFrame();
+        return;
+      }
+
+      const qrLibrary = await loadZxingBrowser();
+      qrLibraryRef.current = qrLibrary;
+      const reader = new qrLibrary.BrowserQRCodeReader();
+
+      const controls = await reader.decodeFromStream(
+        stream,
         videoRef.current,
         (scanResult, _scanError, callbackControls) => {
           const rawValue = getQrText(scanResult);
@@ -410,7 +545,14 @@ export default function CheckInPage() {
           lastDetectedRef.current = rawValue;
           callbackControls?.stop?.();
           qrControlsRef.current = null;
+
+          if (cameraStreamRef.current) {
+            cameraStreamRef.current.getTracks?.().forEach((track) => track.stop());
+            cameraStreamRef.current = null;
+          }
+          if (videoRef.current) videoRef.current.srcObject = null;
           setCameraActive(false);
+
           void verify(rawValue);
         },
       );
@@ -418,12 +560,19 @@ export default function CheckInPage() {
       qrControlsRef.current = controls;
     } catch (cameraError) {
       stopCamera();
-      setError(
-        cameraError?.name === "NotAllowedError"
-          ? "Bạn chưa cho phép trình duyệt sử dụng camera."
-          : cameraError?.message
-            ?? "Không thể mở camera để quét QR.",
-      );
+
+      let cameraMessage = cameraError?.message ?? "Không thể mở camera để quét QR.";
+      if (cameraError?.name === "NotAllowedError" || cameraError?.name === "SecurityError") {
+        cameraMessage = "Chrome đang chặn camera. Hãy cho phép Camera cho localhost rồi bấm Mở camera lại.";
+      } else if (cameraError?.name === "NotFoundError" || cameraError?.name === "DevicesNotFoundError") {
+        cameraMessage = "Không tìm thấy camera trên thiết bị này.";
+      } else if (cameraError?.name === "NotReadableError" || cameraError?.name === "TrackStartError") {
+        cameraMessage = "Camera đang được ứng dụng khác sử dụng hoặc Windows không cho trình duyệt truy cập.";
+      } else if (cameraError?.name === "OverconstrainedError") {
+        cameraMessage = "Camera không hỗ trợ cấu hình quét hiện tại. Hãy thử đóng/mở lại camera.";
+      }
+      if (mode === "IDENTITY") setIdentityError(cameraMessage);
+      else setError(cameraMessage);
     } finally {
       setLoading(false);
     }
@@ -476,6 +625,61 @@ export default function CheckInPage() {
       }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleIdentityQrImage(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setError("");
+    setIdentityError("");
+    setMessage("");
+    setIdentityLoading(true);
+
+    try {
+      const rawValue = await decodeQrImageFile(file);
+      if (!rawValue) {
+        throw new Error("Không tìm thấy nội dung trong QR CCCD.");
+      }
+      await processIdentityQr(rawValue, { silent: true });
+    } catch (scanError) {
+      setIdentityError(
+        scanError?.message
+          ?? "Không thể đọc QR CCCD từ ảnh. Hãy chọn ảnh rõ và thấy đầy đủ mã QR.",
+      );
+    } finally {
+      setIdentityLoading(false);
+    }
+  }
+
+  async function handleManualIdentityConfirm() {
+    if (!result?.booking?.id || !code) {
+      setIdentityError("Hãy xác minh QR booking trước khi kiểm tra giấy tờ.");
+      return;
+    }
+
+    setIdentityLoading(true);
+    setError("");
+    setIdentityError("");
+    setMessage("");
+
+    try {
+      const data = await verifyCheckInIdentityManual(result.booking.id, code);
+      setResult(data);
+      setManualConfirmOpen(false);
+      setMessage(
+        "Đã ghi nhận Hotel Admin kiểm tra CCCD/Hộ chiếu trực tiếp tại quầy.",
+      );
+    } catch (requestError) {
+      setIdentityError(
+        requestError.response?.data?.message
+          ?? requestError.response?.data?.detail
+          ?? "Không thể xác nhận kiểm tra giấy tờ tại quầy.",
+      );
+    } finally {
+      setIdentityLoading(false);
     }
   }
 
@@ -568,6 +772,11 @@ export default function CheckInPage() {
   }
 
   const booking = result?.booking;
+  const identity = result?.identityVerification;
+  const identityVerified = identity?.status === "VERIFIED";
+  const identityFailed = identity?.status === "FAILED";
+  const identityMethod = identity?.method ?? null;
+  const identityVerifiedManually = identityVerified && identityMethod === "MANUAL";
   const isDone = booking?.status === "CHECKED_IN";
   const hasRemaining = Number(booking?.remainingAmount ?? 0) > 0;
 
@@ -613,9 +822,16 @@ export default function CheckInPage() {
         </div>
 
         <div className="checkin-scan-actions">
-          <button type="button" onClick={cameraActive ? stopCamera : startCamera}>
+          <button
+            type="button"
+            onClick={cameraActive ? stopCamera : () => void startCamera("BOOKING")}
+          >
             {cameraActive ? <Square size={18} /> : <Camera size={18} />}
-            {cameraActive ? "Dừng camera" : "Mở camera"}
+            {cameraActive
+              ? cameraMode === "IDENTITY"
+                ? "Dừng quét CCCD"
+                : "Dừng camera"
+              : "Mở camera"}
           </button>
           <label>
             <FileImage size={18} />
@@ -624,12 +840,16 @@ export default function CheckInPage() {
           </label>
         </div>
 
-        {cameraActive ? (
-          <div className="checkin-camera-frame">
-            <video ref={videoRef} muted playsInline aria-label="Camera quét mã QR" />
-            <div className="checkin-camera-guide"><span /></div>
+        <div
+          className={`checkin-camera-frame ${cameraActive ? "is-active" : "is-hidden"}`}
+          aria-hidden={!cameraActive}
+        >
+          <video ref={videoRef} muted playsInline autoPlay aria-label="Camera quét mã QR" />
+          <div className="checkin-camera-guide"><span /></div>
+          <div className="checkin-camera-mode-label">
+            {cameraMode === "IDENTITY" ? "Đang quét QR trên CCCD" : "Đang quét QR booking"}
           </div>
-        ) : null}
+        </div>
       </section>
 
       {result ? (
@@ -706,6 +926,165 @@ export default function CheckInPage() {
             </div>
           </div>
 
+          <section className={`checkin-identity-card ${
+            identityVerified ? "verified" : identityFailed ? "failed" : "pending"
+          }`}>
+            <div className="checkin-identity-header">
+              <span className="checkin-identity-icon">
+                {identityVerified ? <BadgeCheck size={23} /> : <QrCode size={23} />}
+              </span>
+              <div>
+                <small>XÁC MINH GIẤY TỜ TÙY THÂN</small>
+                <h3>CCCD/Hộ chiếu · {identitySubjectLabel()}</h3>
+                <p>
+                  {identityVerifiedManually
+                    ? "Hotel Admin đã đối chiếu giấy tờ trực tiếp tại quầy và xác nhận thông tin hợp lệ."
+                    : identityVerified
+                      ? "Hệ thống đã xác minh ngày sinh và điều kiện đủ 18 tuổi từ QR CCCD."
+                      : identityFailed
+                        ? identityFailureLabel(identity?.failureReason)
+                        : "Chọn quét QR CCCD để hệ thống kiểm tra ngày sinh/độ tuổi hoặc kiểm tra giấy tờ trực tiếp tại quầy. Họ tên không bắt buộc phải trùng với tên tài khoản."}
+                </p>
+              </div>
+              <strong className="checkin-identity-status">
+                {identityVerified ? "ĐÃ XÁC MINH" : identityFailed ? "CHƯA ĐẠT" : "CHỜ XÁC MINH"}
+              </strong>
+            </div>
+
+            {identityError ? (
+              <div className="checkin-identity-alert" role="alert">
+                <span className="checkin-identity-alert-icon">
+                  <ShieldAlert size={18} />
+                </span>
+                <div>
+                  <strong>Thông tin xác minh chưa khớp</strong>
+                  <span>{identityError}</span>
+                </div>
+                {!isDone ? (
+                  <button
+                    type="button"
+                    onClick={() => void startCamera("IDENTITY")}
+                    disabled={identityLoading || cameraActive}
+                  >
+                    Quét lại
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="checkin-identity-details">
+              <div>
+                <span>Người đứng tên booking</span>
+                <strong>{identity?.subjectName || guestName(booking)}</strong>
+              </div>
+              <div>
+                <span>Ngày sinh đã khai</span>
+                <strong>
+                  {identity?.expectedDateOfBirth
+                    ? formatDate(identity.expectedDateOfBirth)
+                    : "Không bắt buộc đối chiếu DOB"}
+                </strong>
+              </div>
+              <div>
+                <span>Họ tên trên giấy tờ</span>
+                <strong>
+                  {identityVerifiedManually
+                    ? "Đã kiểm tra trực tiếp"
+                    : identityMethod === "QR_CCCD"
+                      ? "Không bắt buộc đối chiếu"
+                      : "Chưa kiểm tra"}
+                </strong>
+              </div>
+              <div>
+                <span>Ngày sinh giấy tờ</span>
+                <strong className={identityVerifiedManually ? "good" : identity?.dateOfBirthMatched === false ? "bad" : identity?.dateOfBirthMatched ? "good" : ""}>
+                  {identityVerifiedManually
+                    ? "Đã đối chiếu trực tiếp"
+                    : identity?.dateOfBirthMatched == null
+                      ? "Chưa kiểm tra"
+                      : identity.dateOfBirthMatched
+                        ? "Khớp"
+                        : "Không khớp"}
+                </strong>
+              </div>
+              <div>
+                <span>Độ tuổi khi nhận phòng</span>
+                <strong className={identity?.ageEligible === false ? "bad" : identity?.ageEligible ? "good" : ""}>
+                  {identity?.ageAtCheckIn == null
+                    ? identityVerifiedManually
+                      ? "Hotel Admin xác nhận đủ 18+"
+                      : "Chưa kiểm tra"
+                    : `${identity.ageAtCheckIn} tuổi · ${identity.ageEligible ? "Đủ 18+" : "Chưa đủ 18"}`}
+                </strong>
+              </div>
+              <div>
+                <span>Phương thức xác minh</span>
+                <strong>
+                  {identityVerifiedManually
+                    ? "Kiểm tra trực tiếp tại quầy"
+                    : identityMethod === "QR_CCCD"
+                      ? `QR CCCD${identity?.identityNumberLast4 ? ` · •••• ${identity.identityNumberLast4}` : ""}`
+                      : "Chưa chọn"}
+                </strong>
+              </div>
+            </div>
+
+            {!isDone ? (
+              <div className="checkin-identity-actions">
+                <button
+                  type="button"
+                  onClick={() => void startCamera("IDENTITY")}
+                  disabled={identityLoading || cameraActive}
+                >
+                  <Camera size={18} />
+                  {identityLoading ? "Đang xác minh..." : identityVerified ? "Quét lại QR CCCD" : "Quét QR CCCD"}
+                </button>
+                <label className={identityLoading ? "disabled" : ""}>
+                  <FileImage size={18} />
+                  Đọc QR CCCD từ ảnh
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleIdentityQrImage}
+                    disabled={identityLoading}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="checkin-manual-verify-button"
+                  onClick={() => {
+                    setIdentityError("");
+                    setManualConfirmOpen(true);
+                  }}
+                  disabled={identityLoading || cameraActive}
+                >
+                  <ShieldCheck size={18} />
+                  {identityVerifiedManually ? "Kiểm tra lại trực tiếp" : "Đã kiểm tra CCCD trực tiếp"}
+                </button>
+              </div>
+            ) : null}
+
+            {!isDone && manualConfirmOpen ? (
+              <div className="checkin-manual-confirm" role="dialog" aria-label="Xác nhận kiểm tra giấy tờ trực tiếp">
+                <span className="checkin-manual-confirm-icon"><ShieldCheck size={20} /></span>
+                <div>
+                  <strong>Xác nhận đã kiểm tra giấy tờ tại quầy</strong>
+                  <p>
+                    Tôi đã đối chiếu trực tiếp họ tên và ngày sinh trên CCCD/Hộ chiếu với thông tin người nhận phòng,
+                    đồng thời xác nhận người này đủ 18 tuổi.
+                  </p>
+                </div>
+                <div className="checkin-manual-confirm-actions">
+                  <button type="button" onClick={() => setManualConfirmOpen(false)} disabled={identityLoading}>Hủy</button>
+                  <button type="button" className="confirm" onClick={() => void handleManualIdentityConfirm()} disabled={identityLoading}>
+                    {identityLoading ? <LoaderCircle className="spin" size={17} /> : <BadgeCheck size={17} />}
+                    {identityLoading ? "Đang lưu..." : "Xác nhận đã kiểm tra"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </section>
+
           {paymentOrder ? (
             <div className="checkin-payos-order">
               <div>
@@ -765,13 +1144,16 @@ export default function CheckInPage() {
             )}
           </div>
 
-          {!result.paymentComplete && !isDone ? (
+          {!isDone && (!result.paymentComplete || !identityVerified) ? (
             <div className="checkin-warning-note">
               <Clock3 size={18} />
               <span>
-                Nút nhận phòng sẽ được mở sau khi số tiền còn lại bằng 0 ₫.
-                Nếu thu tiền mặt tại quầy, hoa hồng sẽ được khấu trừ từ Ví đối tác
-                và ghi nhận doanh thu tiền mặt để không bỏ sót doanh thu/hoa hồng.
+                {!result.paymentComplete
+                  ? "Nút nhận phòng chỉ được mở sau khi số tiền còn lại bằng 0 ₫ và giấy tờ đã được xác minh."
+                  : "Thanh toán đã hoàn tất. Hãy quét QR CCCD hoặc xác nhận đã kiểm tra giấy tờ trực tiếp để mở nút nhận phòng."}
+                {!result.paymentComplete
+                  ? " Nếu thu tiền mặt tại quầy, hoa hồng vẫn được hạch toán qua Payment Service."
+                  : ""}
               </span>
             </div>
           ) : null}

@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Frown,
+  Hotel as HotelIcon,
   Image as ImageIcon,
   Search,
   Smile,
@@ -80,6 +81,14 @@ function reviewText(review) {
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+}
+
+function hotelReplyText(review) {
+  return review?.hotelReply ?? review?.replyContent ?? review?.reply ?? "";
+}
+
+function hotelReplyTime(review) {
+  return review?.hotelReplyAt ?? review?.replyAt ?? null;
 }
 
 export default function ReviewExplorerModal({
@@ -410,6 +419,16 @@ export default function ReviewExplorerModal({
                               {index === 0 ? <ImageIcon size={15} /> : null}
                             </button>
                           ))}
+                        </div>
+                      ) : null}
+
+                      {hotelReplyText(review) ? (
+                        <div className="review-hotel-reply">
+                          <div className="review-hotel-reply-head">
+                            <span><HotelIcon size={17} /> Phản hồi từ {hotel?.name ?? "khách sạn"}</span>
+                            <small>{formatReviewDate(hotelReplyTime(review))}</small>
+                          </div>
+                          <p>{hotelReplyText(review)}</p>
                         </div>
                       ) : null}
                     </div>

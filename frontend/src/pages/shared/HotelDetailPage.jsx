@@ -246,6 +246,7 @@ export default function HotelDetailPage() {
   const [roomTypeDetail, setRoomTypeDetail] = useState(null);
   const [roomTypeDetailImageIndex, setRoomTypeDetailImageIndex] = useState(0);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [galleryDetailOpen, setGalleryDetailOpen] = useState(false);
   const [selectedQuantities, setSelectedQuantities] = useState({});
   const [favorite, setFavorite] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState(false);
@@ -344,26 +345,65 @@ export default function HotelDetailPage() {
     return () => { offCreated(); offChanged(); };
   }, [loadHotelPromotions, subscribe]);
 
-  const galleryImages = useMemo(() => {
+  const galleryItems = useMemo(() => {
+    const seen = new Set();
+    const items = [];
+
+    function addGalleryItem(image, label, sourceType = "hotel") {
+      const url = resolveImageUrl(image);
+      if (!url || seen.has(url)) return;
+
+      seen.add(url);
+      items.push({
+        url,
+        label,
+        sourceType,
+      });
+    }
+
     const hotelImages = Array.isArray(hotel?.images) ? hotel.images : [];
     const hotelUploadedCover = hotelImages.find(
       (image) => image?.cover || image?.isCover,
     );
-    const roomImages = roomTypes.flatMap((type) => [
-      type?.coverImageUrl,
-      type?.imageUrl,
-      type?.coverImage,
-      ...(Array.isArray(type?.images) ? type.images : []),
-    ]);
-    return dedupeImages([
-      hotel?.coverImageUrl,
-      hotel?.imageUrl,
-      hotel?.coverImage,
-      hotelUploadedCover,
-      ...hotelImages,
-      ...roomImages,
-    ]);
+    const hotelLabel = hotel?.name
+      ? `Khách sạn ${hotel.name}`
+      : "Ảnh khách sạn";
+
+    addGalleryItem(hotel?.coverImageUrl, hotelLabel, "hotel");
+    addGalleryItem(hotel?.imageUrl, hotelLabel, "hotel");
+    addGalleryItem(hotel?.coverImage, hotelLabel, "hotel");
+    addGalleryItem(hotelUploadedCover, hotelLabel, "hotel");
+    hotelImages.forEach((image) => {
+      addGalleryItem(image, hotelLabel, "hotel");
+    });
+
+    roomTypes.forEach((type) => {
+      const roomName = String(type?.name ?? "").trim();
+      const roomLabel = roomName
+        ? (/^phòng(?:\s|$)/i.test(roomName) ? roomName : `Phòng ${roomName}`)
+        : "Ảnh loại phòng";
+
+      [
+        type?.coverImageUrl,
+        type?.imageUrl,
+        type?.coverImage,
+        ...(Array.isArray(type?.images) ? type.images : []),
+      ].forEach((image) => {
+        addGalleryItem(image, roomLabel, "room");
+      });
+    });
+
+    return items;
   }, [hotel, roomTypes]);
+
+  const galleryImages = useMemo(
+    () => galleryItems.map((item) => item.url),
+    [galleryItems],
+  );
+
+  function galleryItemLabel(index) {
+    return galleryItems[index]?.label ?? hotel?.name ?? "Ảnh khách sạn";
+  }
 
   const loadAvailability = useCallback(
     async (values = searchForm) => {
@@ -504,13 +544,24 @@ export default function HotelDetailPage() {
     if (!galleryOpen || galleryImages.length === 0) return undefined;
 
     function handleKeyDown(event) {
-      if (event.key === "Escape") setGalleryOpen(false);
-      if (event.key === "ArrowLeft" && galleryImages.length > 1) {
+      if (event.key === "Escape") {
+        if (galleryDetailOpen) {
+          setGalleryDetailOpen(false);
+        } else {
+          setGalleryOpen(false);
+        }
+        return;
+      }
+
+      if (!galleryDetailOpen || galleryImages.length <= 1) return;
+
+      if (event.key === "ArrowLeft") {
         setGalleryIndex((current) =>
           current === 0 ? galleryImages.length - 1 : current - 1,
         );
       }
-      if (event.key === "ArrowRight" && galleryImages.length > 1) {
+
+      if (event.key === "ArrowRight") {
         setGalleryIndex((current) =>
           current === galleryImages.length - 1 ? 0 : current + 1,
         );
@@ -520,11 +571,12 @@ export default function HotelDetailPage() {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", handleKeyDown);
+
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [galleryOpen, galleryImages.length]);
+  }, [galleryOpen, galleryDetailOpen, galleryImages.length]);
 
   useEffect(() => {
     if (!roomTypeDetail) return undefined;
@@ -1162,6 +1214,7 @@ export default function HotelDetailPage() {
                   className="hotel-gallery-main"
                   onClick={() => {
                     setGalleryIndex(0);
+                    setGalleryDetailOpen(false);
                     setGalleryOpen(true);
                   }}
                   aria-label={`Mở bộ ảnh ${hotel.name}`}
@@ -1181,13 +1234,14 @@ export default function HotelDetailPage() {
                           key={image}
                           onClick={() => {
                             setGalleryIndex(imageIndex);
+                            setGalleryDetailOpen(false);
                             setGalleryOpen(true);
                           }}
                           aria-label={`Mở ảnh ${imageIndex + 1} của ${hotel.name}`}
                         >
                           <img
                             src={image}
-                            alt={`Không gian ${hotel.name} ${imageIndex + 1}`}
+                            alt={`${galleryItemLabel(imageIndex)} - ảnh ${imageIndex + 1}`}
                           />
                         </button>
                       );
@@ -1206,16 +1260,17 @@ export default function HotelDetailPage() {
                           key={image}
                           onClick={() => {
                             setGalleryIndex(imageIndex);
+                            setGalleryDetailOpen(false);
                             setGalleryOpen(true);
                           }}
                           aria-label={`Mở ảnh ${imageIndex + 1} của ${hotel.name}`}
                         >
                           <img
                             src={image}
-                            alt={`Ảnh ${hotel.name} ${imageIndex + 1}`}
+                            alt={`${galleryItemLabel(imageIndex)} - ảnh ${imageIndex + 1}`}
                           />
                           {isLast ? (
-                            <span>
+                            <span className="hotel-gallery-view-all">
                               <Images size={18} />
                               Xem {galleryImages.length} ảnh
                             </span>
@@ -1343,22 +1398,66 @@ export default function HotelDetailPage() {
           </div>
 
           <div className="hotel-overview-grid">
-            <article className="hotel-info-card">
-              <h2>Giới thiệu khách sạn</h2>
-              {hotel.description ? (
-                <p>{hotel.description}</p>
-              ) : (
-                <p className="hotel-empty-copy">Khách sạn chưa cập nhật phần giới thiệu.</p>
-              )}
+            <article className="hotel-info-card hotel-description-story">
+              <h2>Thông tin về chỗ nghỉ</h2>
+
+              <div className="hotel-description-story__body">
+                {hotel.description ? (
+                  <p>
+                    <strong>Chỗ nghỉ:</strong>{" "}
+                    {hotel.description}
+                  </p>
+                ) : (
+                  <p className="hotel-empty-copy">Khách sạn chưa cập nhật phần giới thiệu.</p>
+                )}
+
+                {allAmenities.length > 0 ? (
+                  <p>
+                    <strong>Tiện nghi thoải mái:</strong>{" "}
+                    Khách sạn hiện cung cấp {allAmenities.slice(0, 8).join(", ")}
+                    {allAmenities.length > 8
+                      ? ` cùng ${allAmenities.length - 8} tiện nghi khác.`
+                      : "."}
+                  </p>
+                ) : null}
+
+                {hotel.address || hotel.city ? (
+                  <p>
+                    <strong>Vị trí:</strong>{" "}
+                    {hotel.address ? hotel.address : ""}
+                    {hotel.address && hotel.city ? ", " : ""}
+                    {hotel.city ?? ""}.
+                  </p>
+                ) : null}
+
+                {hotel.checkInTime || hotel.checkOutTime ? (
+                  <p>
+                    <strong>Nhận và trả phòng:</strong>{" "}
+                    {hotel.checkInTime
+                      ? `Nhận phòng từ ${formatTime(hotel.checkInTime, "Chưa cập nhật")}`
+                      : "Giờ nhận phòng chưa cập nhật"}
+                    {" · "}
+                    {hotel.checkOutTime
+                      ? `Trả phòng trước ${formatTime(hotel.checkOutTime, "Chưa cập nhật")}`
+                      : "Giờ trả phòng chưa cập nhật"}.
+                  </p>
+                ) : null}
+              </div>
+
               {allAmenities.length > 0 ? (
-                <div className="hotel-highlight-list">
-                  {allAmenities.slice(0, 8).map((amenity) => (
-                    <span key={amenity}>
-                      {amenityIcon(amenity)}
-                      {amenity}
-                    </span>
-                  ))}
-                </div>
+                <>
+                  <h3 className="hotel-description-story__amenity-title">
+                    Các tiện nghi được quan tâm
+                  </h3>
+                  <div className="hotel-highlight-list hotel-highlight-list--story">
+                    {allAmenities.slice(0, 10).map((amenity) => (
+                      <span key={amenity}>
+                        {amenityIcon(amenity)}
+                        {amenity}
+                      </span>
+                    ))}
+                  </div>
+                </>
               ) : (
                 <p className="hotel-empty-copy">Khách sạn chưa cập nhật tiện nghi nổi bật.</p>
               )}
@@ -2326,6 +2425,7 @@ export default function HotelDetailPage() {
                 type="button"
                 className="hotel-gallery-modal-book"
                 onClick={() => {
+                  setGalleryDetailOpen(false);
                   setGalleryOpen(false);
                   scrollToSection("rooms");
                 }}
@@ -2337,7 +2437,10 @@ export default function HotelDetailPage() {
             <button
               type="button"
               className="hotel-gallery-close"
-              onClick={() => setGalleryOpen(false)}
+              onClick={() => {
+                setGalleryDetailOpen(false);
+                setGalleryOpen(false);
+              }}
               aria-label="Đóng bộ ảnh"
             >
               <span>Đóng</span>
@@ -2346,16 +2449,26 @@ export default function HotelDetailPage() {
           </header>
 
           <div className={`hotel-gallery-explorer ${reviewSummary.reviewCount > 0 ? "has-reviews" : "no-reviews"}`}>
-            <section className="hotel-gallery-photo-grid" aria-label="Ảnh khách sạn">
+            <section className="hotel-gallery-photo-grid" aria-label="Bộ ảnh khách sạn">
               {galleryImages.map((image, index) => (
                 <button
                   type="button"
                   key={`${image}-${index}`}
                   className={index === galleryIndex ? "selected" : ""}
-                  onClick={() => setGalleryIndex(index)}
+                  onClick={() => {
+                    setGalleryIndex(index);
+                    setGalleryDetailOpen(true);
+                  }}
+                  aria-label={`Xem chi tiết ${galleryItemLabel(index)}, ảnh ${index + 1}`}
                 >
-                  <img src={image} alt={`Ảnh ${hotel.name} ${index + 1}`} />
-                  <span>{index + 1}</span>
+                  <img
+                    src={image}
+                    alt={`${galleryItemLabel(index)} - ảnh ${index + 1}`}
+                  />
+                  <span className="hotel-gallery-modal-index">{index + 1}</span>
+                  <span className="hotel-gallery-source-label hotel-gallery-source-label--modal">
+                    {galleryItemLabel(index)}
+                  </span>
                 </button>
               ))}
             </section>
@@ -2445,6 +2558,7 @@ export default function HotelDetailPage() {
                   type="button"
                   className="hotel-gallery-all-reviews"
                   onClick={() => {
+                    setGalleryDetailOpen(false);
                     setGalleryOpen(false);
                     setReviewModalOpen(true);
                   }}
@@ -2454,6 +2568,97 @@ export default function HotelDetailPage() {
               </aside>
             ) : null}
           </div>
+
+          {galleryDetailOpen ? (
+            <div
+              className="hotel-gallery-detail-overlay"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Xem chi tiết ${galleryItemLabel(galleryIndex)}`}
+            >
+              <button
+                type="button"
+                className="hotel-gallery-detail-backdrop"
+                aria-label="Quay lại bộ ảnh"
+                onClick={() => setGalleryDetailOpen(false)}
+              />
+
+              <div className="hotel-gallery-detail-panel">
+                <div className="hotel-gallery-detail-toolbar">
+                  <div>
+                    <strong>{galleryItemLabel(galleryIndex)}</strong>
+                    <span>
+                      Ảnh {galleryIndex + 1} / {galleryImages.length}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="hotel-gallery-detail-close"
+                    onClick={() => setGalleryDetailOpen(false)}
+                    aria-label="Đóng ảnh chi tiết"
+                  >
+                    <X size={23} />
+                  </button>
+                </div>
+
+                <div className="hotel-gallery-detail-canvas">
+                  <img
+                    src={galleryImages[galleryIndex]}
+                    alt={`${galleryItemLabel(galleryIndex)} - ảnh chi tiết ${galleryIndex + 1}`}
+                  />
+
+                  {galleryImages.length > 1 ? (
+                    <>
+                      <button
+                        type="button"
+                        className="hotel-gallery-detail-nav hotel-gallery-detail-nav--prev"
+                        onClick={() =>
+                          setGalleryIndex((current) =>
+                            current === 0 ? galleryImages.length - 1 : current - 1,
+                          )
+                        }
+                        aria-label="Ảnh trước"
+                      >
+                        <ChevronLeft size={28} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="hotel-gallery-detail-nav hotel-gallery-detail-nav--next"
+                        onClick={() =>
+                          setGalleryIndex((current) =>
+                            current === galleryImages.length - 1 ? 0 : current + 1,
+                          )
+                        }
+                        aria-label="Ảnh tiếp theo"
+                      >
+                        <ChevronRight size={28} />
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+
+                <div className="hotel-gallery-detail-thumbnails" aria-label="Chọn ảnh khác">
+                  {galleryImages.map((image, index) => (
+                    <button
+                      type="button"
+                      key={`detail-${image}-${index}`}
+                      className={index === galleryIndex ? "active" : ""}
+                      onClick={() => setGalleryIndex(index)}
+                      aria-label={`Chọn ${galleryItemLabel(index)}, ảnh ${index + 1}`}
+                    >
+                      <img
+                        src={image}
+                        alt={`${galleryItemLabel(index)} - thumbnail ${index + 1}`}
+                      />
+                      <span>{index + 1}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

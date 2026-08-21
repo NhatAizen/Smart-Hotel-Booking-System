@@ -1,6 +1,5 @@
 import {
   Award,
-  Bot,
   CalendarCheck2,
   ChevronDown,
   Heart,
@@ -29,13 +28,11 @@ import {
 } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
-import { useAiAssistant } from "../../ai/AiAssistantContext";
 import enziuLogo from "../../assets/enziu-logo.png";
 import NotificationBell from "../notifications/NotificationBell";
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const { openAssistant } = useAiAssistant();
   const location = useLocation();
 
   const {
@@ -147,6 +144,18 @@ export default function Navbar() {
     setMobileOpen(false);
     setAccountMenuOpen(false);
   }, [location.pathname]);
+
+  /* Khóa cuộn nền khi menu mobile mở để tránh nội dung phía sau di chuyển. */
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileOpen]);
 
   function closeMenu() {
     setMobileOpen(false);
@@ -264,23 +273,20 @@ export default function Navbar() {
               </NavLink>
 
               <NavLink
-                to="/customer/notifications"
+                to="/customer/favorites"
                 onClick={closeMenu}
               >
-                Thông báo
+                <Heart size={17} />
+                Yêu thích
               </NavLink>
 
-              <button
-                type="button"
-                className="nav-ai-trigger"
-                onClick={() => {
-                  closeMenu();
-                  openAssistant({ clearHotelContext: true });
-                }}
+              <NavLink
+                to="/customer/rewards"
+                onClick={closeMenu}
               >
-                <Bot size={17} />
-                Trợ lý AI
-              </button>
+                <Award size={17} />
+                Ưu đãi & Hạng
+              </NavLink>
             </>
           ) : null}
 
@@ -300,6 +306,10 @@ export default function Navbar() {
 
         {/* ==================================================
             ACTION BÊN PHẢI
+
+            - Thông báo dùng NotificationBell.
+            - Trợ lý AI không đặt trên navbar vì đã có nút AI nổi riêng.
+            - Các chức năng tài khoản trong dropdown vẫn giữ nguyên.
         ================================================== */}
         <div className="nav-actions">
 

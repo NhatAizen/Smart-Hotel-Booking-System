@@ -21,6 +21,39 @@ public class GlobalExceptionHandler {
     private static final Logger LOGGER =
             LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+
+    @ExceptionHandler(UsernameAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorResponse> handleUsernameAlreadyExists(
+            UsernameAlreadyExistsException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                HttpStatus.CONFLICT,
+                "USERNAME_ALREADY_EXISTS",
+                exception.getMessage(),
+                request
+        );
+    }
+
+    @ExceptionHandler(LoginTemporarilyLockedException.class)
+    public ResponseEntity<ApiErrorResponse> handleLoginTemporarilyLocked(
+            LoginTemporarilyLockedException exception,
+            HttpServletRequest request
+    ) {
+        ApiErrorResponse response = ApiErrorResponse.retryAfter(
+                HttpStatus.TOO_MANY_REQUESTS.value(),
+                "LOGIN_TEMPORARILY_LOCKED",
+                exception.getMessage(),
+                request.getRequestURI(),
+                exception.getRetryAfterSeconds()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(exception.getRetryAfterSeconds()))
+                .body(response);
+    }
+
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<ApiErrorResponse> handleEmailAlreadyExists(
             EmailAlreadyExistsException exception,

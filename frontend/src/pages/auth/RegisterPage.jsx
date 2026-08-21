@@ -1,9 +1,11 @@
 import {
   ArrowRight,
+  AtSign,
+  Check,
   CheckCircle2,
   Eye,
   EyeOff,
-  Hotel,
+  Info,
   LockKeyhole,
   Mail,
   ShieldCheck,
@@ -14,36 +16,21 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
+import registerResortImage from "../../assets/auth-account-resort.jpg";
+import enziuLogo from "../../assets/enziu-logo.png";
+import "../../styles/pages/auth-register.css";
 
-function getPasswordStrength(password) {
-  let score = 0;
-  if (password.length >= 8) score += 1;
-  if (/[A-Z]/.test(password)) score += 1;
-  if (/[a-z]/.test(password) && /\d/.test(password)) score += 1;
-  if (/[^A-Za-z0-9]/.test(password)) score += 1;
-  return score;
-}
+const USERNAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{3,29}$/;
 
-function SocialRegisterButton({ provider, label, onUnavailable }) {
-  function handleClick() {
-    const envName =
-      provider === "google" ? "VITE_GOOGLE_OAUTH_URL" : "VITE_FACEBOOK_OAUTH_URL";
-    const oauthUrl = import.meta.env[envName];
-
-    if (oauthUrl) {
-      window.location.assign(oauthUrl);
-      return;
-    }
-
-    onUnavailable(`${label} hiện chưa khả dụng. Vui lòng đăng ký bằng email.`);
-  }
-
-  return (
-    <button type="button" className={`auth-social-button ${provider}`} onClick={handleClick}>
-      <span className="auth-social-mark" aria-hidden="true">{provider === "google" ? "G" : "f"}</span>
-      {label}
-    </button>
-  );
+function getPasswordChecks(password) {
+  return {
+    length: password.length >= 8 && password.length <= 72,
+    upper: /[A-Z]/.test(password),
+    lower: /[a-z]/.test(password),
+    number: /\d/.test(password),
+    special: /[^A-Za-z0-9\s]/.test(password),
+    noSpace: password.length > 0 && !/\s/.test(password),
+  };
 }
 
 export default function RegisterPage() {
@@ -52,6 +39,7 @@ export default function RegisterPage() {
 
   const [form, setForm] = useState({
     fullName: "",
+    username: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -60,18 +48,15 @@ export default function RegisterPage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [notice, setNotice] = useState("");
 
-  const passwordStrength = useMemo(
-    () => getPasswordStrength(form.password),
-    [form.password],
-  );
+  const passwordChecks = useMemo(() => getPasswordChecks(form.password), [form.password]);
+  const passwordScore = Object.values(passwordChecks).filter(Boolean).length;
+  const passwordValid = Object.values(passwordChecks).every(Boolean);
 
   function handleChange(event) {
     const { name, value } = event.target;
     setError("");
     setMessage("");
-    setNotice("");
     setForm((current) => ({ ...current, [name]: value }));
   }
 
@@ -80,13 +65,21 @@ export default function RegisterPage() {
     setError("");
     setMessage("");
 
-    if (form.password !== form.confirmPassword) {
-      setError("Mật khẩu xác nhận không trùng khớp.");
+    const username = form.username.trim();
+    const email = form.email.trim();
+
+    if (!USERNAME_PATTERN.test(username)) {
+      setError("Tên đăng nhập phải từ 4–30 ký tự, bắt đầu bằng chữ hoặc số và chỉ dùng chữ không dấu, số, dấu chấm, _ hoặc -.");
       return;
     }
 
-    if (passwordStrength < 3) {
-      setError("Mật khẩu cần ít nhất 8 ký tự, có chữ hoa, chữ thường và số.");
+    if (!passwordValid) {
+      setError("Mật khẩu phải có ít nhất 8 ký tự, chữ hoa, chữ thường, số, ký tự đặc biệt và không có khoảng trắng.");
+      return;
+    }
+
+    if (form.password !== form.confirmPassword) {
+      setError("Mật khẩu xác nhận không trùng khớp.");
       return;
     }
 
@@ -96,126 +89,244 @@ export default function RegisterPage() {
     }
 
     try {
-      await register({
+      const result = await register({
         fullName: form.fullName.trim(),
-        email: form.email.trim(),
+        username,
+        email: email || null,
         password: form.password,
       });
 
-      setMessage("Đăng ký thành công. EnziuRooms đã gửi liên kết xác thực đến email của bạn.");
-      window.setTimeout(() => navigate("/login", { replace: true }), 2600);
-    } catch (requestError) {
-      setError(
-        requestError.response?.data?.message ??
-          "Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.",
+      setMessage(
+        result?.message
+          ?? (email
+            ? "Đăng ký thành công. Hãy kiểm tra email để xác thực tài khoản."
+            : "Đăng ký thành công. Bạn có thể đăng nhập bằng tên đăng nhập."),
       );
+
+      window.setTimeout(() => navigate("/login/enziurooms", { replace: true }), 2600);
+    } catch (requestError) {
+      const data = requestError.response?.data;
+      const validation = data?.validationErrors;
+      const firstValidation = validation ? Object.values(validation)[0] : null;
+      setError(firstValidation ?? data?.message ?? "Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.");
     }
   }
 
   return (
-    <main className="auth-page auth-page-register">
-      <section className="auth-shell auth-shell-register">
-        <aside className="auth-showcase">
-          <Link to="/" className="auth-brand auth-brand-light">
-            <span><Hotel size={27} /></span>
-            <strong>EnziuRooms</strong>
-          </Link>
+    <main className="enziu-register-page">
+      <section className="enziu-register-shell">
+        <aside
+          className="enziu-register-visual"
+          style={{ "--enziu-register-visual-image": `url(${registerResortImage})` }}
+          aria-label="EnziuRooms"
+        >
+          <div className="enziu-register-visual-overlay" />
 
-          <div className="auth-showcase-content">
-            <span className="auth-kicker"><Sparkles size={16} /> Bắt đầu hành trình của bạn</span>
-            <h1>Một tài khoản cho toàn bộ trải nghiệm đặt phòng.</h1>
+          <div className="enziu-register-visual-content">
+            <img src={enziuLogo} alt="EnziuRooms" className="enziu-register-visual-logo" />
+
+            <h1>
+              Trải nghiệm lưu trú
+              <br />
+              thông minh & <strong>tiện lợi</strong>
+            </h1>
+
             <p>
-              Lưu khách sạn yêu thích, theo dõi đơn đặt phòng, nhận thông báo
-              và được trợ lý AI hỗ trợ tìm nơi lưu trú phù hợp.
+              EnziuRooms giúp bạn quản lý đặt phòng dễ dàng, lưu ưu đãi và
+              tận hưởng hành trình nghỉ dưỡng trọn vẹn.
             </p>
 
-            <div className="auth-benefits">
-              <div><CheckCircle2 size={20} /><span>Tìm kiếm và so sánh khách sạn thuận tiện</span></div>
-              <div><ShieldCheck size={20} /><span>Xác thực email để bảo vệ tài khoản</span></div>
-              <div><Sparkles size={20} /><span>Nhận gợi ý cá nhân hóa từ Gemini AI</span></div>
-            </div>
-          </div>
+            <div className="enziu-register-visual-divider" />
 
-          <div className="auth-showcase-stat">
-            <strong>Đăng ký miễn phí</strong>
-            <span>Không thu phí tạo tài khoản khách hàng</span>
+            <div className="enziu-register-feature-list">
+              <div>
+                <span className="enziu-register-feature-icon"><CheckCircle2 size={18} /></span>
+                <p>
+                  <b>Quản lý đặt phòng hiệu quả</b>
+                  <small>Theo dõi booking và hành trình lưu trú trong vài giây.</small>
+                </p>
+              </div>
+
+              <div>
+                <span className="enziu-register-feature-icon"><ShieldCheck size={18} /></span>
+                <p>
+                  <b>Bảo mật & an toàn</b>
+                  <small>Mật khẩu mạnh.</small>
+                </p>
+              </div>
+
+              <div>
+                <span className="enziu-register-feature-icon"><Sparkles size={18} /></span>
+                <p>
+                  <b>Ưu đãi dành riêng</b>
+                  <small>Lưu voucher và những khách sạn bạn yêu thích.</small>
+                </p>
+              </div>
+            </div>
           </div>
         </aside>
 
-        <section className="auth-form-panel auth-form-panel-register">
-          <div className="auth-mobile-brand">
-            <Link to="/" className="auth-brand"><span><Hotel size={24} /></span><strong>EnziuRooms</strong></Link>
+        <section className="enziu-register-panel">
+          <div className="enziu-register-card">
+            <div className="enziu-register-security-pill">
+              <ShieldCheck size={15} />
+              Tạo tài khoản an toàn
+            </div>
+
+            <div className="enziu-register-heading">
+              <h2>Tạo tài khoản</h2>
+              <p>Email không bắt buộc. Bạn có thể đăng nhập bằng tên đăng nhập.</p>
+            </div>
+
+            {error ? <div className="enziu-register-alert enziu-register-alert-error">{error}</div> : null}
+            {message ? <div className="enziu-register-alert enziu-register-alert-success">{message}</div> : null}
+
+            <form className="enziu-register-form" onSubmit={handleSubmit}>
+              <label className="enziu-register-field">
+                <span>Họ và tên</span>
+                <div className="enziu-register-input">
+                  <UserRound size={19} />
+                  <input
+                    type="text"
+                    name="fullName"
+                    value={form.fullName}
+                    onChange={handleChange}
+                    placeholder="Nhập họ và tên của bạn"
+                    autoComplete="name"
+                    required
+                  />
+                </div>
+              </label>
+
+              <label className="enziu-register-field">
+                <span>Tên đăng nhập</span>
+                <div className="enziu-register-input">
+                  <AtSign size={19} />
+                  <input
+                    type="text"
+                    name="username"
+                    value={form.username}
+                    onChange={handleChange}
+                    placeholder="Nhập tên đăng nhập"
+                    autoComplete="username"
+                    minLength={4}
+                    maxLength={30}
+                    required
+                  />
+                </div>
+                <small>4–30 ký tự, chỉ dùng chữ không dấu, số, dấu chấm, _ hoặc -</small>
+              </label>
+
+              <label className="enziu-register-field">
+                <span>
+                  Email <em>(không bắt buộc)</em>
+                </span>
+                <div className="enziu-register-input">
+                  <Mail size={19} />
+                  <input
+                    type="email"
+                    name="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    placeholder="Nhập email của bạn"
+                    autoComplete="email"
+                  />
+                </div>
+                <small className="enziu-register-note">
+                  <Info size={13} />
+                  Không nhập email vẫn đăng ký được; khi đó bạn đăng nhập bằng tên đăng nhập.
+                </small>
+              </label>
+
+              <label className="enziu-register-field">
+                <span>Mật khẩu</span>
+                <div className="enziu-register-input">
+                  <LockKeyhole size={19} />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={form.password}
+                    onChange={handleChange}
+                    placeholder="Nhập mật khẩu"
+                    autoComplete="new-password"
+                    minLength={8}
+                    maxLength={72}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="enziu-register-password-toggle"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  >
+                    {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                  </button>
+                </div>
+
+                <div className="enziu-register-password-strength" aria-label="Độ mạnh mật khẩu">
+                  {[1, 2, 3, 4, 5, 6].map((level) => (
+                    <span key={level} className={passwordScore >= level ? "active" : ""} />
+                  ))}
+                </div>
+
+                <div className="enziu-register-password-rules">
+                  <span className={passwordChecks.length ? "ok" : ""}><Check size={13} /> 8–72 ký tự</span>
+                  <span className={passwordChecks.upper ? "ok" : ""}><Check size={13} /> Có chữ hoa</span>
+                  <span className={passwordChecks.lower ? "ok" : ""}><Check size={13} /> Có chữ thường</span>
+                  <span className={passwordChecks.number ? "ok" : ""}><Check size={13} /> Có số</span>
+                  <span className={passwordChecks.special ? "ok" : ""}><Check size={13} /> Có ký tự đặc biệt</span>
+                  <span className={passwordChecks.noSpace ? "ok" : ""}><Check size={13} /> Không khoảng trắng</span>
+                </div>
+              </label>
+
+              <label className="enziu-register-field">
+                <span>Xác nhận mật khẩu</span>
+                <div
+                  className={`enziu-register-input ${
+                    form.confirmPassword && form.confirmPassword === form.password
+                      ? "enziu-register-input-valid"
+                      : ""
+                  }`}
+                >
+                  <LockKeyhole size={19} />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="confirmPassword"
+                    value={form.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Nhập lại mật khẩu"
+                    autoComplete="new-password"
+                    required
+                  />
+                  {form.confirmPassword && form.confirmPassword === form.password ? (
+                    <CheckCircle2 size={18} className="enziu-register-valid-icon" />
+                  ) : null}
+                </div>
+              </label>
+
+              <label className="enziu-register-terms">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(event) => setAcceptedTerms(event.target.checked)}
+                />
+                <span>
+                  Tôi đồng ý với <a href="#terms">Điều khoản sử dụng</a> và{" "}
+                  <a href="#privacy">Chính sách bảo mật</a>.
+                </span>
+              </label>
+
+              <button className="enziu-register-submit" type="submit" disabled={loading || Boolean(message)}>
+                {loading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
+                {!loading ? <ArrowRight size={18} /> : null}
+              </button>
+            </form>
+
+            <div className="enziu-register-footer">
+              <span>Đã có tài khoản?</span>
+              <Link to="/login/enziurooms">Đăng nhập</Link>
+            </div>
           </div>
-
-          <div className="auth-form-heading">
-            <span className="auth-kicker dark">TẠO TÀI KHOẢN</span>
-            <h2>Đăng ký EnziuRooms</h2>
-            <p>Chỉ mất vài phút để bắt đầu tìm kiếm và đặt phòng.</p>
-          </div>
-
-          {error ? <div className="alert alert-error">{error}</div> : null}
-          {message ? <div className="alert alert-success">{message}</div> : null}
-          {notice ? <div className="alert alert-info">{notice}</div> : null}
-
-          <div className="auth-social-grid">
-            <SocialRegisterButton provider="google" label="Đăng ký với Google" onUnavailable={setNotice} />
-            <SocialRegisterButton provider="facebook" label="Đăng ký với Facebook" onUnavailable={setNotice} />
-          </div>
-
-          <div className="auth-divider"><span>hoặc đăng ký bằng email</span></div>
-
-          <form className="auth-form" onSubmit={handleSubmit}>
-            <label className="auth-field">
-              <span>Họ và tên</span>
-              <div className="auth-input-wrap">
-                <UserRound size={19} />
-                <input type="text" name="fullName" value={form.fullName} onChange={handleChange} placeholder="Nhập họ và tên" autoComplete="name" required />
-              </div>
-            </label>
-
-            <label className="auth-field">
-              <span>Email</span>
-              <div className="auth-input-wrap">
-                <Mail size={19} />
-                <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="name@gmail.com" autoComplete="email" required />
-              </div>
-            </label>
-
-            <label className="auth-field">
-              <span>Mật khẩu</span>
-              <div className="auth-input-wrap">
-                <LockKeyhole size={19} />
-                <input type={showPassword ? "text" : "password"} name="password" value={form.password} onChange={handleChange} placeholder="Tối thiểu 8 ký tự" autoComplete="new-password" minLength={8} required />
-                <button type="button" className="auth-password-toggle" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}>
-                  {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
-                </button>
-              </div>
-              <div className="auth-password-strength" aria-label="Độ mạnh mật khẩu">
-                {[1, 2, 3, 4].map((level) => <span key={level} className={passwordStrength >= level ? "active" : ""} />)}
-              </div>
-              <small>Ít nhất 8 ký tự, gồm chữ hoa, chữ thường và số.</small>
-            </label>
-
-            <label className="auth-field">
-              <span>Xác nhận mật khẩu</span>
-              <div className="auth-input-wrap">
-                <LockKeyhole size={19} />
-                <input type={showPassword ? "text" : "password"} name="confirmPassword" value={form.confirmPassword} onChange={handleChange} placeholder="Nhập lại mật khẩu" autoComplete="new-password" required />
-              </div>
-            </label>
-
-            <label className="auth-checkbox auth-terms">
-              <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />
-              <span>Tôi đồng ý với <a href="#terms">Điều khoản sử dụng</a> và <a href="#privacy">Chính sách bảo mật</a>.</span>
-            </label>
-
-            <button className="auth-submit" type="submit" disabled={loading || Boolean(message)}>
-              {loading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
-              {!loading ? <ArrowRight size={19} /> : null}
-            </button>
-          </form>
-
-          <p className="auth-switch">Đã có tài khoản? <Link to="/login">Đăng nhập ngay</Link></p>
         </section>
       </section>
     </main>

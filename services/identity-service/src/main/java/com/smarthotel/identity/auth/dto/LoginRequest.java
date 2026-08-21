@@ -1,15 +1,15 @@
 package com.smarthotel.identity.auth.dto;
 
-import jakarta.validation.constraints.Email;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 
 public record LoginRequest(
 
-        @NotBlank(message = "Email khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng")
-        @Email(message = "Email khÃ´ng Ä‘Ãºng Ä‘á»‹nh dáº¡ng")
-        String email,
+        @JsonAlias("email")
+        @NotBlank(message = "Tên đăng nhập hoặc email không được để trống")
+        String identifier,
 
-        @NotBlank(message = "Máº­t kháº©u khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng")
+        @NotBlank(message = "Mật khẩu không được để trống")
         String password
 
 ) {

@@ -20,12 +20,67 @@ import { useEffect, useMemo, useState } from "react";
 
 import apiClient from "../../api/apiClient";
 import Loading from "../../components/common/Loading";
+import { ConfirmDialog, Modal, StatusBadge } from "../../components/ui";
+import { bedTypeLabel } from "../../utils/presentation";
 
 import "./ManageRoomTypesPage.css";
 import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 
 function money(value) {
-  return `${Number(value ?? 0).toLocaleString("vi-VN")} đ`;
+  if (value === null || value === undefined || value === "") {
+    return "Chưa cập nhật";
+  }
+
+  const amount = Number(value);
+  return Number.isFinite(amount)
+    ? `${amount.toLocaleString("vi-VN")} đ`
+    : "Chưa cập nhật";
+}
+
+function valueWithUnit(value, unit) {
+  if (value === null || value === undefined || value === "") {
+    return "Chưa cập nhật";
+  }
+
+  return `${value}${unit}`;
+}
+
+function capacityLabel(roomType, abbreviated = false) {
+  const adults = roomType?.maxAdults;
+  const children = roomType?.maxChildren;
+
+  if (adults === null || adults === undefined || adults === "") {
+    return "Chưa cập nhật sức chứa";
+  }
+
+  if (children === null || children === undefined || children === "") {
+    return abbreviated
+      ? `${adults} NL · Chưa cập nhật TE`
+      : `${adults} người lớn · Chưa cập nhật trẻ em`;
+  }
+
+  return abbreviated
+    ? `${adults} NL · ${children} TE`
+    : `${adults} người lớn · ${children} trẻ em`;
+}
+
+function bedLabel(roomType) {
+  const count = roomType?.bedCount;
+  const type = roomType?.bedType;
+
+  if (count === null || count === undefined || count === "") {
+    return type ? bedTypeLabel(type) : "Chưa cập nhật giường";
+  }
+
+  return type
+    ? `${count} × ${bedTypeLabel(type)}`
+    : `${count} giường · Chưa cập nhật loại`;
+}
+
+function booleanLabel(value, whenTrue, whenFalse) {
+  if (value === true) return whenTrue;
+  if (value === false) return whenFalse;
+  return "Chưa cập nhật";
 }
 
 function errorMessage(error) {
@@ -123,7 +178,13 @@ function paymentLabels(roomType) {
   }
 
   if (roomType.depositAllowed !== false) {
-    result.push(`Đặt cọc ${roomType.depositPercent ?? 30}% online`);
+    result.push(
+      roomType.depositPercent === null ||
+        roomType.depositPercent === undefined ||
+        roomType.depositPercent === ""
+        ? "Đặt cọc online · Chưa cập nhật tỷ lệ"
+        : `Đặt cọc ${roomType.depositPercent}% online`,
+    );
   }
 
   if (roomType.fullPaymentAllowed !== false) {
@@ -142,6 +203,9 @@ export default function ManageRoomTypesPage() {
 
   const [detailRoomType, setDetailRoomType] = useState(null);
   const [detailImageIndex, setDetailImageIndex] = useState(0);
+  const [rejectingRoomType, setRejectingRoomType] = useState(null);
+  const [approvalTarget, setApprovalTarget] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const detailImages = useMemo(
     () => normalizeImages(detailRoomType),
@@ -171,7 +235,6 @@ export default function ManageRoomTypesPage() {
 
   useEffect(() => {
     if (!detailRoomType) {
-      document.body.style.removeProperty("overflow");
       return undefined;
     }
 
@@ -219,14 +282,19 @@ export default function ManageRoomTypesPage() {
     setError("");
   }
 
-  async function approveRoomType(roomType) {
-    if (
-      !window.confirm(
-        `Phê duyệt loại phòng “${roomType.name}” và cho phép hiển thị công khai?`,
-      )
-    ) {
-      return;
+  function requestApproveRoomType(roomType) {
+    if (actionId) return;
+    setError("");
+    setMessage("");
+    if (detailRoomType?.id === roomType.id) {
+      setDetailRoomType(null);
     }
+    setApprovalTarget(roomType);
+  }
+
+  async function confirmApproveRoomType() {
+    const roomType = approvalTarget;
+    if (!roomType || actionId) return;
 
     setActionId(roomType.id);
     setError("");
@@ -237,11 +305,7 @@ export default function ManageRoomTypesPage() {
       setRoomTypes((current) =>
         current.filter((item) => item.id !== roomType.id),
       );
-
-      if (detailRoomType?.id === roomType.id) {
-        setDetailRoomType(null);
-      }
-
+      setApprovalTarget(null);
       setMessage(`Đã phê duyệt loại phòng “${roomType.name}”.`);
     } catch (requestError) {
       setError(errorMessage(requestError));
@@ -250,42 +314,48 @@ export default function ManageRoomTypesPage() {
     }
   }
 
-  async function rejectRoomType(roomType) {
-    const reason = window.prompt(
-      `Nhập lý do từ chối loại phòng “${roomType.name}”:`,
-      "",
-    );
+  function beginReject(roomType) {
+    if (actionId) return;
+    setDetailRoomType(null);
+    setRejectingRoomType(roomType);
+    setRejectReason("");
+    setError("");
+    setMessage("");
+  }
 
-    if (reason === null) {
-      return;
-    }
+  function closeRejectModal() {
+    if (actionId) return;
+    setRejectingRoomType(null);
+    setRejectReason("");
+  }
 
-    const normalizedReason = reason.trim();
+  async function rejectRoomType() {
+    if (!rejectingRoomType || actionId) return;
+
+    const normalizedReason = rejectReason.trim();
 
     if (!normalizedReason) {
       setError("Vui lòng nhập lý do từ chối để đối tác biết cần chỉnh sửa gì.");
       return;
     }
 
-    setActionId(roomType.id);
+    setActionId(rejectingRoomType.id);
     setError("");
     setMessage("");
 
     try {
       await apiClient.patch(
-        `/admin/room-types/${roomType.id}/reject`,
+        `/admin/room-types/${rejectingRoomType.id}/reject`,
         { reason: normalizedReason },
       );
 
       setRoomTypes((current) =>
-        current.filter((item) => item.id !== roomType.id),
+        current.filter((item) => item.id !== rejectingRoomType.id),
       );
 
-      if (detailRoomType?.id === roomType.id) {
-        setDetailRoomType(null);
-      }
-
-      setMessage(`Đã từ chối loại phòng “${roomType.name}”.`);
+      setMessage(`Đã từ chối loại phòng “${rejectingRoomType.name}”.`);
+      setRejectingRoomType(null);
+      setRejectReason("");
     } catch (requestError) {
       setError(errorMessage(requestError));
     } finally {
@@ -335,18 +405,20 @@ export default function ManageRoomTypesPage() {
           type="button"
           className="admin-roomtype-refresh"
           onClick={loadPending}
+          disabled={loading || Boolean(actionId)}
+          aria-busy={loading || undefined}
         >
-          <RefreshCw size={18} />
+          <RefreshCw size={18} aria-hidden="true" />
           Làm mới
         </button>
       </section>
 
       {error ? (
-        <div className="admin-roomtype-notice error">{error}</div>
+        <div className="admin-roomtype-notice error" role="alert">{error}</div>
       ) : null}
 
       {message ? (
-        <div className="admin-roomtype-notice success">{message}</div>
+        <div className="admin-roomtype-notice success" role="status">{message}</div>
       ) : null}
 
       {roomTypes.length === 0 ? (
@@ -372,7 +444,7 @@ export default function ManageRoomTypesPage() {
                   aria-label={`Xem đầy đủ ${roomType.name}`}
                 >
                   {images[0]?.url ? (
-                    <img src={images[0].url} alt={roomType.name} />
+                    <img src={images[0].url} alt={roomType.name} loading="lazy" decoding="async" />
                   ) : (
                     <div className="admin-roomtype-no-image">
                       <ImageIcon size={38} />
@@ -403,9 +475,11 @@ export default function ManageRoomTypesPage() {
                         {roomType.name}
                       </button>
 
-                      <span className="admin-roomtype-status">
-                        Chờ duyệt
-                      </span>
+                      <StatusBadge
+                        status={roomType.approvalStatus ?? roomType.status ?? "PENDING_APPROVAL"}
+                        label="Chờ duyệt"
+                        size="sm"
+                      />
                     </div>
 
                     <strong className="admin-roomtype-price">
@@ -420,29 +494,27 @@ export default function ManageRoomTypesPage() {
                   <div className="admin-roomtype-facts">
                     <span>
                       <Building2 size={16} />
-                      {roomType.hotelName ?? roomType.hotel?.name ?? "Khách sạn"}
+                      {roomType.hotelName ?? roomType.hotel?.name ?? "Chưa cập nhật khách sạn"}
                     </span>
 
                     <span>
                       <Users size={16} />
-                      {roomType.maxAdults ?? 0} người lớn ·{" "}
-                      {roomType.maxChildren ?? 0} trẻ em
+                      {capacityLabel(roomType)}
                     </span>
 
                     <span>
                       <Maximize2 size={16} />
-                      {roomType.areaSqm ?? 0} m²
+                      {valueWithUnit(roomType.areaSqm, " m²")}
                     </span>
 
                     <span>
                       <BedDouble size={16} />
-                      {roomType.bedCount ?? 0} ×{" "}
-                      {roomType.bedType ?? "Chưa cập nhật"}
+                      {bedLabel(roomType)}
                     </span>
 
                     <span>
                       <BedDouble size={16} />
-                      {roomType.roomCount ?? 0} phòng
+                      {valueWithUnit(roomType.roomCount, " phòng")}
                     </span>
                   </div>
 
@@ -450,13 +522,17 @@ export default function ManageRoomTypesPage() {
                     <span>
                       {roomType.breakfastIncluded
                         ? "Có bữa sáng"
-                        : "Không gồm bữa sáng"}
+                        : roomType.breakfastIncluded === false
+                          ? "Không gồm bữa sáng"
+                          : "Chưa cập nhật bữa sáng"}
                     </span>
 
                     <span>
                       {roomType.refundable
                         ? "Có thể hoàn tiền"
-                        : "Không hoàn tiền"}
+                        : roomType.refundable === false
+                          ? "Không hoàn tiền"
+                          : "Chưa cập nhật hoàn tiền"}
                     </span>
 
                     {paymentLabels(roomType).map((payment) => (
@@ -491,8 +567,8 @@ export default function ManageRoomTypesPage() {
                   <button
                     type="button"
                     className="admin-roomtype-reject"
-                    disabled={actionId === roomType.id}
-                    onClick={() => rejectRoomType(roomType)}
+                    disabled={Boolean(actionId)}
+                    onClick={() => beginReject(roomType)}
                   >
                     <XCircle size={17} />
                     Từ chối
@@ -501,8 +577,8 @@ export default function ManageRoomTypesPage() {
                   <button
                     type="button"
                     className="admin-roomtype-approve"
-                    disabled={actionId === roomType.id}
-                    onClick={() => approveRoomType(roomType)}
+                    disabled={Boolean(actionId)}
+                    onClick={() => requestApproveRoomType(roomType)}
                   >
                     <ShieldCheck size={17} />
                     Phê duyệt
@@ -517,6 +593,7 @@ export default function ManageRoomTypesPage() {
       {detailRoomType ? (
         <div
           className="admin-roomtype-modal-backdrop"
+          role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               setDetailRoomType(null);
@@ -560,6 +637,7 @@ export default function ManageRoomTypesPage() {
                       type="button"
                       className="admin-roomtype-gallery-arrow previous"
                       onClick={previousImage}
+                      aria-label="Xem ảnh trước"
                     >
                       <ChevronLeft size={28} />
                     </button>
@@ -568,6 +646,7 @@ export default function ManageRoomTypesPage() {
                       type="button"
                       className="admin-roomtype-gallery-arrow next"
                       onClick={nextImage}
+                      aria-label="Xem ảnh tiếp theo"
                     >
                       <ChevronRight size={28} />
                     </button>
@@ -591,6 +670,8 @@ export default function ManageRoomTypesPage() {
                           : "admin-roomtype-thumbnail"
                       }
                       onClick={() => setDetailImageIndex(index)}
+                      aria-label={`Xem ảnh ${index + 1} của ${detailRoomType.name}`}
+                      aria-current={detailImageIndex === index ? "true" : undefined}
                     >
                       <img src={image.url} alt="" />
                     </button>
@@ -613,11 +694,15 @@ export default function ManageRoomTypesPage() {
                     <Building2 size={16} />
                     {detailRoomType.hotelName ??
                       detailRoomType.hotel?.name ??
-                      "Khách sạn"}
+                      "Chưa cập nhật khách sạn"}
                   </p>
                 </div>
 
-                <span className="admin-roomtype-status">Chờ duyệt</span>
+                <StatusBadge
+                  status={detailRoomType.approvalStatus ?? detailRoomType.status ?? "PENDING_APPROVAL"}
+                  label="Chờ duyệt"
+                  size="sm"
+                />
               </div>
 
               <div className="admin-roomtype-detail-facts">
@@ -628,28 +713,22 @@ export default function ManageRoomTypesPage() {
 
                 <div>
                   <small>Diện tích</small>
-                  <strong>{detailRoomType.areaSqm ?? 0} m²</strong>
+                  <strong>{valueWithUnit(detailRoomType.areaSqm, " m²")}</strong>
                 </div>
 
                 <div>
                   <small>Sức chứa</small>
-                  <strong>
-                    {detailRoomType.maxAdults ?? 0} NL ·{" "}
-                    {detailRoomType.maxChildren ?? 0} TE
-                  </strong>
+                  <strong>{capacityLabel(detailRoomType, true)}</strong>
                 </div>
 
                 <div>
                   <small>Giường</small>
-                  <strong>
-                    {detailRoomType.bedCount ?? 0} ×{" "}
-                    {detailRoomType.bedType ?? "—"}
-                  </strong>
+                  <strong>{bedLabel(detailRoomType)}</strong>
                 </div>
 
                 <div>
                   <small>Phòng</small>
-                  <strong>{detailRoomType.roomCount ?? 0}</strong>
+                  <strong>{valueWithUnit(detailRoomType.roomCount, " phòng")}</strong>
                 </div>
 
                 <div>
@@ -677,7 +756,9 @@ export default function ManageRoomTypesPage() {
                       <small>
                         {detailRoomType.breakfastIncluded
                           ? "Bao gồm trong giá"
-                          : "Không bao gồm"}
+                          : detailRoomType.breakfastIncluded === false
+                            ? "Không bao gồm"
+                            : "Chưa cập nhật"}
                       </small>
                     </span>
                   </div>
@@ -687,9 +768,11 @@ export default function ManageRoomTypesPage() {
                     <span>
                       <strong>Hoàn tiền</strong>
                       <small>
-                        {detailRoomType.refundable
-                          ? "Có thể hoàn tiền"
-                          : "Không hoàn tiền"}
+                        {booleanLabel(
+                          detailRoomType.refundable,
+                          "Có thể hoàn tiền",
+                          "Không hoàn tiền",
+                        )}
                       </small>
                     </span>
                   </div>
@@ -699,9 +782,11 @@ export default function ManageRoomTypesPage() {
                     <span>
                       <strong>Hút thuốc</strong>
                       <small>
-                        {detailRoomType.smokingAllowed
-                          ? "Cho phép hút thuốc"
-                          : "Không hút thuốc"}
+                        {booleanLabel(
+                          detailRoomType.smokingAllowed,
+                          "Cho phép hút thuốc",
+                          "Không hút thuốc",
+                        )}
                       </small>
                     </span>
                   </div>
@@ -759,8 +844,8 @@ export default function ManageRoomTypesPage() {
                 <button
                   type="button"
                   className="admin-roomtype-reject"
-                  disabled={actionId === detailRoomType.id}
-                  onClick={() => rejectRoomType(detailRoomType)}
+                  disabled={Boolean(actionId)}
+                  onClick={() => beginReject(detailRoomType)}
                 >
                   <XCircle size={18} />
                   Từ chối và ghi lý do
@@ -769,8 +854,8 @@ export default function ManageRoomTypesPage() {
                 <button
                   type="button"
                   className="admin-roomtype-approve"
-                  disabled={actionId === detailRoomType.id}
-                  onClick={() => approveRoomType(detailRoomType)}
+                  disabled={Boolean(actionId)}
+                  onClick={() => requestApproveRoomType(detailRoomType)}
                 >
                   <ShieldCheck size={18} />
                   Phê duyệt loại phòng
@@ -780,6 +865,77 @@ export default function ManageRoomTypesPage() {
           </section>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(approvalTarget)}
+        title="Phê duyệt loại phòng"
+        description={approvalTarget ? `Loại phòng “${approvalTarget.name}” sẽ được phép hiển thị cho khách sau khi phê duyệt.` : undefined}
+        confirmLabel="Phê duyệt loại phòng"
+        confirmTone="primary"
+        busy={Boolean(approvalTarget && actionId === approvalTarget.id)}
+        onCancel={() => {
+          if (!actionId) {
+            setApprovalTarget(null);
+            setError("");
+          }
+        }}
+        onConfirm={() => void confirmApproveRoomType()}
+      >
+        {approvalTarget && error ? <p className="admin-roomtype-confirm-error" role="alert">{error}</p> : null}
+        <p>Hãy kiểm tra hình ảnh, giá, sức chứa, chính sách thanh toán và tiện nghi trước khi công khai loại phòng này.</p>
+      </ConfirmDialog>
+
+      <Modal
+        open={Boolean(rejectingRoomType)}
+        onClose={closeRejectModal}
+        title="Từ chối loại phòng"
+        description={
+          rejectingRoomType
+            ? `Gửi lý do cụ thể để đối tác chỉnh sửa “${rejectingRoomType.name}”.`
+            : undefined
+        }
+        size="sm"
+        closeOnBackdrop={!actionId}
+        closeOnEscape={!actionId}
+        footer={(
+          <>
+            <button
+              type="button"
+              className="admin-roomtype-modal-cancel"
+              onClick={closeRejectModal}
+              disabled={Boolean(actionId)}
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              className="admin-roomtype-reject"
+              onClick={rejectRoomType}
+              disabled={!rejectReason.trim() || Boolean(actionId)}
+              aria-busy={actionId === rejectingRoomType?.id || undefined}
+            >
+              <XCircle size={17} aria-hidden="true" />
+              {actionId === rejectingRoomType?.id
+                ? "Đang xử lý..."
+                : "Xác nhận từ chối"}
+            </button>
+          </>
+        )}
+      >
+        <label className="admin-roomtype-reject-field">
+          <span>Lý do từ chối</span>
+          <textarea
+            value={rejectReason}
+            onChange={(event) => setRejectReason(event.target.value)}
+            rows={5}
+            maxLength={500}
+            required
+            autoFocus
+            placeholder="Nêu rõ nội dung, hình ảnh hoặc chính sách cần bổ sung..."
+          />
+          <small>{rejectReason.length}/500 ký tự</small>
+        </label>
+      </Modal>
     </div>
   );
 }

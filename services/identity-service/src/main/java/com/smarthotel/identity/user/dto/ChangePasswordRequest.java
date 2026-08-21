@@ -1,18 +1,19 @@
 package com.smarthotel.identity.user.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record ChangePasswordRequest(
 
-        @NotBlank(message = "Máº­t kháº©u hiá»‡n táº¡i khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng")
+        @NotBlank(message = "Mật khẩu hiện tại không được để trống")
         String currentPassword,
 
-        @NotBlank(message = "Máº­t kháº©u má»›i khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng")
-        @Size(
-                min = 8,
-                max = 72,
-                message = "Máº­t kháº©u má»›i pháº£i tá»« 8 Ä‘áº¿n 72 kÃ½ tá»±"
+        @NotBlank(message = "Mật khẩu mới không được để trống")
+        @Size(min = 8, max = 72, message = "Mật khẩu mới phải từ 8 đến 72 ký tự")
+        @Pattern(
+                regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9\\s])\\S{8,72}$",
+                message = "Mật khẩu phải có chữ hoa, chữ thường, số, ký tự đặc biệt và không chứa khoảng trắng"
         )
         String newPassword
 

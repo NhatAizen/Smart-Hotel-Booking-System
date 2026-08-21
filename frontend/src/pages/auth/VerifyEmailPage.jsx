@@ -154,7 +154,7 @@ export default function VerifyEmailPage() {
             <span className="verify-email-eyebrow success">XÁC THỰC THÀNH CÔNG</span>
             <h1>Email đã được xác thực!</h1>
             <p>{result.message} Tài khoản EnziuRooms của bạn đã sẵn sàng để đăng nhập và đặt phòng.</p>
-            <Link to="/login" className="verify-primary-action">Đăng nhập ngay <ArrowRight size={18} /></Link>
+            <Link to="/login/enziurooms" className="verify-primary-action">Đăng nhập ngay <ArrowRight size={18} /></Link>
             <Link to="/hotels" className="verify-secondary-link">Xem khách sạn</Link>
           </>
         ) : (
@@ -169,7 +169,7 @@ export default function VerifyEmailPage() {
                 ? "Tài khoản có thể đã được xác thực trước đó. Hãy thử đăng nhập; nếu chưa được, hãy yêu cầu liên kết mới."
                 : "Vui lòng kiểm tra lại liên kết hoặc yêu cầu gửi lại email xác thực."}
             </p>
-            <Link to="/login" className="verify-primary-action">Thử đăng nhập <ArrowRight size={18} /></Link>
+            <Link to="/login/enziurooms" className="verify-primary-action">Thử đăng nhập <ArrowRight size={18} /></Link>
             <div className="verify-divider"><span>hoặc gửi lại liên kết</span></div>
             <form className="verify-resend-form" onSubmit={handleResend}>
               <label htmlFor="verify-email-address">Email đã đăng ký</label>

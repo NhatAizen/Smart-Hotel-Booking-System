@@ -25,6 +25,8 @@ public record CreateBookingRequest(
         @NotBlank @Size(max = 100) String bookerFirstName,
         @NotBlank @Email @Size(max = 255) String bookerEmail,
         @NotBlank @Size(min = 8, max = 30) String bookerPhone,
+        @NotNull LocalDate bookerDateOfBirth,
+        @AssertTrue boolean ageConfirmed,
         boolean bookerIsGuest,
         @Size(max = 100) String guestLastName,
         @Size(max = 100) String guestFirstName,
@@ -41,10 +43,11 @@ public record CreateBookingRequest(
         return new CreateBookingBatchRequest(
                 customerId, hotelId, java.util.List.of(roomId), checkIn, checkOut,
                 adults, children, paymentOption, bookerLastName, bookerFirstName,
-                bookerEmail, bookerPhone, bookerIsGuest, guestLastName,
+                bookerEmail, bookerPhone, bookerDateOfBirth, ageConfirmed,
+                bookerIsGuest, guestLastName,
                 guestFirstName, guestPhone, specialRequest, invoiceRequested,
                 invoiceCompanyName, invoiceTaxCode, invoiceAddress, invoiceEmail,
-                termsAccepted, null
+                termsAccepted, null, null, null
         );
     }
 }

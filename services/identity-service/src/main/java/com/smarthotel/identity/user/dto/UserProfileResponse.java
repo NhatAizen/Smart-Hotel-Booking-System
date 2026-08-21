@@ -8,6 +8,7 @@ import java.util.UUID;
 
 public record UserProfileResponse(
         UUID userId,
+        String username,
         String email,
         String fullName,
         String role,
@@ -26,6 +27,7 @@ public record UserProfileResponse(
     public static UserProfileResponse from(User user) {
         return new UserProfileResponse(
                 user.getId(),
+                user.getUsername(),
                 user.getEmail(),
                 user.getFullName(),
                 user.getRole().name(),

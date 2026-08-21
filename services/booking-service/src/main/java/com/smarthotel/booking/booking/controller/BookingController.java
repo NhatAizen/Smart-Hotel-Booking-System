@@ -6,6 +6,7 @@ import com.smarthotel.booking.booking.dto.BookingResponse;
 import com.smarthotel.booking.booking.dto.BookingHoldResponse;
 import com.smarthotel.booking.booking.dto.CreateRoomHoldRequest;
 import com.smarthotel.booking.booking.dto.CheckInDetailsResponse;
+import com.smarthotel.booking.booking.dto.CheckInIdentityQrRequest;
 import com.smarthotel.booking.booking.dto.CheckInVerifyRequest;
 import com.smarthotel.booking.booking.dto.CreateBookingBatchRequest;
 import com.smarthotel.booking.booking.dto.CreateBookingRequest;
@@ -52,8 +53,13 @@ public class BookingController {
     @Operation(summary = "Tạo một booking")
     @PostMapping("/bookings")
     public ResponseEntity<BookingResponse> create(
+            @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody CreateBookingRequest request
     ) {
+        UUID userId = currentUserId(jwt);
+        if (!userId.equals(request.customerId())) {
+            throw new IllegalStateException("Bạn không thể tạo booking cho tài khoản khác");
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(bookingService.create(request));
     }
@@ -61,8 +67,13 @@ public class BookingController {
     @Operation(summary = "Tạo nhiều booking trong một lần đặt phòng")
     @PostMapping("/bookings/batch")
     public ResponseEntity<List<BookingResponse>> createBatch(
+            @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody CreateBookingBatchRequest request
     ) {
+        UUID userId = currentUserId(jwt);
+        if (!userId.equals(request.customerId())) {
+            throw new IllegalStateException("Bạn không thể tạo booking cho tài khoản khác");
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(bookingService.createBatch(request));
     }
@@ -94,6 +105,39 @@ public class BookingController {
     ) {
         return ResponseEntity.ok(
                 bookingService.verifyCheckIn(currentUserId(jwt), request.code())
+        );
+    }
+
+    @Operation(summary = "Hotel Admin quét QR CCCD và xác minh người đại diện nhận phòng")
+    @PostMapping("/bookings/{bookingId}/check-in/verify-identity")
+    public ResponseEntity<CheckInDetailsResponse> verifyCheckInIdentity(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID bookingId,
+            @Valid @RequestBody CheckInIdentityQrRequest request
+    ) {
+        return ResponseEntity.ok(
+                bookingService.verifyCheckInIdentity(
+                        currentUserId(jwt),
+                        bookingId,
+                        request.code(),
+                        request.identityQrData()
+                )
+        );
+    }
+
+    @Operation(summary = "Hotel Admin xác nhận đã đối chiếu CCCD/Hộ chiếu trực tiếp tại quầy")
+    @PostMapping("/bookings/{bookingId}/check-in/verify-identity-manual")
+    public ResponseEntity<CheckInDetailsResponse> verifyCheckInIdentityManual(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID bookingId,
+            @Valid @RequestBody CheckInVerifyRequest request
+    ) {
+        return ResponseEntity.ok(
+                bookingService.verifyCheckInIdentityManual(
+                        currentUserId(jwt),
+                        bookingId,
+                        request.code()
+                )
         );
     }
 
@@ -255,7 +299,7 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getCurrentStays(currentUserId(jwt)));
     }
 
-    @Operation(summary = "Hotel Admin chốt phí trả phòng trễ tại thời điểm checkout")
+    @Operation(summary = "Hotel Admin cập nhật phụ thu trả phòng trễ hiện tại")
     @PostMapping("/bookings/{bookingId}/late-checkout/assess")
     public ResponseEntity<CheckInDetailsResponse> assessLateCheckoutFee(
             @AuthenticationPrincipal Jwt jwt,
@@ -275,6 +319,15 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.checkOut(
                 currentUserId(jwt), bookingId, jwt.getTokenValue()
         ));
+    }
+
+    @Operation(summary = "Hotel Admin xác nhận khách không đến nhận phòng")
+    @PatchMapping("/bookings/{bookingId}/no-show")
+    public ResponseEntity<BookingResponse> markNoShow(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID bookingId
+    ) {
+        return ResponseEntity.ok(bookingService.markNoShow(currentUserId(jwt), bookingId));
     }
 
     @Operation(summary = "Hủy booking")

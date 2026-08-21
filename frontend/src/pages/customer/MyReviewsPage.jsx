@@ -318,7 +318,7 @@ export default function MyReviewsPage() {
                         <div className="my-review-hotel">
                           <div className="my-review-hotel-photo">
                             {cover ? (
-                              <img src={cover} alt={hotel?.name ?? "Khách sạn"} />
+                              <img src={cover} alt={hotel?.name ?? "Khách sạn"} loading="lazy" decoding="async" />
                             ) : (
                               <span className="favorite-card-placeholder">
                                 <Hotel size={28} />
@@ -407,6 +407,17 @@ export default function MyReviewsPage() {
                                   />
                                 </button>
                               ))}
+                            </div>
+                          ) : null}
+
+
+                          {(review.hotelReply ?? review.replyContent ?? review.reply) ? (
+                            <div className="my-review-hotel-reply">
+                              <strong>Phản hồi từ {hotel?.name ?? "khách sạn"}</strong>
+                              <p>{review.hotelReply ?? review.replyContent ?? review.reply}</p>
+                              {(review.hotelReplyAt ?? review.replyAt) ? (
+                                <small>{formatDate(review.hotelReplyAt ?? review.replyAt)}</small>
+                              ) : null}
                             </div>
                           ) : null}
                         </div>

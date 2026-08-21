@@ -501,3 +501,37 @@
     flex-direction: column;
   }
 }
+
+.review-hotel-reply {
+  margin-top: 18px;
+  padding: 14px 15px;
+  border: 1px solid #d6e6f4;
+  border-radius: 13px;
+  background: #f5faff;
+}
+
+.review-hotel-reply-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.review-hotel-reply-head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #24547b;
+  font-weight: 750;
+}
+
+.review-hotel-reply-head small {
+  color: #8795a5;
+}
+
+.review-hotel-reply p {
+  margin: 9px 0 0;
+  color: #405b73;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}

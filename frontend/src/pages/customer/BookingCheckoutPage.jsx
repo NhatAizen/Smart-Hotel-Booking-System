@@ -1,7 +1,6 @@
 import {
   ArrowLeft,
   BadgeCheck,
-  Bookmark,
   BedDouble,
   CalendarDays,
   Check,
@@ -33,7 +32,6 @@ import {
 import {
   getPromotionRecommendations,
   previewDiscount,
-  savePromotion,
 } from "../../services/promotionService";
 import "../shared/PromotionCenter.css";
 import {
@@ -64,21 +62,6 @@ function money(value) {
   return `${Number(value ?? 0).toLocaleString("vi-VN")} ₫`;
 }
 
-function splitName(fullName) {
-  const parts = String(fullName ?? "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (parts.length <= 1) {
-    return { lastName: "", firstName: parts[0] ?? "" };
-  }
-
-  return {
-    lastName: parts.slice(0, -1).join(" "),
-    firstName: parts.at(-1),
-  };
-}
 
 function dateLabel(value) {
   if (!value) return "Chưa chọn";
@@ -87,6 +70,30 @@ function dateLabel(value) {
     month: "2-digit",
     year: "numeric",
   }).format(new Date(`${value}T00:00:00`));
+}
+
+function ageOn(dateOfBirth, referenceDate = new Date()) {
+  if (!dateOfBirth) return null;
+  const parts = String(dateOfBirth).split("-").map(Number);
+  if (parts.length !== 3 || parts.some((value) => !Number.isFinite(value))) {
+    return null;
+  }
+
+  const [year, month, day] = parts;
+  let age = referenceDate.getFullYear() - year;
+  const beforeBirthday =
+    referenceDate.getMonth() + 1 < month
+    || (referenceDate.getMonth() + 1 === month && referenceDate.getDate() < day);
+  if (beforeBirthday) age -= 1;
+  return age;
+}
+
+function todayInputValue() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function policyEnabled(value) {
@@ -132,7 +139,6 @@ export default function BookingCheckoutPage() {
   const adults = Number(searchParams.get("adults") ?? 1);
   const children = Number(searchParams.get("children") ?? 0);
 
-  const initialName = splitName(user?.fullName);
   const [hotel, setHotel] = useState(null);
   const [selectedRooms, setSelectedRooms] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
@@ -140,10 +146,12 @@ export default function BookingCheckoutPage() {
   const [fundingMethod, setFundingMethod] = useState("PAYOS");
   const [wallet, setWallet] = useState(null);
   const [form, setForm] = useState({
-    bookerLastName: initialName.lastName,
-    bookerFirstName: initialName.firstName,
+    bookerLastName: "",
+    bookerFirstName: "",
     bookerEmail: user?.email ?? "",
-    bookerPhone: "",
+    bookerPhone: user?.phone ?? "",
+    bookerDateOfBirth: user?.dateOfBirth ?? "",
+    ageConfirmed: false,
     bookerIsGuest: true,
     guestLastName: "",
     guestFirstName: "",
@@ -175,7 +183,16 @@ export default function BookingCheckoutPage() {
   const [appliedPromotionCodes, setAppliedPromotionCodes] = useState({ hotel: "", platform: "" });
   const [promotionSuggestions, setPromotionSuggestions] = useState([]);
   const [promotionSuggestionsLoading, setPromotionSuggestionsLoading] = useState(false);
-  const [promotionSaveBusyId, setPromotionSaveBusyId] = useState("");
+
+  useEffect(() => {
+    if (!user) return;
+    setForm((current) => ({
+      ...current,
+      bookerEmail: current.bookerEmail || user.email || "",
+      bookerPhone: current.bookerPhone || user.phone || "",
+      bookerDateOfBirth: current.bookerDateOfBirth || user.dateOfBirth || "",
+    }));
+  }, [user]);
 
   useEffect(() => {
     async function load() {
@@ -489,26 +506,6 @@ export default function BookingCheckoutPage() {
     await refreshDiscountPreview(nextHotelCode, nextPlatformCode, true);
   }
 
-  async function saveSuggestedPromotion(suggestion) {
-    const promotion = suggestion?.promotion;
-    if (!promotion?.id || suggestion?.saved) return;
-    setPromotionSaveBusyId(String(promotion.id));
-    setDiscountError("");
-    try {
-      await savePromotion(promotion.id);
-      setPromotionSuggestions((current) =>
-        current.map((item) =>
-          String(item?.promotion?.id) === String(promotion.id)
-            ? { ...item, saved: true }
-            : item,
-        ),
-      );
-    } catch (requestError) {
-      setDiscountError(requestError.response?.data?.message ?? "Không thể lưu mã lúc này.");
-    } finally {
-      setPromotionSaveBusyId("");
-    }
-  }
 
   const selectedItems = useMemo(() => {
     const nights = nightsBetween(checkIn, checkOut);
@@ -633,11 +630,18 @@ export default function BookingCheckoutPage() {
     [selectedItems],
   );
 
+  const bookerAge = useMemo(
+    () => ageOn(form.bookerDateOfBirth),
+    [form.bookerDateOfBirth],
+  );
+  const bookerIsAdult = Number.isInteger(bookerAge) && bookerAge >= 18;
+
   function handleChange(event) {
     const { name, value, checked, type } = event.target;
     setForm((current) => ({
       ...current,
       [name]: type === "checkbox" ? checked : value,
+      ...(name === "bookerDateOfBirth" ? { ageConfirmed: false } : {}),
     }));
   }
 
@@ -651,6 +655,22 @@ export default function BookingCheckoutPage() {
     }
     if (!effectivePaymentOption) {
       setError("Không có phương thức thanh toán phù hợp cho các phòng đã chọn.");
+      return;
+    }
+    if (!form.bookerLastName.trim() || !form.bookerFirstName.trim()) {
+      setError("Vui lòng nhập đầy đủ họ tên người đứng tên booking đúng theo CCCD/Hộ chiếu.");
+      return;
+    }
+    if (!form.bookerDateOfBirth) {
+      setError("Vui lòng nhập ngày sinh của người đứng tên đặt phòng.");
+      return;
+    }
+    if (!bookerIsAdult) {
+      setError("Người đứng tên đặt phòng phải từ đủ 18 tuổi trở lên.");
+      return;
+    }
+    if (!form.ageConfirmed) {
+      setError("Vui lòng xác nhận điều kiện độ tuổi và giấy tờ nhận phòng.");
       return;
     }
     if (pricingLoading || !pricingQuote) {
@@ -821,29 +841,29 @@ export default function BookingCheckoutPage() {
               <div className="checkout-card-title">
                 <UserRound size={22} />
                 <div>
-                  <h2>Thông tin người đặt</h2>
-                  <p>Thông tin này được lưu cùng booking và dùng để liên hệ.</p>
+                  <h2>Thông tin người đứng tên booking</h2>
+                  <p>Họ tên và ngày sinh phải đúng theo CCCD/Hộ chiếu. Tên hiển thị của tài khoản không được dùng để xác minh.</p>
                 </div>
               </div>
 
               <div className="checkout-form-grid">
                 <label>
-                  <span>Họ *</span>
+                  <span>Họ theo CCCD/Hộ chiếu *</span>
                   <input
                     name="bookerLastName"
                     value={form.bookerLastName}
                     onChange={handleChange}
-                    placeholder="Nhập họ"
+                    placeholder="Ví dụ: Trần"
                     required
                   />
                 </label>
                 <label>
-                  <span>Tên *</span>
+                  <span>Tên theo CCCD/Hộ chiếu *</span>
                   <input
                     name="bookerFirstName"
                     value={form.bookerFirstName}
                     onChange={handleChange}
-                    placeholder="Nhập tên"
+                    placeholder="Ví dụ: Nhật"
                     required
                   />
                 </label>
@@ -875,6 +895,44 @@ export default function BookingCheckoutPage() {
                     />
                   </div>
                 </label>
+                <label className="checkout-field-full">
+                  <span>Ngày sinh theo CCCD/Hộ chiếu *</span>
+                  <input
+                    name="bookerDateOfBirth"
+                    type="date"
+                    max={todayInputValue()}
+                    value={form.bookerDateOfBirth}
+                    onChange={handleChange}
+                    required
+                  />
+                </label>
+              </div>
+
+              <div
+                className={`checkout-age-status ${
+                  !form.bookerDateOfBirth
+                    ? "pending"
+                    : bookerIsAdult
+                      ? "eligible"
+                      : "blocked"
+                }`}
+                role="status"
+              >
+                {bookerIsAdult ? <BadgeCheck size={19} /> : <ShieldCheck size={19} />}
+                <div>
+                  <strong>
+                    {!form.bookerDateOfBirth
+                      ? "Chưa xác định độ tuổi"
+                      : bookerIsAdult
+                        ? `Đủ điều kiện đặt phòng · ${bookerAge} tuổi`
+                        : `Chưa đủ điều kiện đặt phòng · ${Math.max(0, bookerAge ?? 0)} tuổi`}
+                  </strong>
+                  <span>
+                    {bookerIsAdult
+                      ? "Người đứng tên phải xuất trình giấy tờ tùy thân khi nhận phòng để khách sạn đối chiếu."
+                      : "Người đứng tên booking phải từ đủ 18 tuổi trở lên."}
+                  </span>
+                </div>
               </div>
 
               <label className="checkout-checkbox prominent">
@@ -889,10 +947,11 @@ export default function BookingCheckoutPage() {
 
               {!form.bookerIsGuest ? (
                 <div className="checkout-guest-box">
-                  <h3>Thông tin khách lưu trú chính</h3>
+                  <h3>Thông tin người nhận phòng chính</h3>
+                  <p className="checkout-guest-note">Khách sạn sẽ đối chiếu giấy tờ của người này khi nhận phòng.</p>
                   <div className="checkout-form-grid">
                     <label>
-                      <span>Họ khách lưu trú *</span>
+                      <span>Họ theo giấy tờ tùy thân *</span>
                       <input
                         name="guestLastName"
                         value={form.guestLastName}
@@ -901,7 +960,7 @@ export default function BookingCheckoutPage() {
                       />
                     </label>
                     <label>
-                      <span>Tên khách lưu trú *</span>
+                      <span>Tên theo giấy tờ tùy thân *</span>
                       <input
                         name="guestFirstName"
                         value={form.guestFirstName}
@@ -1132,6 +1191,20 @@ export default function BookingCheckoutPage() {
             </section>
 
             <section className="checkout-card checkout-terms-card">
+              <label className={`checkout-checkbox checkout-age-confirm ${bookerIsAdult ? "enabled" : "disabled"}`}>
+                <input
+                  name="ageConfirmed"
+                  type="checkbox"
+                  checked={form.ageConfirmed}
+                  onChange={handleChange}
+                  disabled={!bookerIsAdult}
+                  required
+                />
+                <span>
+                  Tôi xác nhận họ tên và ngày sinh người đứng tên booking đúng với giấy tờ tùy thân, người này đã đủ 18 tuổi và đồng ý xuất trình giấy tờ khi nhận phòng.
+                </span>
+              </label>
+
               <label className="checkout-checkbox">
                 <input
                   name="termsAccepted"
@@ -1238,13 +1311,13 @@ export default function BookingCheckoutPage() {
                 <input
                   value={hotelPromotionCode}
                   onChange={(event) => setHotelPromotionCode(event.target.value.toUpperCase())}
-                  placeholder="Mã của khách sạn"
+                  placeholder="Mã khách sạn đã lưu"
                   aria-label="Mã giảm giá của khách sạn"
                 />
                 <input
                   value={platformPromotionCode}
                   onChange={(event) => setPlatformPromotionCode(event.target.value.toUpperCase())}
-                  placeholder="Mã EnziuRooms"
+                  placeholder="Mã EnziuRooms đã lưu"
                   aria-label="Mã giảm giá EnziuRooms"
                 />
                 <button
@@ -1288,14 +1361,10 @@ export default function BookingCheckoutPage() {
                             </small>
                           </div>
                           <div className="checkout-promo-suggestion-actions">
-                            <button
-                              type="button"
-                              disabled={suggestion.saved || promotionSaveBusyId === String(promotion.id)}
-                              onClick={() => saveSuggestedPromotion(suggestion)}
-                            >
-                              <Bookmark size={13} />
-                              {suggestion.saved ? "Đã lưu" : "Lưu"}
-                            </button>
+                            <span className="checkout-promo-saved-badge">
+                              <Check size={13} />
+                              Đã lưu
+                            </span>
                             <button
                               type="button"
                               className="primary"
@@ -1310,7 +1379,10 @@ export default function BookingCheckoutPage() {
                     })}
                   </div>
                 ) : !promotionSuggestionsLoading ? (
-                  <small>Chưa có mã khác phù hợp với booking hiện tại.</small>
+                  <small>
+                    Bạn chưa lưu voucher phù hợp với booking này. Hãy lưu mã ở trang khách sạn
+                    hoặc Hạng & ưu đãi trước khi thanh toán.
+                  </small>
                 ) : null}
               </div>
             </div>
@@ -1366,6 +1438,9 @@ export default function BookingCheckoutPage() {
                 || !bookingHold?.holdToken
                 || pricingLoading
                 || !pricingQuote
+                || !bookerIsAdult
+                || !form.ageConfirmed
+                || !form.termsAccepted
               }>
               {pricingLoading
                 ? "Đang tính giá theo ngày..."

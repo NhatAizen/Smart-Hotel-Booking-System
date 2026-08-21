@@ -94,6 +94,22 @@ export async function verifyCheckInCode(code) {
   return response.data;
 }
 
+export async function verifyCheckInIdentity(bookingId, code, identityQrData) {
+  const response = await apiClient.post(
+    `/bookings/${bookingId}/check-in/verify-identity`,
+    { code, identityQrData },
+  );
+  return response.data;
+}
+
+export async function verifyCheckInIdentityManual(bookingId, code) {
+  const response = await apiClient.post(
+    `/bookings/${bookingId}/check-in/verify-identity-manual`,
+    { code },
+  );
+  return response.data;
+}
+
 export async function collectBookingPaymentAtHotel(bookingId, code) {
   const response = await apiClient.post(
     `/bookings/${bookingId}/check-in/collect-at-hotel`,
@@ -178,5 +194,57 @@ export function subscribeHotelAvailability(
 
 export async function markBookingNoShow(bookingId) {
   const response = await apiClient.patch(`/bookings/${bookingId}/no-show`);
+  return response.data;
+}
+
+/* =========================================================
+   HOTEL REVIEW REPLY / SYSTEM MODERATION
+========================================================= */
+
+export async function getHotelAdminReviews() {
+  const response = await apiClient.get("/hotel-admin/reviews");
+  return response.data;
+}
+
+export async function createHotelReviewReply(reviewId, content) {
+  const response = await apiClient.post(
+    `/hotel-admin/reviews/${reviewId}/reply`,
+    { content },
+  );
+  return response.data;
+}
+
+export async function updateHotelReviewReply(reviewId, content) {
+  const response = await apiClient.put(
+    `/hotel-admin/reviews/${reviewId}/reply`,
+    { content },
+  );
+  return response.data;
+}
+
+export async function deleteHotelReviewReply(reviewId) {
+  const response = await apiClient.delete(
+    `/hotel-admin/reviews/${reviewId}/reply`,
+  );
+  return response.data;
+}
+
+export async function getSystemAdminReviews(params = {}) {
+  const response = await apiClient.get("/admin/reviews", { params });
+  return response.data;
+}
+
+export async function hideSystemAdminReview(reviewId, reason) {
+  const response = await apiClient.patch(
+    `/admin/reviews/${reviewId}/hide`,
+    { reason },
+  );
+  return response.data;
+}
+
+export async function restoreSystemAdminReview(reviewId) {
+  const response = await apiClient.patch(
+    `/admin/reviews/${reviewId}/restore`,
+  );
   return response.data;
 }

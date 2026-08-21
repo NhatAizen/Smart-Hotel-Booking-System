@@ -1,0 +1,161 @@
+.admin-partner-requests-page .admin-partner-page-header {
+  margin-bottom: 18px;
+}
+
+.admin-partner-requests-page .admin-partner-page-error {
+  margin-bottom: 18px;
+}
+
+.admin-partner-requests-page .admin-review-card {
+  min-width: 0;
+}
+
+.admin-partner-requests-page .admin-review-title-row {
+  align-items: center;
+}
+
+.admin-partner-requests-page .admin-review-title-row h2,
+.admin-partner-requests-page .admin-review-meta strong,
+.admin-partner-requests-page .admin-deactivation-request-summary strong,
+.admin-partner-requests-page .admin-deactivation-request-summary small,
+.admin-partner-requests-page .admin-deactivation-request-summary p {
+  overflow-wrap: anywhere;
+}
+
+.admin-partner-requests-page .admin-review-meta strong[aria-label] {
+  letter-spacing: 0.045em;
+}
+
+.admin-partner-requests-page .admin-card-actions button,
+.admin-partner-requests-page .admin-modal button {
+  min-height: 40px;
+}
+
+.admin-partner-requests-page button:focus-visible,
+.admin-partner-requests-page textarea:focus-visible {
+  outline: 3px solid rgba(30, 126, 176, 0.23);
+  outline-offset: 2px;
+}
+
+.admin-partner-requests-page .partner-review-modal {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.admin-partner-requests-page .partner-admin-documents-heading span {
+  line-height: 1.4;
+}
+
+.admin-partner-requests-page .partner-admin-evidence-metrics span {
+  line-height: 1.4;
+}
+
+.admin-partner-requests-page .partner-admin-doc-error,
+.admin-partner-requests-page .partner-admin-evidence-warning {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 820px) {
+  .admin-partner-requests-page .admin-review-card {
+    padding: 18px;
+  }
+
+  .admin-partner-requests-page .admin-review-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-partner-requests-page .admin-review-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-partner-requests-page .partner-admin-identity-compare {
+    padding: 15px;
+  }
+
+  .admin-partner-requests-page .partner-admin-compare-image {
+    height: min(270px, 52vw);
+    min-height: 210px;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-partner-requests-page .admin-partner-section-heading {
+    gap: 12px;
+  }
+
+  .admin-partner-requests-page .admin-partner-section-heading h2 {
+    font-size: 18px;
+  }
+
+  .admin-partner-requests-page .admin-review-main {
+    width: 100%;
+  }
+
+  .admin-partner-requests-page .admin-card-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+
+  .admin-partner-requests-page .admin-card-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .admin-partner-requests-page .partner-review-modal,
+  .admin-partner-requests-page .admin-deactivation-review-modal,
+  .admin-partner-requests-page .admin-modal.small {
+    width: 100%;
+    max-height: calc(100dvh - 20px);
+    padding: 20px 16px;
+    overflow-y: auto;
+  }
+
+  .admin-partner-requests-page .partner-admin-doc-grid img {
+    height: min(260px, 65vw);
+  }
+
+  .admin-partner-requests-page .admin-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-partner-requests-page .admin-modal-actions > button {
+    width: 100%;
+  }
+}
+
+/* Phase 4: replace browser confirms with an in-product approval checkpoint. */
+.admin-partner-confirm-error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #f0c4c4;
+  border-radius: 11px;
+  background: #fff5f5;
+  color: #a53b3b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-partner-approval-checklist {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-partner-approval-checklist p {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0;
+  color: #53697c;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-partner-approval-checklist svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: #16896e;
+}

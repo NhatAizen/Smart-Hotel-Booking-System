@@ -3721,3 +3721,916 @@
     grid-auto-rows: 230px;
   }
 }
+
+
+/* =========================================================
+   GALLERY IMAGE SOURCE LABELS
+   Cho người dùng biết ảnh thuộc khách sạn hay loại phòng nào.
+   Desktop: hiện rõ khi hover/focus.
+   Touch/mobile: luôn hiện nhẹ ở cạnh dưới.
+   ========================================================= */
+
+.hotel-gallery-v2 button {
+  position: relative;
+}
+
+.hotel-gallery-source-label {
+  position: absolute;
+  z-index: 4;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  width: fit-content;
+  max-width: calc(100% - 20px);
+  padding: 7px 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9px;
+  background: rgba(7, 25, 43, 0.84);
+  box-shadow: 0 7px 20px rgba(0, 0, 0, 0.18);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.25;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(7px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.hotel-gallery-v2 button:hover > .hotel-gallery-source-label,
+.hotel-gallery-v2 button:focus-visible > .hotel-gallery-source-label {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Ảnh cuối đang có lớp "Xem N ảnh" nên nhãn nguồn nằm phía trên lớp đó. */
+.hotel-gallery-thumbs button:last-child > .hotel-gallery-source-label {
+  top: 10px;
+  bottom: auto;
+}
+
+.hotel-gallery-thumbs button > .hotel-gallery-view-all {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 850;
+  opacity: 1;
+  transform: none;
+  pointer-events: none;
+}
+
+/* Modal xem tất cả ảnh */
+.hotel-gallery-photo-grid > button {
+  position: relative;
+}
+
+.hotel-gallery-photo-grid > button > .hotel-gallery-modal-index {
+  position: absolute;
+  z-index: 5;
+  right: 9px;
+  bottom: 9px;
+  left: auto;
+  width: auto;
+  min-width: 28px;
+  max-width: none;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(7, 25, 43, 0.72);
+  box-shadow: none;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 1;
+  transform: none;
+}
+
+.hotel-gallery-photo-grid > button > .hotel-gallery-source-label--modal {
+  right: 48px;
+  bottom: 9px;
+  max-width: calc(100% - 68px);
+}
+
+.hotel-gallery-photo-grid > button:hover > .hotel-gallery-source-label--modal,
+.hotel-gallery-photo-grid > button:focus-visible > .hotel-gallery-source-label--modal {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (hover: none), (max-width: 768px) {
+  .hotel-gallery-source-label {
+    padding: 6px 8px;
+    border-color: rgba(255, 255, 255, 0.14);
+    background: linear-gradient(
+      90deg,
+      rgba(7, 25, 43, 0.86),
+      rgba(7, 25, 43, 0.72)
+    );
+    font-size: 11px;
+    opacity: 1;
+    transform: none;
+  }
+
+  .hotel-gallery-thumbs button:last-child > .hotel-gallery-source-label {
+    top: 8px;
+    bottom: auto;
+  }
+
+  .hotel-gallery-photo-grid > button > .hotel-gallery-source-label--modal {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hotel-gallery-source-label {
+    transition: none;
+  }
+}
+
+
+/* =========================================================
+   GALLERY FIX V2
+   - Không lặp "Phòng Phòng ..."
+   - Modal có ảnh lớn thật sự khi click thumbnail
+   ========================================================= */
+
+.hotel-gallery-image-stage {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(300px, 1fr) auto;
+  overflow: hidden;
+  background: #f5f7fa;
+}
+
+.hotel-gallery-focus-view {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(255,255,255,.08), transparent 42%),
+    #101b26;
+}
+
+.hotel-gallery-focus-view > img {
+  width: 100%;
+  height: 100%;
+  max-height: calc(100vh - 270px);
+  display: block;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #0b1620;
+}
+
+.hotel-gallery-focus-caption {
+  position: absolute;
+  z-index: 3;
+  left: 30px;
+  bottom: 28px;
+  max-width: min(620px, calc(100% - 60px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 10px;
+  background: rgba(5,18,30,.78);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  pointer-events: none;
+}
+
+.hotel-gallery-focus-caption strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.hotel-gallery-focus-caption span {
+  flex: 0 0 auto;
+  color: rgba(255,255,255,.76);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hotel-gallery-focus-nav {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 50%;
+  background: rgba(5,18,30,.72);
+  color: #fff;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.hotel-gallery-focus-nav:hover {
+  background: rgba(8,116,223,.92);
+  transform: translateY(-50%) scale(1.04);
+}
+
+.hotel-gallery-focus-nav--prev {
+  left: 30px;
+}
+
+.hotel-gallery-focus-nav--next {
+  right: 30px;
+}
+
+/* Trong modal V2 grid này chỉ là dải thumbnail, không còn là toàn màn hình. */
+.hotel-gallery-image-stage > .hotel-gallery-photo-grid {
+  min-height: 112px;
+  max-height: 154px;
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #fff;
+  border-top: 1px solid #dde5ec;
+  scroll-snap-type: x proximity;
+}
+
+.hotel-gallery-image-stage > .hotel-gallery-photo-grid > button,
+.hotel-gallery-image-stage > .hotel-gallery-photo-grid > button:nth-child(5n + 1) {
+  flex: 0 0 150px;
+  width: 150px;
+  height: 108px;
+  min-width: 150px;
+  grid-row: auto !important;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 9px;
+  background: #e6edf3;
+  scroll-snap-align: start;
+}
+
+.hotel-gallery-image-stage > .hotel-gallery-photo-grid > button.selected {
+  border-color: #0874df;
+  box-shadow: 0 0 0 2px rgba(8,116,223,.13);
+}
+
+.hotel-gallery-image-stage > .hotel-gallery-photo-grid > button > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Nhãn phòng trong thumbnail chỉ xuất hiện khi hover/focus trên desktop. */
+.hotel-gallery-image-stage
+  > .hotel-gallery-photo-grid
+  > button
+  > .hotel-gallery-source-label--modal {
+  left: 6px;
+  right: 38px;
+  bottom: 6px;
+  max-width: calc(100% - 48px);
+  padding: 5px 7px;
+  font-size: 10px;
+}
+
+.hotel-gallery-image-stage
+  > .hotel-gallery-photo-grid
+  > button
+  > .hotel-gallery-modal-index {
+  right: 6px;
+  bottom: 6px;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  font-size: 10px;
+}
+
+@media (max-width: 780px) {
+  .hotel-gallery-image-stage {
+    grid-template-rows: minmax(250px, 1fr) auto;
+  }
+
+  .hotel-gallery-focus-view {
+    padding: 10px;
+  }
+
+  .hotel-gallery-focus-view > img {
+    max-height: calc(100vh - 310px);
+  }
+
+  .hotel-gallery-focus-caption {
+    left: 18px;
+    right: 18px;
+    bottom: 18px;
+    max-width: none;
+  }
+
+  .hotel-gallery-focus-nav {
+    width: 40px;
+    height: 40px;
+  }
+
+  .hotel-gallery-focus-nav--prev {
+    left: 16px;
+  }
+
+  .hotel-gallery-focus-nav--next {
+    right: 16px;
+  }
+
+  .hotel-gallery-image-stage > .hotel-gallery-photo-grid {
+    min-height: 100px;
+    max-height: 120px;
+    padding: 9px 10px 12px;
+  }
+
+  .hotel-gallery-image-stage > .hotel-gallery-photo-grid > button,
+  .hotel-gallery-image-stage > .hotel-gallery-photo-grid > button:nth-child(5n + 1) {
+    flex-basis: 116px;
+    width: 116px;
+    min-width: 116px;
+    height: 84px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hotel-gallery-focus-caption {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .hotel-gallery-focus-caption strong {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hotel-gallery-focus-nav {
+    transition: none;
+  }
+}
+
+
+/* =========================================================
+   ENZIU GALLERY TWO-LEVEL VIEWER
+   Level 1: full gallery grid.
+   - Hover/focus shows hotel / room type label.
+   Level 2: click an image to open a large detail viewer.
+   ========================================================= */
+
+/* Trong gallery dạng lưới: nhãn nguồn chỉ hiện khi hover/focus trên desktop. */
+@media (hover: hover) and (pointer: fine) {
+  .hotel-gallery-modal .hotel-gallery-photo-grid
+    > button
+    > .hotel-gallery-source-label--modal {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+
+  .hotel-gallery-modal .hotel-gallery-photo-grid
+    > button:hover
+    > .hotel-gallery-source-label--modal,
+  .hotel-gallery-modal .hotel-gallery-photo-grid
+    > button:focus-visible
+    > .hotel-gallery-source-label--modal {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hotel-gallery-detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3060;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+}
+
+.hotel-gallery-detail-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: rgba(5, 18, 30, 0.88);
+  backdrop-filter: blur(8px);
+  cursor: zoom-out;
+}
+
+.hotel-gallery-detail-panel {
+  position: relative;
+  z-index: 1;
+  width: min(1280px, calc(100vw - 44px));
+  height: min(860px, calc(100vh - 44px));
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: #0b1722;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
+}
+
+.hotel-gallery-detail-toolbar {
+  min-width: 0;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px 10px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0f1f2e;
+  color: #fff;
+}
+
+.hotel-gallery-detail-toolbar > div {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.hotel-gallery-detail-toolbar strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.hotel-gallery-detail-toolbar span {
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.hotel-gallery-detail-close {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+}
+
+.hotel-gallery-detail-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.hotel-gallery-detail-canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 18px 76px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.06), transparent 45%),
+    #07121c;
+}
+
+.hotel-gallery-detail-canvas > img {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #07121c;
+}
+
+.hotel-gallery-detail-nav {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  background: rgba(7, 25, 43, 0.76);
+  color: #fff;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.hotel-gallery-detail-nav:hover {
+  background: #0874df;
+  transform: translateY(-50%) scale(1.05);
+}
+
+.hotel-gallery-detail-nav--prev {
+  left: 18px;
+}
+
+.hotel-gallery-detail-nav--next {
+  right: 18px;
+}
+
+.hotel-gallery-detail-thumbnails {
+  min-width: 0;
+  display: flex;
+  gap: 9px;
+  padding: 10px 12px 13px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0f1f2e;
+  scroll-snap-type: x proximity;
+}
+
+.hotel-gallery-detail-thumbnails > button {
+  position: relative;
+  flex: 0 0 118px;
+  width: 118px;
+  height: 78px;
+  overflow: hidden;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: #172b3c;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+
+.hotel-gallery-detail-thumbnails > button.active {
+  border-color: #27a0ff;
+  box-shadow: 0 0 0 2px rgba(39, 160, 255, 0.16);
+}
+
+.hotel-gallery-detail-thumbnails img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.hotel-gallery-detail-thumbnails span {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  min-width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(5, 18, 30, 0.74);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+/* Mobile/touch không có hover: vẫn cho thấy nhãn trong gallery để biết ảnh thuộc đâu. */
+@media (hover: none) {
+  .hotel-gallery-modal .hotel-gallery-photo-grid
+    > button
+    > .hotel-gallery-source-label--modal {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 780px) {
+  .hotel-gallery-detail-overlay {
+    padding: 8px;
+  }
+
+  .hotel-gallery-detail-panel {
+    width: calc(100vw - 16px);
+    height: calc(100dvh - 16px);
+    border-radius: 12px;
+  }
+
+  .hotel-gallery-detail-toolbar {
+    min-height: 54px;
+    padding: 8px 8px 8px 12px;
+  }
+
+  .hotel-gallery-detail-toolbar > div {
+    display: grid;
+    gap: 2px;
+  }
+
+  .hotel-gallery-detail-toolbar strong {
+    max-width: 72vw;
+    font-size: 13px;
+  }
+
+  .hotel-gallery-detail-canvas {
+    padding: 10px 48px;
+  }
+
+  .hotel-gallery-detail-nav {
+    width: 38px;
+    height: 38px;
+  }
+
+  .hotel-gallery-detail-nav--prev {
+    left: 7px;
+  }
+
+  .hotel-gallery-detail-nav--next {
+    right: 7px;
+  }
+
+  .hotel-gallery-detail-thumbnails {
+    padding: 8px;
+  }
+
+  .hotel-gallery-detail-thumbnails > button {
+    flex-basis: 92px;
+    width: 92px;
+    height: 64px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hotel-gallery-detail-nav {
+    transition: none;
+  }
+}
+
+
+/* =========================================================
+   BOOKING-STYLE GALLERY CLEANUP
+   Main hotel page: imagery only, no room-name chips.
+   Room/source names live only inside the opened gallery.
+   ========================================================= */
+
+/* Never show source labels in the main mosaic. */
+.hotel-gallery-v2 > .hotel-gallery-main .hotel-gallery-source-label,
+.hotel-gallery-v2 > .hotel-gallery-side .hotel-gallery-source-label,
+.hotel-gallery-v2 > .hotel-gallery-thumbs .hotel-gallery-source-label {
+  display: none !important;
+}
+
+/* Clean image treatment: no dark chip overlays outside the opened gallery. */
+.hotel-gallery-v2 button {
+  isolation: isolate;
+}
+
+.hotel-gallery-v2 button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: rgba(5, 18, 30, 0);
+  transition: background-color 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hotel-gallery-v2 button:hover::after {
+    background: rgba(5, 18, 30, 0.035);
+  }
+}
+
+/* Keep the photo itself visually dominant. */
+.hotel-gallery-v2 img {
+  position: relative;
+  z-index: 0;
+}
+
+/* "Xem N ảnh" is the only overlay allowed in the main mosaic. */
+.hotel-gallery-thumbs button:last-child > .hotel-gallery-view-all,
+.hotel-gallery-thumbs button:last-child > span:not(.hotel-gallery-source-label) {
+  z-index: 3;
+}
+
+/* Make the view-all tile understated instead of a huge black slab. */
+.hotel-gallery-thumbs button:last-child::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(7, 25, 43, 0.06),
+    rgba(7, 25, 43, 0.42)
+  );
+}
+
+.hotel-gallery-thumbs button:last-child > .hotel-gallery-view-all {
+  inset: auto 10px 10px auto;
+  width: auto;
+  height: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 11px;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 999px;
+  background: rgba(7, 25, 43, 0.76);
+  backdrop-filter: blur(7px);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 850;
+  box-shadow: 0 7px 18px rgba(0,0,0,.16);
+}
+
+/* Opened gallery: labels appear only on hover/focus. */
+@media (hover: hover) and (pointer: fine) {
+  .hotel-gallery-modal .hotel-gallery-photo-grid
+    > button
+    > .hotel-gallery-source-label--modal {
+    display: block !important;
+    left: 8px;
+    right: auto;
+    bottom: 8px;
+    width: auto;
+    max-width: min(72%, 360px);
+    padding: 6px 9px;
+    border-radius: 999px;
+    background: rgba(7, 25, 43, 0.82);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 850;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    transform: translateY(5px);
+    transition:
+      opacity 150ms ease,
+      transform 150ms ease;
+  }
+
+  .hotel-gallery-modal .hotel-gallery-photo-grid
+    > button:hover
+    > .hotel-gallery-source-label--modal,
+  .hotel-gallery-modal .hotel-gallery-photo-grid
+    > button:focus-visible
+    > .hotel-gallery-source-label--modal {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Touch devices have no hover, so show a tiny label only inside the modal gallery. */
+@media (hover: none) {
+  .hotel-gallery-modal .hotel-gallery-photo-grid
+    > button
+    > .hotel-gallery-source-label--modal {
+    display: block !important;
+    left: 7px;
+    right: auto;
+    bottom: 7px;
+    width: auto;
+    max-width: 62%;
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: rgba(7, 25, 43, 0.76);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hotel-gallery-v2 button::after,
+  .hotel-gallery-modal .hotel-gallery-source-label--modal {
+    transition: none;
+  }
+}
+
+/* =========================================================
+   HOTEL DESCRIPTION — BOOKING-STYLE INFORMATION BLOCK
+   Outside list stays compact; detail page shows structured facts.
+   ========================================================= */
+
+.hotel-description-story {
+  padding: 26px 28px;
+}
+
+.hotel-description-story > h2 {
+  margin-bottom: 18px;
+  color: #172b42;
+  font-size: 21px;
+  letter-spacing: -0.25px;
+}
+
+.hotel-description-story__body {
+  display: grid;
+  gap: 12px;
+}
+
+.hotel-description-story__body > p {
+  margin: 0;
+  color: #34485d;
+  font-size: 14px;
+  line-height: 1.72;
+}
+
+.hotel-description-story__body > p strong {
+  color: #142b43;
+  font-weight: 900;
+}
+
+.hotel-description-story__amenity-title {
+  margin: 24px 0 12px;
+  color: #172b42;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.hotel-highlight-list--story {
+  margin-top: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px 22px;
+}
+
+.hotel-highlight-list--story span {
+  min-width: 0;
+  color: #31485e;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.hotel-highlight-list--story svg {
+  color: #0b9b62;
+}
+
+@media (max-width: 760px) {
+  .hotel-description-story {
+    padding: 20px;
+  }
+
+  .hotel-description-story > h2 {
+    font-size: 19px;
+  }
+
+  .hotel-description-story__body > p {
+    font-size: 13px;
+    line-height: 1.68;
+  }
+
+  .hotel-highlight-list--story {
+    grid-template-columns: 1fr;
+  }
+}

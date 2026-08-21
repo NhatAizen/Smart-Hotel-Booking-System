@@ -1,4 +1,11 @@
 .enziu-fai-root {
+  --fai-blue: #1677e8;
+  --fai-blue-strong: #075dcc;
+  --fai-cyan: #14b8e8;
+  --fai-navy: #0c3158;
+  --fai-soft: #eef7ff;
+  --fai-line: #d9e7f2;
+
   position: fixed;
   right: 24px;
   bottom: 24px;
@@ -16,28 +23,34 @@
 
 .enziu-fai-launcher {
   position: relative;
-  min-width: 58px;
+  min-width: 154px;
   height: 58px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 9px;
-  padding: 0 18px;
-  border: 0;
+  padding: 7px 18px 7px 9px;
+  border: 1px solid rgba(255, 255, 255, .78);
   border-radius: 999px;
-  background: linear-gradient(135deg, #0fa89d, #1479c9);
+  background: linear-gradient(135deg, #16b6df 0%, #168ee7 48%, #1768dc 100%);
   color: #fff;
-  box-shadow: 0 16px 36px rgba(18, 114, 159, .3);
+  box-shadow:
+    0 17px 38px rgba(17, 107, 205, .30),
+    inset 0 1px 0 rgba(255, 255, 255, .24);
   cursor: pointer;
   font: inherit;
   font-size: 13px;
-  font-weight: 800;
-  transition: transform .18s ease, box-shadow .18s ease;
+  font-weight: 900;
+  letter-spacing: -.1px;
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
 }
 
 .enziu-fai-launcher:hover {
   transform: translateY(-2px);
-  box-shadow: 0 20px 42px rgba(18, 114, 159, .36);
+  filter: saturate(1.05);
+  box-shadow:
+    0 22px 46px rgba(17, 107, 205, .37),
+    inset 0 1px 0 rgba(255, 255, 255, .28);
 }
 
 .enziu-fai-launcher.open {
@@ -45,20 +58,33 @@
   min-width: 52px;
   height: 52px;
   padding: 0;
+  border-color: rgba(255, 255, 255, .65);
+}
+
+.enziu-fai-launcher:not(.open) > svg {
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .96);
+  color: #1477df;
+  box-shadow: 0 5px 14px rgba(6, 66, 134, .17);
 }
 
 .enziu-fai-launcher i {
   position: absolute;
   top: -4px;
   right: -2px;
-  width: 22px;
-  height: 22px;
+  width: 21px;
+  height: 21px;
   display: grid;
   place-items: center;
   border: 2px solid #fff;
   border-radius: 50%;
-  background: #153a5b;
+  background: #0b3562;
   color: #fff;
+  box-shadow: 0 5px 12px rgba(5, 49, 99, .2);
 }
 
 .enziu-fai-panel {
@@ -70,10 +96,10 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #dce8ef;
+  border: 1px solid #d8e6f2;
   border-radius: 22px;
   background: #fff;
-  box-shadow: 0 26px 70px rgba(22, 56, 80, .25);
+  box-shadow: 0 28px 76px rgba(18, 58, 101, .24);
   animation: enziu-fai-open .18s ease-out;
 }
 
@@ -96,7 +122,7 @@
   gap: 12px;
   padding: 11px 13px 11px 14px;
   border-bottom: 1px solid #e7eef3;
-  background: linear-gradient(100deg, #f0fffc, #f8fbff 58%, #fff);
+  background: linear-gradient(110deg, #edf7ff 0%, #f7fbff 58%, #fff 100%);
 }
 
 .enziu-fai-brand {
@@ -111,14 +137,14 @@
   place-items: center;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: linear-gradient(135deg, #10a99e, #147bc9);
+  background: linear-gradient(135deg, #16b6e4, #176de0);
   color: #fff;
 }
 
 .enziu-fai-bot-mark {
   width: 40px;
   height: 40px;
-  box-shadow: 0 8px 20px rgba(21, 130, 158, .18);
+  box-shadow: 0 8px 20px rgba(20, 112, 208, .20);
 }
 
 .enziu-fai-avatar {
@@ -183,9 +209,9 @@
   justify-content: space-between;
   gap: 8px;
   padding: 6px 10px 6px 13px;
-  border-bottom: 1px solid #dceeea;
-  background: #effbf8;
-  color: #557889;
+  border-bottom: 1px solid #dbe9f4;
+  background: #eef7ff;
+  color: #56758f;
   font-size: 11px;
 }
 
@@ -197,7 +223,7 @@
 }
 
 .enziu-fai-hotel-context strong {
-  color: #0b867e;
+  color: #0b73d4;
 }
 
 .enziu-fai-trip {
@@ -280,8 +306,8 @@
 
 .enziu-fai-trip-fields input:focus,
 .enziu-fai-composer textarea:focus {
-  border-color: #62c5bd;
-  box-shadow: 0 0 0 3px rgba(24, 166, 153, .09);
+  border-color: #63aef2;
+  box-shadow: 0 0 0 3px rgba(37, 126, 224, .10);
 }
 
 .enziu-fai-trip-applied {
@@ -289,23 +315,23 @@
   display: grid;
   gap: 7px;
   padding: 8px;
-  border: 1px solid #cfe9e3;
+  border: 1px solid #d3e6f7;
   border-radius: 10px;
-  background: #f0fbf8;
+  background: #f0f7ff;
 }
 
 .enziu-fai-trip-applied > div {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #39736b;
+  color: #3f6f98;
   font-size: 9px;
   line-height: 1.4;
 }
 
 .enziu-fai-trip-applied > div svg {
   flex: 0 0 auto;
-  color: #119783;
+  color: #1475d2;
 }
 
 .enziu-fai-trip-applied button {
@@ -316,7 +342,7 @@
   gap: 6px;
   border: 0;
   border-radius: 9px;
-  background: linear-gradient(135deg, #0f9f94, #187fc0);
+  background: linear-gradient(135deg, #159fde, #176de0);
   color: #fff;
   cursor: pointer;
   font: inherit;
@@ -377,7 +403,7 @@
   max-width: 82%;
   padding: 10px 12px;
   border-radius: 14px 5px 14px 14px;
-  background: linear-gradient(135deg, #0f9e95, #1679c1);
+  background: linear-gradient(135deg, #159fde, #176de0);
   color: #fff;
   font-size: 11px;
   line-height: 1.5;
@@ -392,8 +418,8 @@
   gap: 5px;
   padding: 5px 8px;
   border-radius: 999px;
-  background: #eef8f7;
-  color: #4b756f;
+  background: #edf6ff;
+  color: #4d718f;
   font-size: 9px;
 }
 
@@ -506,7 +532,7 @@
 }
 
 .enziu-fai-hotel-meta strong {
-  color: #0e8b82;
+  color: #0a78d6;
   font-size: 11px;
 }
 
@@ -611,8 +637,8 @@
 }
 
 .enziu-fai-card-actions a.primary {
-  border-color: #0f988f;
-  background: #0f988f;
+  border-color: #0b78d7;
+  background: #0b78d7;
   color: #fff;
 }
 
@@ -705,7 +731,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #1ba69b;
+  background: #168fe2;
   animation: enziu-fai-dot .9s infinite alternate;
 }
 
@@ -767,9 +793,9 @@
 }
 
 .enziu-fai-suggestions button:hover {
-  border-color: #9ed8d1;
-  background: #effaf8;
-  color: #117f77;
+  border-color: #9bcaf2;
+  background: #eef7ff;
+  color: #126fc8;
 }
 
 .enziu-fai-composer {
@@ -804,7 +830,7 @@
   flex: 0 0 40px;
   border: 0;
   border-radius: 12px;
-  background: linear-gradient(135deg, #0fa89d, #1578c5);
+  background: linear-gradient(135deg, #15a7df, #176ce0);
   color: #fff;
   cursor: pointer;
 }
@@ -886,9 +912,9 @@
   justify-content: center;
   gap: 6px;
   padding: 5px 10px;
-  border-bottom: 1px solid #dceeea;
-  background: #f0fbf8;
-  color: #4f786f;
+  border-bottom: 1px solid #dbe9f4;
+  background: #eff7ff;
+  color: #52748f;
   font-size: 8px;
   font-weight: 700;
 }
@@ -922,7 +948,7 @@
 
 .enziu-fai-hotel-badges .match {
   margin-left: auto;
-  background: rgba(8, 133, 121, .94);
+  background: rgba(12, 116, 214, .95);
 }
 
 .enziu-fai-rating {
@@ -945,7 +971,7 @@
 }
 
 .enziu-fai-reasons span svg {
-  color: #149178;
+  color: #1378d7;
 }
 
 .enziu-fai-understood {
@@ -996,9 +1022,9 @@
 }
 
 .enziu-fai-followup {
-  border: 1px solid #cfe7e1;
-  background: #f1faf7;
-  color: #197866;
+  border: 1px solid #d2e5f7;
+  background: #f1f7ff;
+  color: #146fc6;
 }
 
 .enziu-fai-compare {
@@ -1018,8 +1044,8 @@
   gap: 5px;
   padding: 7px 8px;
   border-radius: 9px;
-  background: #f7faf9;
-  color: #80908c;
+  background: #f7faff;
+  color: #7d91a2;
   font-size: 7px;
   line-height: 1.45;
 }
@@ -1027,7 +1053,7 @@
 .enziu-fai-methodology svg {
   flex: 0 0 auto;
   margin-top: 1px;
-  color: #4d8d7f;
+  color: #3b83c2;
 }
 
 /* Enziu AI Copilot: pricing quote shown as the authoritative stay total. */
@@ -1073,7 +1099,7 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: linear-gradient(135deg, #eef7f8, #f4f7fb);
+  background: linear-gradient(135deg, #eef7ff, #f5f9fd);
 }
 
 .enziu-fai-room-card-image > img {
@@ -1099,7 +1125,7 @@
   gap: 4px;
   padding: 4px 7px;
   border-radius: 999px;
-  background: rgba(15, 126, 145, .92);
+  background: rgba(12, 116, 214, .94);
   color: #fff;
   font-size: 8px;
   font-weight: 800;
@@ -1261,9 +1287,9 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  border: 1px solid #0f988f;
+  border: 1px solid #0b78d7;
   border-radius: 8px;
-  background: #0f988f;
+  background: #0b78d7;
   color: #fff;
   font-size: 9px;
   font-weight: 800;

@@ -20,6 +20,7 @@ public record CheckInDetailsResponse(
         boolean canCheckIn,
         boolean canCheckOut,
         LateCheckoutDetailsResponse lateCheckout,
+        CheckInIdentityVerificationResponse identityVerification,
         String actionMessage
 ) {
 }

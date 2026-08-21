@@ -1,0 +1,146 @@
+.admin-users-page .admin-users-page-header {
+  margin-bottom: 20px;
+}
+
+.admin-users-page .admin-user-stat-grid {
+  align-items: stretch;
+}
+
+.admin-users-page .admin-user-stat-grid .ui-stat-card {
+  min-width: 0;
+  min-height: 148px;
+}
+
+.admin-users-page .admin-user-stat-grid .ui-stat-card--info {
+  --ui-stat-accent: var(--color-info, #2b7fb8);
+  --ui-stat-surface: var(--color-info-surface, #eaf6fc);
+}
+
+.admin-users-page .admin-user-stat-grid .ui-stat-card--brand {
+  --ui-stat-accent: var(--color-brand, #5c6fd8);
+  --ui-stat-surface: var(--color-brand-soft, #eef0ff);
+}
+
+.admin-users-page .admin-users-error,
+.admin-users-page .admin-users-loading,
+.admin-users-page .admin-users-empty {
+  margin: 16px;
+}
+
+.admin-users-page .admin-role-badge.unknown {
+  color: #5d6a79;
+  background: #edf1f5;
+}
+
+.admin-users-page .admin-user-identity > div,
+.admin-users-page .admin-user-identity strong,
+.admin-users-page .admin-user-identity span {
+  min-width: 0;
+}
+
+.admin-users-page .admin-user-identity strong,
+.admin-users-page .admin-user-identity span {
+  overflow-wrap: anywhere;
+}
+
+.admin-users-page .admin-users-row-actions button:focus-visible,
+.admin-users-page .admin-users-toolbar input:focus-visible,
+.admin-users-page .admin-users-toolbar select:focus-visible,
+.admin-users-page .admin-modal button:focus-visible,
+.admin-users-page .admin-modal textarea:focus-visible {
+  outline: 3px solid rgba(57, 102, 214, 0.22);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .admin-users-page .admin-users-table-wrap {
+    overflow: visible;
+  }
+
+  .admin-users-page .admin-users-table {
+    min-width: 0;
+    display: block;
+  }
+
+  .admin-users-page .admin-users-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .admin-users-page .admin-users-table tbody {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .admin-users-page .admin-users-table tr {
+    display: grid;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid #e1e8f0;
+    border-radius: 14px;
+    background: #fff;
+  }
+
+  .admin-users-page .admin-users-table td {
+    display: grid;
+    grid-template-columns: minmax(92px, 0.36fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    border-bottom: 1px solid #edf1f5;
+    text-align: left;
+  }
+
+  .admin-users-page .admin-users-table td::before {
+    content: attr(data-label);
+    color: #758397;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .admin-users-page .admin-users-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .admin-users-page .admin-users-row-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .admin-users-page .admin-users-state-button {
+    min-height: 40px;
+  }
+
+  .admin-users-page .admin-user-detail-modal,
+  .admin-users-page .admin-role-change-confirm,
+  .admin-users-page .admin-lock-confirm {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .admin-users-page .admin-users-table td {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .admin-users-page .admin-user-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-users-page .admin-modal-actions > button {
+    width: 100%;
+  }
+}

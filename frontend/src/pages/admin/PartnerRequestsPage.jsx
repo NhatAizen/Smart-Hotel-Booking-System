@@ -17,8 +17,14 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import ErrorMessage from "../../components/common/ErrorMessage";
-import Loading from "../../components/common/Loading";
+import {
+  ConfirmDialog,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  StatusBadge,
+} from "../../components/ui";
 import {
   approvePartnerDeactivationRequest,
   approvePartnerRequest,
@@ -32,10 +38,12 @@ import {
 } from "../../services/adminService";
 import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 
+import "./PartnerRequestsExperience.css";
+
 const DEACTIVATION_CHECKS = [
   ["currentStayCount", "Khách đang lưu trú"],
-  ["actionableBookingCount", "Booking sắp tới cần xử lý"],
-  ["pendingWithdrawalCount", "Withdrawal đang chờ"],
+  ["actionableBookingCount", "Đặt phòng sắp tới cần xử lý"],
+  ["pendingWithdrawalCount", "Yêu cầu rút tiền đang chờ"],
   ["financialIssueCount", "Vấn đề tài chính cần xử lý"],
 ];
 
@@ -52,8 +60,40 @@ function eligibilityCount(eligibility, key) {
 }
 
 function blockerText(blocker) {
-  if (typeof blocker === "string") return blocker;
-  return blocker?.message ?? blocker?.label ?? blocker?.code ?? "Điều kiện chưa đáp ứng";
+  const value = typeof blocker === "string"
+    ? blocker
+    : blocker?.message ?? blocker?.label;
+  if (!value || /^[A-Z0-9_]+$/.test(String(value))) {
+    return "Một điều kiện nghiệp vụ chưa được đáp ứng";
+  }
+  return value;
+}
+
+function textOrFallback(value, fallback = "Chưa cập nhật") {
+  return value === null || value === undefined || String(value).trim() === ""
+    ? fallback
+    : String(value);
+}
+
+function applicantTypeLabel(value) {
+  const normalized = String(value ?? "").toUpperCase();
+  if (normalized === "BUSINESS") return "Doanh nghiệp";
+  if (["PERSONAL", "INDIVIDUAL"].includes(normalized)) return "Cá nhân";
+  return "Loại hồ sơ chưa xác định";
+}
+
+function partnerName(item) {
+  return textOrFallback(
+    item?.legalName ?? item?.representativeName ?? item?.fullName ?? item?.userFullName ?? item?.requesterName,
+    "Chưa cập nhật tên",
+  );
+}
+
+function maskIdentityNumber(value) {
+  const normalized = String(value ?? "").replace(/\s+/g, "").trim();
+  if (!normalized) return "Chưa cập nhật";
+  if (normalized.length <= 4) return "••••";
+  return `${"•".repeat(Math.min(normalized.length - 4, 8))} ${normalized.slice(-4)}`;
 }
 
 function formatDate(value) {
@@ -91,6 +131,7 @@ export default function PartnerRequestsPage() {
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
   const [rejecting, setRejecting] = useState(null);
+  const [approvalTarget, setApprovalTarget] = useState(null);
   const [reason, setReason] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [documentUrls, setDocumentUrls] = useState({ front: "", back: "" });
@@ -215,8 +256,8 @@ export default function PartnerRequestsPage() {
         setEvidenceLoading(false);
         setEvidenceError(
           selected.ekycVerified
-            ? "Hồ sơ eKYC cũ chưa lưu ảnh camera thành công. Yêu cầu người dùng quét lại trước khi phê duyệt."
-            : "Chưa có ảnh bằng chứng eKYC.",
+            ? "Hồ sơ xác minh cũ chưa lưu ảnh camera thành công. Yêu cầu người dùng quét lại trước khi phê duyệt."
+            : "Chưa có ảnh bằng chứng xác minh danh tính.",
         );
         return;
       }
@@ -248,31 +289,35 @@ export default function PartnerRequestsPage() {
     };
   }, [selected]);
 
-  async function handleApprove(item) {
+  function requestApprove(item) {
+    if (busyId) return;
     if (!item.ocrVerified || !item.ekycVerified) {
       setError(
-        "Hồ sơ chưa vượt qua đầy đủ OCR + liveness + face match. Không thể phê duyệt.",
+        "Hồ sơ chưa hoàn tất kiểm tra giấy tờ, người thật và đối chiếu khuôn mặt nên chưa thể phê duyệt.",
       );
       return;
     }
     if (!item.ekycEvidenceAvailable) {
       setError(
-        "Hồ sơ chưa có ảnh bằng chứng camera eKYC để đối chiếu. Hãy yêu cầu người dùng quét lại khuôn mặt trước khi phê duyệt.",
+        "Hồ sơ chưa có ảnh camera xác minh để đối chiếu. Hãy yêu cầu người dùng quét lại khuôn mặt trước khi phê duyệt.",
       );
       return;
     }
-    if (
-      !window.confirm(
-        "Bạn đã đối chiếu ảnh CCCD với ảnh camera eKYC thành công? Phê duyệt sẽ nâng tài khoản thành HOTEL_ADMIN.",
-      )
-    ) {
-      return;
-    }
+    setError("");
+    setApprovalTarget(item);
+  }
+
+  async function confirmApprove() {
+    const item = approvalTarget;
+    if (!item || busyId) return;
+
     setBusyId(item.id);
+    setError("");
     try {
       await approvePartnerRequest(item.id);
       setItems((current) => current.filter((row) => row.id !== item.id));
       setSelected(null);
+      setApprovalTarget(null);
     } catch (requestError) {
       setError(requestError.response?.data?.message ?? "Duyệt hồ sơ thất bại.");
     } finally {
@@ -348,7 +393,7 @@ export default function PartnerRequestsPage() {
     const normalizedReason = deactivationReason.trim();
     if (!item?.id) return;
     if (!normalizedReason) {
-      setDeactivationError("Vui lòng nhập lý do xử lý để ghi audit log.");
+      setDeactivationError("Vui lòng nhập lý do xử lý để lưu trong lịch sử quản trị.");
       return;
     }
     if (deactivationAction === "approve" && !deactivationEligibility?.eligible) {
@@ -386,21 +431,25 @@ export default function PartnerRequestsPage() {
   }
 
   return (
-    <div className="admin-page">
-      <div className="admin-page-heading">
-        <div>
-          <span className="admin-eyebrow">HỒ SƠ ĐỐI TÁC</span>
-          <h1>Yêu cầu đối tác</h1>
-          <p>
-            Duyệt hồ sơ trở thành đối tác và yêu cầu ngừng đối tác trên EnziuRooms.
-          </p>
-        </div>
-        <button type="button" className="admin-secondary-button" onClick={loadItems}>
-          <RefreshCw size={18} /> Làm mới
-        </button>
-      </div>
+    <div className="admin-page admin-partner-requests-page">
+      <PageHeader
+        className="admin-partner-page-header"
+        eyebrow="Kiểm duyệt đối tác"
+        title="Yêu cầu đối tác"
+        description="Duyệt hồ sơ đăng ký và yêu cầu ngừng làm đối tác trên EnziuRooms."
+        actions={(
+          <button type="button" className="admin-secondary-button" onClick={loadItems} disabled={loading}>
+            <RefreshCw size={18} className={loading ? "admin-spin-icon" : ""} /> Làm mới
+          </button>
+        )}
+      />
 
-      <ErrorMessage message={error} onRetry={loadItems} />
+      <ErrorState
+        className="admin-partner-page-error"
+        message={error}
+        onRetry={loadItems}
+        compact
+      />
 
       <div className="admin-partner-section-heading">
         <div>
@@ -412,13 +461,13 @@ export default function PartnerRequestsPage() {
       </div>
 
       {loading ? (
-        <Loading />
+        <LoadingState message="Đang tải hồ sơ đối tác..." />
       ) : items.length === 0 ? (
-        <div className="admin-empty-state">
-          <BadgeCheck size={48} />
-          <strong>Không có yêu cầu đối tác chờ duyệt</strong>
-          <span>Tất cả hồ sơ hiện đã được xử lý.</span>
-        </div>
+        <EmptyState
+          icon={<BadgeCheck size={42} />}
+          title="Không có yêu cầu đối tác chờ duyệt"
+          description="Tất cả hồ sơ hiện đã được xử lý."
+        />
       ) : (
         <div className="admin-card-list">
           {items.map((item) => (
@@ -433,29 +482,35 @@ export default function PartnerRequestsPage() {
                 </div>
                 <div>
                   <div className="admin-review-title-row">
-                    <h2>{item.legalName}</h2>
+                    <h2>{partnerName(item)}</h2>
                     {item.ekycVerified ? (
-                      <span className="admin-status approved">
-                        <ShieldCheck size={13} /> eKYC hợp lệ
-                      </span>
+                      <StatusBadge
+                        status="APPROVED"
+                        label="Danh tính đã xác minh"
+                        icon={<ShieldCheck size={13} />}
+                        size="sm"
+                      />
                     ) : (
-                      <span className="admin-status rejected">
-                        <FileWarning size={13} /> Chưa eKYC
-                      </span>
+                      <StatusBadge
+                        status="PENDING"
+                        label="Chưa hoàn tất xác minh"
+                        icon={<FileWarning size={13} />}
+                        size="sm"
+                      />
                     )}
                   </div>
-                  <p>{item.applicantType === "BUSINESS" ? "Doanh nghiệp" : "Cá nhân"}</p>
+                  <p>{applicantTypeLabel(item.applicantType)}</p>
                   <div className="admin-review-meta">
-                    <span>CCCD: <strong>{item.identityNumber}</strong></span>
-                    <span>Đại diện: <strong>{item.representativeName || item.legalName}</strong></span>
-                    <span>Face similarity: <strong>{formatSimilarity(item.faceSimilarity)}</strong></span>
-                    <span>Ảnh eKYC: <strong>{item.ekycEvidenceAvailable ? "Có bằng chứng" : "Thiếu"}</strong></span>
+                    <span>CCCD: <strong aria-label="Số căn cước đã được che bớt">{maskIdentityNumber(item.identityNumber)}</strong></span>
+                    <span>Đại diện: <strong>{textOrFallback(item.representativeName ?? item.legalName, "Chưa cập nhật tên")}</strong></span>
+                    <span>Độ tương đồng khuôn mặt: <strong>{formatSimilarity(item.faceSimilarity)}</strong></span>
+                    <span>Ảnh xác minh: <strong>{item.ekycEvidenceAvailable ? "Đã có" : "Còn thiếu"}</strong></span>
                   </div>
                 </div>
               </div>
 
               <div className="admin-card-actions">
-                <button type="button" className="admin-detail-button" onClick={() => setSelected(item)}>
+                <button type="button" className="admin-detail-button" onClick={() => setSelected(item)} aria-label={`Xem chi tiết hồ sơ ${partnerName(item)}`}>
                   <Eye size={17} /> Chi tiết
                 </button>
                 <button type="button" className="admin-reject-button" onClick={() => setRejecting(item)}>
@@ -464,7 +519,7 @@ export default function PartnerRequestsPage() {
                 <button
                   type="button"
                   className="admin-approve-button"
-                  onClick={() => handleApprove(item)}
+                  onClick={() => requestApprove(item)}
                   disabled={
                     busyId === item.id ||
                     !item.ocrVerified ||
@@ -492,15 +547,17 @@ export default function PartnerRequestsPage() {
           </div>
 
           {deactivationItems.length === 0 ? (
-            <div className="admin-empty-state compact admin-partner-empty">
-              <CheckCircle2 size={38} />
-              <strong>Không có yêu cầu ngừng đối tác chờ duyệt</strong>
-              <span>Tất cả yêu cầu hiện đã được xử lý.</span>
-            </div>
+            <EmptyState
+              className="admin-partner-empty"
+              compact
+              icon={<CheckCircle2 size={34} />}
+              title="Không có yêu cầu ngừng đối tác chờ duyệt"
+              description="Tất cả yêu cầu hiện đã được xử lý."
+            />
           ) : (
             <div className="admin-card-list">
               {deactivationItems.map((item) => {
-                const fullName = item.fullName ?? item.userFullName ?? item.requesterName ?? "Đối tác";
+                const fullName = partnerName(item);
                 const email = item.email ?? item.userEmail ?? "—";
                 return (
                   <article key={item.id} className="admin-review-card admin-deactivation-card">
@@ -511,14 +568,12 @@ export default function PartnerRequestsPage() {
                       <div>
                         <div className="admin-review-title-row">
                           <h2>{fullName}</h2>
-                          <span className="admin-status pending">
-                            <Clock3 size={13} /> Chờ xác nhận
-                          </span>
+                          <StatusBadge status="PENDING" label="Chờ xác nhận" icon={<Clock3 size={13} />} size="sm" />
                         </div>
                         <p>{email}</p>
                         <div className="admin-review-meta">
                           <span>Gửi lúc: <strong>{formatDateTime(item.requestedAt ?? item.createdAt)}</strong></span>
-                          <span>Lý do: <strong>{item.reason || "Không có"}</strong></span>
+                          <span>Lý do: <strong>{textOrFallback(item.reason, "Người gửi không cung cấp")}</strong></span>
                         </div>
                       </div>
                     </div>
@@ -547,18 +602,41 @@ export default function PartnerRequestsPage() {
         </section>
       ) : null}
 
+      <ConfirmDialog
+        open={Boolean(approvalTarget)}
+        title="Phê duyệt đối tác khách sạn"
+        description={approvalTarget ? `${partnerName(approvalTarget)} sẽ được chuyển sang vai trò đối tác khách sạn.` : undefined}
+        confirmLabel="Xác nhận phê duyệt"
+        confirmTone="primary"
+        busy={Boolean(approvalTarget && busyId === approvalTarget.id)}
+        onCancel={() => {
+          if (!busyId) {
+            setApprovalTarget(null);
+            setError("");
+          }
+        }}
+        onConfirm={() => void confirmApprove()}
+      >
+        {approvalTarget && error ? <p className="admin-partner-confirm-error" role="alert">{error}</p> : null}
+        <div className="admin-partner-approval-checklist">
+          <p><ShieldCheck size={18} /> CCCD và thông tin khai báo đã được đối chiếu.</p>
+          <p><Camera size={18} /> Ảnh camera xác minh đã có để kiểm tra khuôn mặt.</p>
+          <p><BadgeCheck size={18} /> Phê duyệt sẽ cấp quyền vận hành khách sạn cho tài khoản này.</p>
+        </div>
+      </ConfirmDialog>
+
       {selected ? (
         <div className="admin-modal-layer" role="presentation" onMouseDown={() => setSelected(null)}>
-          <section className="admin-modal partner-review-modal" role="dialog" onMouseDown={(event) => event.stopPropagation()}>
+          <section className="admin-modal partner-review-modal" role="dialog" aria-modal="true" aria-labelledby="partner-review-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="admin-modal-header">
-              <div><span>CHI TIẾT HỒ SƠ + eKYC</span><h2>{selected.legalName}</h2></div>
-              <button type="button" onClick={() => setSelected(null)}>×</button>
+              <div><span>CHI TIẾT HỒ SƠ VÀ XÁC MINH DANH TÍNH</span><h2 id="partner-review-title">{partnerName(selected)}</h2></div>
+              <button type="button" onClick={() => setSelected(null)} aria-label="Đóng chi tiết hồ sơ">×</button>
             </div>
 
             <div className={`partner-admin-ocr-status ${selected.ocrVerified ? "verified" : "failed"}`}>
               {selected.ocrVerified ? <ScanLine size={22} /> : <FileWarning size={22} />}
               <div>
-                <strong>{selected.ocrVerified ? "OCR CCCD đã xác minh" : "OCR CCCD chưa hợp lệ"}</strong>
+                <strong>{selected.ocrVerified ? "Thông tin trên CCCD đã được xác minh" : "Thông tin trên CCCD chưa hợp lệ"}</strong>
                 <small>{selected.ocrVerified ? "Số CCCD, họ tên và ngày sinh khớp dữ liệu khai báo." : "Hồ sơ không được phép phê duyệt."}</small>
               </div>
             </div>
@@ -566,7 +644,7 @@ export default function PartnerRequestsPage() {
             <div className={`partner-admin-ocr-status ${selected.ekycVerified ? "verified" : "failed"}`}>
               {selected.ekycVerified ? <ShieldCheck size={22} /> : <FileWarning size={22} />}
               <div>
-                <strong>{selected.ekycVerified ? "eKYC đã xác minh người thật" : "eKYC chưa hợp lệ"}</strong>
+                <strong>{selected.ekycVerified ? "Danh tính điện tử đã được xác minh" : "Xác minh danh tính điện tử chưa hợp lệ"}</strong>
                 <small>
                   Người thật: {selected.livenessVerified ? "Đạt" : "Chưa đạt"} · Khuôn mặt: {selected.faceVerified ? "Khớp" : "Chưa khớp"} · Độ tương đồng: {formatSimilarity(selected.faceSimilarity)} · Ảnh đối chiếu: {selected.ekycEvidenceAvailable ? "Có" : "Thiếu"}
                 </small>
@@ -575,7 +653,7 @@ export default function PartnerRequestsPage() {
 
             <div className="partner-admin-identity-compare">
               <div className="partner-admin-documents-heading">
-                <span>ĐỐI CHIẾU DANH TÍNH eKYC</span>
+                <span>ĐỐI CHIẾU DANH TÍNH ĐIỆN TỬ</span>
                 <small>Ảnh camera được lấy từ lần xác minh thành công để đối chiếu với CCCD.</small>
               </div>
 
@@ -583,12 +661,12 @@ export default function PartnerRequestsPage() {
                 <ShieldCheck size={18} />
                 <div>
                   <strong>Kiểm tra thủ công trước khi duyệt</strong>
-                  <small>So sánh khuôn mặt trên CCCD với ảnh camera eKYC thành công bên dưới.</small>
+                  <small>So sánh khuôn mặt trên CCCD với ảnh camera từ lần xác minh thành công bên dưới.</small>
                 </div>
               </div>
 
               {documentsLoading || evidenceLoading ? (
-                <div className="partner-admin-doc-loading"><Loading /></div>
+                <div className="partner-admin-doc-loading"><LoadingState message="Đang tải ảnh đối chiếu..." /></div>
               ) : evidenceError ? (
                 <div className="partner-admin-evidence-warning">
                   <AlertTriangle size={18} />
@@ -598,7 +676,7 @@ export default function PartnerRequestsPage() {
                 <div className="partner-admin-compare-grid">
                   <figure>
                     <div className="partner-admin-compare-image">
-                      <img src={documentUrls.front} alt="CCCD mặt trước để đối chiếu eKYC" />
+                      <img src={documentUrls.front} alt="CCCD mặt trước để đối chiếu danh tính" />
                     </div>
                     <figcaption>
                       <ScanLine size={16} />
@@ -607,7 +685,7 @@ export default function PartnerRequestsPage() {
                   </figure>
                   <figure className="verified-evidence">
                     <div className="partner-admin-compare-image">
-                      <img src={evidenceUrl} alt="Ảnh camera lúc eKYC thành công" />
+                      <img src={evidenceUrl} alt="Ảnh camera lúc xác minh danh tính thành công" />
                       <span className="partner-admin-evidence-badge"><CheckCircle2 size={14} /> Đã xác minh</span>
                     </div>
                     <figcaption>
@@ -619,43 +697,43 @@ export default function PartnerRequestsPage() {
               ) : (
                 <div className="partner-admin-evidence-warning">
                   <AlertTriangle size={18} />
-                  <span>Chưa đủ ảnh CCCD hoặc ảnh bằng chứng eKYC để đối chiếu.</span>
+                  <span>Chưa đủ ảnh CCCD hoặc ảnh camera xác minh để đối chiếu.</span>
                 </div>
               )}
 
               <div className="partner-admin-evidence-metrics">
-                <div><span>Liveness</span><strong className={selected.livenessVerified ? "pass" : "fail"}>{selected.livenessVerified ? "Đạt" : "Chưa đạt"}</strong></div>
-                <div><span>Face match</span><strong className={selected.faceVerified ? "pass" : "fail"}>{selected.faceVerified ? "Đạt" : "Chưa đạt"}</strong></div>
-                <div><span>Cosine similarity</span><strong>{formatSimilarity(selected.faceSimilarity)}</strong></div>
+                <div><span>Kiểm tra người thật</span><strong className={selected.livenessVerified ? "pass" : "fail"}>{selected.livenessVerified ? "Đạt" : "Chưa đạt"}</strong></div>
+                <div><span>Đối chiếu khuôn mặt</span><strong className={selected.faceVerified ? "pass" : "fail"}>{selected.faceVerified ? "Đạt" : "Chưa đạt"}</strong></div>
+                <div><span>Chỉ số tương đồng khuôn mặt</span><strong>{formatSimilarity(selected.faceSimilarity)}</strong></div>
                 <div><span>Thời điểm xác minh</span><strong>{formatDateTime(selected.ekycProcessedAt)}</strong></div>
               </div>
             </div>
 
             <div className="admin-detail-grid">
-              <div><span>Loại hồ sơ</span><strong>{selected.applicantType === "BUSINESS" ? "Doanh nghiệp" : "Cá nhân"}</strong></div>
-              <div><span>Số CCCD khai báo</span><strong>{selected.identityNumber}</strong></div>
-              <div><span>Chủ hồ sơ / Người đại diện</span><strong>{selected.representativeName || selected.legalName}</strong></div>
+              <div><span>Loại hồ sơ</span><strong>{applicantTypeLabel(selected.applicantType)}</strong></div>
+              <div><span>Số CCCD khai báo</span><strong>{textOrFallback(selected.identityNumber)}</strong></div>
+              <div><span>Chủ hồ sơ / Người đại diện</span><strong>{textOrFallback(selected.representativeName ?? selected.legalName, "Chưa cập nhật tên")}</strong></div>
               <div><span>Ngày sinh khai báo</span><strong>{formatDate(selected.dateOfBirth)}</strong></div>
-              <div><span>OCR số CCCD</span><strong>{selected.ocrIdentityNumber || "—"}</strong></div>
-              <div><span>OCR ngày sinh</span><strong>{formatDate(selected.ocrDateOfBirth)}</strong></div>
-              <div><span>OCR họ tên</span><strong>{selected.ocrFullName || "—"}</strong></div>
-              <div><span>Kết quả OCR</span><strong>{selected.ocrIdentityMatched && selected.ocrNameMatched && selected.ocrDateOfBirthMatched ? "Khớp toàn bộ" : "Chưa khớp"}</strong></div>
-              <div><span>Liveness</span><strong>{selected.livenessVerified ? "Đạt" : "Chưa đạt"}</strong></div>
-              <div><span>Face match</span><strong>{selected.faceVerified ? "Đạt" : "Chưa đạt"}</strong></div>
-              <div><span>Face similarity</span><strong>{formatSimilarity(selected.faceSimilarity)}</strong></div>
-              <div><span>eKYC xử lý lúc</span><strong>{formatDateTime(selected.ekycProcessedAt)}</strong></div>
-              <div><span>Số điện thoại</span><strong>{selected.businessPhone}</strong></div>
-              <div><span>Địa chỉ</span><strong>{selected.businessAddress}</strong></div>
-              <div className="wide"><span>Ghi chú</span><strong>{selected.note || "Không có"}</strong></div>
+              <div><span>Số CCCD trích xuất</span><strong>{textOrFallback(selected.ocrIdentityNumber)}</strong></div>
+              <div><span>Ngày sinh trích xuất</span><strong>{formatDate(selected.ocrDateOfBirth)}</strong></div>
+              <div><span>Họ tên trích xuất</span><strong>{textOrFallback(selected.ocrFullName)}</strong></div>
+              <div><span>Kết quả đối chiếu giấy tờ</span><strong>{selected.ocrIdentityMatched && selected.ocrNameMatched && selected.ocrDateOfBirthMatched ? "Khớp toàn bộ" : "Chưa khớp"}</strong></div>
+              <div><span>Kiểm tra người thật</span><strong>{selected.livenessVerified ? "Đạt" : "Chưa đạt"}</strong></div>
+              <div><span>Đối chiếu khuôn mặt</span><strong>{selected.faceVerified ? "Đạt" : "Chưa đạt"}</strong></div>
+              <div><span>Độ tương đồng khuôn mặt</span><strong>{formatSimilarity(selected.faceSimilarity)}</strong></div>
+              <div><span>Thời điểm xác minh danh tính</span><strong>{formatDateTime(selected.ekycProcessedAt)}</strong></div>
+              <div><span>Số điện thoại</span><strong>{textOrFallback(selected.businessPhone)}</strong></div>
+              <div><span>Địa chỉ</span><strong>{textOrFallback(selected.businessAddress)}</strong></div>
+              <div className="wide"><span>Ghi chú</span><strong>{textOrFallback(selected.note, "Không có ghi chú")}</strong></div>
             </div>
 
             <div className="partner-admin-documents">
               <div className="partner-admin-documents-heading">
-                <span>ẢNH CCCD PRIVATE</span>
+                <span>ẢNH CCCD BẢO MẬT</span>
                 <small>Ảnh CCCD và ảnh xác minh chỉ hiển thị trong màn hình xét duyệt này.</small>
               </div>
               {documentsLoading ? (
-                <div className="partner-admin-doc-loading"><Loading /></div>
+                <div className="partner-admin-doc-loading"><LoadingState message="Đang tải ảnh CCCD..." /></div>
               ) : documentsError ? (
                 <div className="partner-admin-doc-error">{documentsError}</div>
               ) : documentUrls.front && documentUrls.back ? (
@@ -673,11 +751,11 @@ export default function PartnerRequestsPage() {
 
       {rejecting ? (
         <div className="admin-modal-layer" role="presentation" onMouseDown={() => setRejecting(null)}>
-          <section className="admin-modal small" role="dialog" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="admin-modal-header"><div><span>Từ chối hồ sơ</span><h2>{rejecting.legalName}</h2></div><button type="button" onClick={() => setRejecting(null)}>×</button></div>
+          <section className="admin-modal small" role="dialog" aria-modal="true" aria-labelledby="partner-reject-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="admin-modal-header"><div><span>TỪ CHỐI HỒ SƠ</span><h2 id="partner-reject-title">{partnerName(rejecting)}</h2></div><button type="button" onClick={() => setRejecting(null)} aria-label="Đóng hộp thoại từ chối">×</button></div>
             <label className="admin-form-field">
               <span>Lý do từ chối</span>
-              <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={5} placeholder="Ví dụ: Ảnh CCCD bị lóa, face match không đáng tin cậy hoặc thông tin cần bổ sung..." />
+              <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={5} placeholder="Ví dụ: Ảnh CCCD bị lóa, khuôn mặt chưa đối chiếu được hoặc thông tin cần bổ sung..." />
             </label>
             <div className="admin-modal-actions">
               <button type="button" className="admin-cancel-button" onClick={() => setRejecting(null)}>Hủy</button>
@@ -727,7 +805,7 @@ export default function PartnerRequestsPage() {
                   {deactivationReview.fullName ??
                     deactivationReview.userFullName ??
                     deactivationReview.requesterName ??
-                    "Đối tác"}
+                    "Chưa cập nhật tên"}
                 </strong>
                 <small>{deactivationReview.email ?? deactivationReview.userEmail ?? "—"}</small>
                 <p>{deactivationReview.reason || "Không có lý do từ người gửi."}</p>
@@ -793,7 +871,7 @@ export default function PartnerRequestsPage() {
                   setDeactivationReason(event.target.value);
                   setDeactivationError("");
                 }}
-                placeholder="Nhập lý do để lưu trong audit log..."
+                placeholder="Nhập lý do để lưu trong lịch sử quản trị..."
               />
             </label>
 

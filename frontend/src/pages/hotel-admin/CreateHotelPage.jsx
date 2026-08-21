@@ -5,6 +5,7 @@ import {
   Clock3,
   ImagePlus,
   MapPin,
+  RotateCcw,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -41,12 +42,187 @@ const initialForm = {
   amenities: [],
 };
 
+const HOURS = Array.from({ length: 24 }, (_, index) =>
+  String(index).padStart(2, "0"),
+);
+
+const MINUTES = Array.from({ length: 12 }, (_, index) =>
+  String(index * 5).padStart(2, "0"),
+);
+
+const CHECK_IN_PRESETS = ["13:00", "14:00", "14:30", "15:00"];
+const CHECK_OUT_PRESETS = ["10:00", "11:00", "12:00", "12:30"];
+
 function errorMessage(error) {
   const response = error.response?.data;
+
   if (response?.validationErrors) {
     return Object.values(response.validationErrors).join(" · ");
   }
+
   return response?.message ?? "Không thể lưu khách sạn.";
+}
+
+function parseTime(value) {
+  if (!value || !/^\d{2}:\d{2}$/.test(value)) {
+    return {
+      hour: "",
+      minute: "",
+    };
+  }
+
+  const [hour, minute] = value.split(":");
+
+  return {
+    hour,
+    minute,
+  };
+}
+
+function describeTime(value) {
+  if (!value) {
+    return "Chưa thiết lập";
+  }
+
+  const { hour, minute } = parseTime(value);
+  const numericHour = Number(hour);
+
+  if (numericHour === 0) {
+    return `${value} = 12:${minute} đêm`;
+  }
+
+  if (numericHour < 12) {
+    return `${value} = ${numericHour}:${minute} sáng`;
+  }
+
+  if (numericHour === 12) {
+    return `${value} = 12:${minute} trưa`;
+  }
+
+  if (numericHour < 18) {
+    return `${value} = ${numericHour - 12}:${minute} chiều`;
+  }
+
+  return `${value} = ${numericHour - 12}:${minute} tối`;
+}
+
+function TimePickerField({
+  label,
+  value,
+  presets,
+  helpText,
+  onChange,
+}) {
+  const { hour, minute } = parseTime(value);
+
+  function updatePart(part, nextValue) {
+    if (!nextValue) {
+      onChange(null);
+      return;
+    }
+
+    const nextHour =
+      part === "hour"
+        ? nextValue
+        : hour || "00";
+
+    const nextMinute =
+      part === "minute"
+        ? nextValue
+        : minute || "00";
+
+    onChange(`${nextHour}:${nextMinute}`);
+  }
+
+  return (
+    <div className="catalog-field catalog-time-field">
+      <div className="catalog-time-field__heading">
+        <span>{label}</span>
+        <small>Định dạng 24 giờ</small>
+      </div>
+
+      <div className="catalog-time-picker">
+        <label className="catalog-time-part">
+          <span>Giờ</span>
+          <select
+            value={hour}
+            onChange={(event) =>
+              updatePart("hour", event.target.value)
+            }
+            aria-label={`${label} - giờ`}
+          >
+            <option value="">--</option>
+            {HOURS.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <span className="catalog-time-picker__colon" aria-hidden="true">
+          :
+        </span>
+
+        <label className="catalog-time-part">
+          <span>Phút</span>
+          <select
+            value={minute}
+            onChange={(event) =>
+              updatePart("minute", event.target.value)
+            }
+            aria-label={`${label} - phút`}
+          >
+            <option value="">--</option>
+            {MINUTES.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {value ? (
+          <button
+            type="button"
+            className="catalog-time-clear"
+            onClick={() => onChange(null)}
+            title={`Xóa ${label.toLowerCase()}`}
+          >
+            <RotateCcw size={15} />
+            Để trống
+          </button>
+        ) : null}
+      </div>
+
+      <div
+        className={`catalog-time-preview${value ? " is-set" : ""}`}
+        aria-live="polite"
+      >
+        <Clock3 size={16} />
+        <strong>{describeTime(value)}</strong>
+      </div>
+
+      <div className="catalog-time-presets">
+        <span>Chọn nhanh:</span>
+
+        <div>
+          {presets.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              className={value === preset ? "active" : ""}
+              onClick={() => onChange(preset)}
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <small className="catalog-time-help">{helpText}</small>
+    </div>
+  );
 }
 
 export default function CreateHotelPage() {
@@ -66,17 +242,33 @@ export default function CreateHotelPage() {
   );
 
   useEffect(
-    () => () => previews.forEach((preview) => URL.revokeObjectURL(preview.url)),
+    () => () =>
+      previews.forEach((preview) =>
+        URL.revokeObjectURL(preview.url),
+      ),
     [previews],
   );
 
   function handleChange(event) {
     const { name, value } = event.target;
+
     setError("");
 
     setForm((current) => ({
       ...current,
-      [name]: name === "starRating" ? Number(value) : value,
+      [name]:
+        name === "starRating"
+          ? Number(value)
+          : value,
+    }));
+  }
+
+  function handleTimeChange(field, value) {
+    setError("");
+
+    setForm((current) => ({
+      ...current,
+      [field]: value,
     }));
   }
 
@@ -84,19 +276,33 @@ export default function CreateHotelPage() {
     setForm((current) => ({
       ...current,
       amenities: current.amenities.includes(value)
-        ? current.amenities.filter((item) => item !== value)
+        ? current.amenities.filter(
+          (item) => item !== value,
+        )
         : [...current.amenities, value],
     }));
   }
 
   function addFiles(event) {
-    const selected = Array.from(event.target.files ?? []);
-    setFiles((current) => [...current, ...selected]);
+    const selected = Array.from(
+      event.target.files ?? [],
+    );
+
+    setFiles((current) => [
+      ...current,
+      ...selected,
+    ]);
+
     event.target.value = "";
   }
 
   function removeFile(index) {
-    setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    setFiles((current) =>
+      current.filter(
+        (_, itemIndex) =>
+          itemIndex !== index,
+      ),
+    );
   }
 
   async function handleSubmit(event) {
@@ -104,12 +310,19 @@ export default function CreateHotelPage() {
     setError("");
 
     if (files.length === 0) {
-      setError("Vui lòng chọn ít nhất một ảnh khách sạn.");
+      setError(
+        "Vui lòng chọn ít nhất một ảnh khách sạn.",
+      );
       return;
     }
 
-    if (form.latitude == null || form.longitude == null) {
-      setError("Vui lòng xác nhận vị trí chính xác của khách sạn trên bản đồ.");
+    if (
+      form.latitude == null
+      || form.longitude == null
+    ) {
+      setError(
+        "Vui lòng xác nhận vị trí chính xác của khách sạn trên bản đồ.",
+      );
       return;
     }
 
@@ -127,13 +340,21 @@ export default function CreateHotelPage() {
         email: form.email.trim(),
       });
 
-      await uploadHotelImages(hotel.id, files);
+      await uploadHotelImages(
+        hotel.id,
+        files,
+      );
 
-      navigate(`/hotel-admin/room-types?hotelId=${hotel.id}`, {
-        replace: true,
-      });
+      navigate(
+        `/hotel-admin/room-types?hotelId=${hotel.id}`,
+        {
+          replace: true,
+        },
+      );
     } catch (requestError) {
-      setError(errorMessage(requestError));
+      setError(
+        errorMessage(requestError),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -147,22 +368,37 @@ export default function CreateHotelPage() {
         title="Đăng ký khách sạn mới"
         description="Tạo hồ sơ nháp bằng thông tin vận hành thực tế, tải ảnh của cơ sở, rồi thiết lập loại phòng trước khi gửi xét duyệt."
         actions={(
-          <Link to="/hotel-admin/hotels" className="hotel-back-link">
+          <Link
+            to="/hotel-admin/hotels"
+            className="hotel-back-link"
+          >
             <ArrowLeft size={17} />
             Quay lại danh sách
           </Link>
         )}
       />
 
-      {error ? <div className="catalog-notice error">{error}</div> : null}
+      {error ? (
+        <div className="catalog-notice error">
+          {error}
+        </div>
+      ) : null}
 
-      <form className="catalog-form" onSubmit={handleSubmit}>
+      <form
+        className="catalog-form"
+        onSubmit={handleSubmit}
+      >
         <section className="catalog-card">
           <div className="catalog-section-title">
-            <span><Building2 size={22} /></span>
+            <span>
+              <Building2 size={22} />
+            </span>
+
             <div>
               <h2>Thông tin cơ bản</h2>
-              <p>Tên, liên hệ và mô tả nổi bật của khách sạn.</p>
+              <p>
+                Tên, liên hệ và mô tả nổi bật của khách sạn.
+              </p>
             </div>
           </div>
 
@@ -212,11 +448,18 @@ export default function CreateHotelPage() {
                 value={form.starRating}
                 onChange={handleChange}
               >
-                {[0, 1, 2, 3, 4, 5].map((rating) => (
-                  <option key={rating} value={rating}>
-                    {rating === 0 ? "Chưa xếp hạng" : `${rating} sao`}
-                  </option>
-                ))}
+                {[0, 1, 2, 3, 4, 5].map(
+                  (rating) => (
+                    <option
+                      key={rating}
+                      value={rating}
+                    >
+                      {rating === 0
+                        ? "Chưa xếp hạng"
+                        : `${rating} sao`}
+                    </option>
+                  ),
+                )}
               </select>
             </label>
 
@@ -228,9 +471,20 @@ export default function CreateHotelPage() {
                 onChange={handleChange}
                 required
               >
-                <option value="" disabled>Chọn tỉnh hoặc thành phố</option>
+                <option
+                  value=""
+                  disabled
+                >
+                  Chọn tỉnh hoặc thành phố
+                </option>
+
                 {cities.map((city) => (
-                  <option key={city} value={city}>{city}</option>
+                  <option
+                    key={city}
+                    value={city}
+                  >
+                    {city}
+                  </option>
                 ))}
               </select>
             </label>
@@ -245,17 +499,24 @@ export default function CreateHotelPage() {
                 required
                 maxLength={5000}
               />
-              <small>{form.description.length}/5000 ký tự</small>
+              <small>
+                {form.description.length}/5000 ký tự
+              </small>
             </label>
           </div>
         </section>
 
         <section className="catalog-card">
           <div className="catalog-section-title">
-            <span><MapPin size={22} /></span>
+            <span>
+              <MapPin size={22} />
+            </span>
+
             <div>
               <h2>Địa chỉ khách sạn</h2>
-              <p>Thông tin này được dùng khi khách hàng tìm kiếm.</p>
+              <p>
+                Thông tin này được dùng khi khách hàng tìm kiếm.
+              </p>
             </div>
           </div>
 
@@ -302,9 +563,17 @@ export default function CreateHotelPage() {
                 city={form.city}
                 latitude={form.latitude}
                 longitude={form.longitude}
-                onChange={({ latitude, longitude }) => {
+                onChange={({
+                  latitude,
+                  longitude,
+                }) => {
                   setError("");
-                  setForm((current) => ({ ...current, latitude, longitude }));
+
+                  setForm((current) => ({
+                    ...current,
+                    latitude,
+                    longitude,
+                  }));
                 }}
               />
             </div>
@@ -313,49 +582,74 @@ export default function CreateHotelPage() {
 
         <section className="catalog-card">
           <div className="catalog-section-title">
-            <span><Clock3 size={22} /></span>
+            <span>
+              <Clock3 size={22} />
+            </span>
+
             <div>
-              <h2>Thời gian và tiện nghi chung</h2>
-              <p>Thiết lập giờ nhận/trả phòng và dịch vụ khách sạn.</p>
+              <h2>
+                Thời gian và tiện nghi chung
+              </h2>
+              <p>
+                Thiết lập giờ nhận/trả phòng và dịch vụ khách sạn.
+              </p>
             </div>
           </div>
 
           <div className="catalog-form-grid">
-            <label className="catalog-field">
-              <span>Giờ nhận phòng</span>
-              <input
-                name="checkInTime"
-                type="time"
-                value={form.checkInTime ?? ""}
-                onChange={handleChange}
-              />
-              <small>Để trống nếu cơ sở chưa ban hành giờ nhận phòng.</small>
-            </label>
+            <TimePickerField
+              label="Giờ nhận phòng"
+              value={form.checkInTime}
+              presets={CHECK_IN_PRESETS}
+              helpText="Có thể để trống nếu cơ sở chưa ban hành giờ nhận phòng."
+              onChange={(value) =>
+                handleTimeChange(
+                  "checkInTime",
+                  value,
+                )
+              }
+            />
 
-            <label className="catalog-field">
-              <span>Giờ trả phòng</span>
-              <input
-                name="checkOutTime"
-                type="time"
-                value={form.checkOutTime ?? ""}
-                onChange={handleChange}
-              />
-              <small>Để trống nếu cơ sở chưa ban hành giờ trả phòng.</small>
-            </label>
+            <TimePickerField
+              label="Giờ trả phòng"
+              value={form.checkOutTime}
+              presets={CHECK_OUT_PRESETS}
+              helpText="Có thể để trống nếu cơ sở chưa ban hành giờ trả phòng."
+              onChange={(value) =>
+                handleTimeChange(
+                  "checkOutTime",
+                  value,
+                )
+              }
+            />
 
             <div className="catalog-field catalog-field-full">
               <span>Tiện nghi khách sạn</span>
+
               <div className="catalog-check-grid">
-                {hotelAmenities.map((amenity) => (
-                  <label className="catalog-check" key={amenity}>
-                    <input
-                      type="checkbox"
-                      checked={form.amenities.includes(amenity)}
-                      onChange={() => toggleAmenity(amenity)}
-                    />
-                    {amenity}
-                  </label>
-                ))}
+                {hotelAmenities.map(
+                  (amenity) => (
+                    <label
+                      className="catalog-check"
+                      key={amenity}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={
+                          form.amenities.includes(
+                            amenity,
+                          )
+                        }
+                        onChange={() =>
+                          toggleAmenity(
+                            amenity,
+                          )
+                        }
+                      />
+                      {amenity}
+                    </label>
+                  ),
+                )}
               </div>
             </div>
           </div>
@@ -363,7 +657,10 @@ export default function CreateHotelPage() {
 
         <section className="catalog-card">
           <div className="catalog-section-title">
-            <span><ImagePlus size={22} /></span>
+            <span>
+              <ImagePlus size={22} />
+            </span>
+
             <div>
               <h2>Hình ảnh khách sạn</h2>
               <p>
@@ -380,47 +677,68 @@ export default function CreateHotelPage() {
               multiple
               onChange={addFiles}
             />
+
             <label htmlFor="hotel-images">
               <ImagePlus size={34} />
-              <strong>Chọn hoặc kéo nhiều ảnh khách sạn</strong>
-              <span>JPG, PNG, WEBP, GIF · tối đa 10 MB mỗi ảnh</span>
+              <strong>
+                Chọn hoặc kéo nhiều ảnh khách sạn
+              </strong>
+              <span>
+                JPG, PNG, WEBP, GIF · tối đa 10 MB mỗi ảnh
+              </span>
             </label>
           </div>
 
           {previews.length > 0 ? (
             <div className="catalog-image-grid">
-              {previews.map((preview, index) => (
-                <div
-                  className="catalog-image"
-                  key={`${preview.file.name}-${index}`}
-                >
-                  <img src={preview.url} alt={preview.file.name} />
-                  {index === 0 ? (
-                    <span className="catalog-image-cover">Ảnh bìa</span>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => removeFile(index)}
-                    aria-label="Xóa ảnh"
+              {previews.map(
+                (preview, index) => (
+                  <div
+                    className="catalog-image"
+                    key={`${preview.file.name}-${index}`}
                   >
-                    <X size={16} />
-                  </button>
-                </div>
-              ))}
+                    <img
+                      src={preview.url}
+                      alt={preview.file.name}
+                    />
+
+                    {index === 0 ? (
+                      <span className="catalog-image-cover">
+                        Ảnh bìa
+                      </span>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeFile(index)
+                      }
+                      aria-label="Xóa ảnh"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ),
+              )}
             </div>
           ) : null}
         </section>
 
         <div className="catalog-actions">
-          <Link to="/hotel-admin/hotels" className="catalog-secondary">
+          <Link
+            to="/hotel-admin/hotels"
+            className="catalog-secondary"
+          >
             Hủy
           </Link>
+
           <button
             type="submit"
             className="catalog-primary"
             disabled={submitting}
           >
             <CheckCircle2 size={18} />
+
             {submitting
               ? "Đang lưu và tải ảnh..."
               : "Lưu khách sạn và thêm loại phòng"}

@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Component
@@ -30,5 +31,25 @@ public class HotelClient {
         return result;
     }
 
-    public record HotelDetails(UUID id, UUID ownerId, String name, String approvalStatus, String status) {}
+    public RoomTypeDetails getRoomType(UUID roomTypeId) {
+        RoomTypeDetails result = restClient.get()
+                .uri("/api/room-types/{roomTypeId}", roomTypeId)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (request, response) -> {
+                    throw new IllegalStateException(
+                            "Không thể đọc loại phòng " + roomTypeId
+                                    + ". Hotel Service trả về HTTP " + response.getStatusCode()
+                    );
+                })
+                .body(RoomTypeDetails.class);
+        if (result == null) throw new IllegalStateException("Hotel Service không trả về loại phòng");
+        return result;
+    }
+
+    public record HotelDetails(
+            UUID id, UUID ownerId, String name, String approvalStatus, String status,
+            LocalTime checkInTime, LocalTime checkOutTime
+    ) {}
+
+    public record RoomTypeDetails(UUID id, UUID hotelId, String name, boolean refundable) {}
 }

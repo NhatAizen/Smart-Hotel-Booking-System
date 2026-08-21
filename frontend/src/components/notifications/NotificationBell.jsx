@@ -6,6 +6,7 @@ import {
   CircleDollarSign,
   Hotel,
   Sparkles,
+  Star,
   WalletCards,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -28,6 +29,7 @@ const CATEGORY_ICON = {
   HOUSEKEEPING: Sparkles,
   PARTNER: Building2,
   FINANCE: WalletCards,
+  REVIEW: Star,
 };
 
 const ROLE_PAGE = {

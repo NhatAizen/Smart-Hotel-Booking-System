@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ScanLine,
   Send,
+  Star,
   Tags,
   UserRound,
   WalletCards,
@@ -95,6 +96,11 @@ const items = [
     label: "Tin nhắn",
     icon: MessagesSquare,
   },
+  {
+    to: "/hotel-admin/reviews",
+    label: "Đánh giá",
+    icon: Star,
+  },
 ];
 
 const desktopNavigation = [
@@ -109,7 +115,7 @@ const desktopNavigation = [
     type: "group",
     label: "Vận hành",
     icon: ScanLine,
-    items: [items[5], items[6], items[11]],
+    items: [items[5], items[6], items[11], items[12]],
   },
   {
     type: "group",

@@ -10,8 +10,11 @@ import com.smarthotel.notification.notification.entity.NotificationReadReceipt;
 import com.smarthotel.notification.notification.entity.NotificationStatus;
 import com.smarthotel.notification.notification.repository.NotificationReadReceiptRepository;
 import com.smarthotel.notification.notification.repository.NotificationRepository;
+import com.smarthotel.notification.realtime.RealtimeEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.Comparator;
@@ -26,15 +29,18 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final NotificationReadReceiptRepository receiptRepository;
     private final MailService mailService;
+    private final RealtimeEventPublisher realtimeEventPublisher;
 
     public NotificationService(
             NotificationRepository notificationRepository,
             NotificationReadReceiptRepository receiptRepository,
-            MailService mailService
+            MailService mailService,
+            RealtimeEventPublisher realtimeEventPublisher
     ) {
         this.notificationRepository = notificationRepository;
         this.receiptRepository = receiptRepository;
         this.mailService = mailService;
+        this.realtimeEventPublisher = realtimeEventPublisher;
     }
 
     @Transactional
@@ -56,7 +62,9 @@ public class NotificationService {
         );
         notificationRepository.save(notification);
         if (request.sendEmail()) sendEmail(notification);
-        return NotificationResponse.from(notification);
+        NotificationResponse response = NotificationResponse.from(notification);
+        afterCommit(() -> realtimeEventPublisher.notificationCreated(response));
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -151,6 +159,21 @@ public class NotificationService {
     private Notification findNotification(UUID notificationId) {
         return notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new NotificationNotFoundException(notificationId));
+    }
+
+    private void afterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            action.run();
+                        }
+                    }
+            );
+            return;
+        }
+        action.run();
     }
 
     private String normalizeNullable(String value) {

@@ -18,6 +18,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../auth/AuthContext";
 import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  StatCard,
+  StatusBadge,
+} from "../../components/ui";
+import {
   getAdminUser,
   getAdminUsers,
   deleteAdminUser,
@@ -27,13 +35,18 @@ import {
   promoteAdminUserToHotelAdmin,
   unlockAdminUser,
 } from "../../services/adminService";
+import { roleLabel as presentationRoleLabel } from "../../utils/presentation";
+
+import "./ManageUsersExperience.css";
 
 const DEMOTION_CHECKS = [
   ["currentStayCount", "Khách đang lưu trú"],
-  ["actionableBookingCount", "Booking sắp tới cần xử lý"],
-  ["pendingWithdrawalCount", "Withdrawal đang chờ"],
+  ["actionableBookingCount", "Đặt phòng sắp tới cần xử lý"],
+  ["pendingWithdrawalCount", "Yêu cầu rút tiền đang chờ"],
   ["financialIssueCount", "Vấn đề tài chính cần xử lý"],
 ];
+
+const KNOWN_ROLES = new Set(["CUSTOMER", "HOTEL_ADMIN", "SYSTEM_ADMIN"]);
 
 const WINDOWS_1252_BYTE_BY_CHAR = (() => {
   try {
@@ -96,12 +109,15 @@ function normalizeStatus(value, user) {
 }
 
 function normalizeUser(user = {}) {
+  const sourceRole = user.role ?? user.authority;
   return {
     ...user,
     id: user.id ?? user.userId ?? user.accountId,
-    fullName: user.fullName ?? user.name ?? user.displayName ?? "Chưa cập nhật",
+    fullName: user.fullName ?? user.name ?? user.displayName ?? "Chưa cập nhật tên",
     email: user.email ?? "—",
-    role: String(user.role ?? user.authority ?? "CUSTOMER").replace(/^ROLE_/, ""),
+    role: sourceRole
+      ? String(sourceRole).replace(/^ROLE_/, "").toUpperCase()
+      : "UNKNOWN",
     status: normalizeStatus(user.status ?? user.accountStatus, user),
     createdAt: user.createdAt ?? user.createdDate ?? user.registeredAt ?? null,
     phone: user.phone ?? user.phoneNumber ?? "—",
@@ -113,15 +129,28 @@ function normalizeUser(user = {}) {
 }
 
 function roleLabel(role) {
-  if (role === "SYSTEM_ADMIN") return "Quản trị";
-  if (role === "HOTEL_ADMIN") return "Đối tác";
-  return "Khách hàng";
+  return KNOWN_ROLES.has(role)
+    ? presentationRoleLabel(role)
+    : "Vai trò chưa xác định";
+}
+
+function roleClass(role) {
+  return KNOWN_ROLES.has(role)
+    ? role.toLowerCase().replaceAll("_", "-")
+    : "unknown";
 }
 
 function statusLabel(status) {
-  if (status === "DELETED") return "Đã xóa";
+  if (status === "DELETED") return "Ngừng hoạt động";
   if (["LOCKED", "BLOCKED", "DISABLED", "INACTIVE"].includes(status)) return "Đã khóa";
-  return "Hoạt động";
+  if (status === "ACTIVE") return "Đang hoạt động";
+  return "Trạng thái chưa xác định";
+}
+
+function statusTone(status) {
+  if (status === "ACTIVE") return "success";
+  if (["LOCKED", "BLOCKED", "DISABLED", "INACTIVE"].includes(status)) return "danger";
+  return "neutral";
 }
 
 function isDeleted(status) {
@@ -130,11 +159,6 @@ function isDeleted(status) {
 
 function isLocked(status) {
   return ["LOCKED", "BLOCKED", "DISABLED", "INACTIVE"].includes(status);
-}
-
-function statusClass(status) {
-  if (isDeleted(status)) return "deleted";
-  return isLocked(status) ? "locked" : "active";
 }
 
 function formatDate(value) {
@@ -156,10 +180,14 @@ function eligibilityCount(eligibility, key) {
 }
 
 function blockerText(blocker) {
-  if (typeof blocker === "string") return repairMojibake(blocker);
-  return repairMojibake(
-    blocker?.message ?? blocker?.label ?? blocker?.code,
-  ) ?? "Điều kiện chưa đáp ứng";
+  if (typeof blocker === "string") {
+    const repaired = repairMojibake(blocker);
+    return /^[A-Z0-9_]+$/.test(repaired)
+      ? "Một điều kiện nghiệp vụ chưa được đáp ứng"
+      : repaired;
+  }
+  return repairMojibake(blocker?.message ?? blocker?.label)
+    ?? "Một điều kiện nghiệp vụ chưa được đáp ứng";
 }
 
 export default function ManageUsersPage() {
@@ -318,12 +346,12 @@ export default function ManageUsersPage() {
       setSelected((item) =>
         item && String(item.id) === String(target.id) ? null : item,
       );
-      setNotice(`Đã xóa tài khoản ${target.email}. Tài khoản đã được ẩn khỏi danh sách; lịch sử booking và giao dịch vẫn được giữ.`);
+      setNotice(`Đã ngừng hoạt động tài khoản ${target.email}. Tài khoản đã được ẩn khỏi danh sách; lịch sử đặt phòng và giao dịch vẫn được giữ.`);
       setDeleteTarget(null);
       window.setTimeout(() => setNotice(""), 4500);
     } catch (err) {
       setError(
-        apiMessage(err, "Không thể xóa tài khoản. Vui lòng thử lại."),
+        apiMessage(err, "Không thể ngừng hoạt động tài khoản. Vui lòng thử lại."),
       );
     } finally {
       setActionLoading(false);
@@ -442,53 +470,38 @@ export default function ManageUsersPage() {
 
   return (
     <div className="admin-page admin-users-page">
-      <div className="admin-page-heading">
-        <div>
-          <span className="admin-eyebrow">QUẢN LÝ TÀI KHOẢN</span>
-          <h1>Quản lý tài khoản</h1>
-          <p>Tìm kiếm, khóa, mở khóa và quản lý tài khoản người dùng.</p>
-        </div>
-        <button className="admin-secondary-button" type="button" onClick={loadUsers} disabled={loading}>
-          <RefreshCw size={17} className={loading ? "admin-spin-icon" : ""} />
-          Làm mới
-        </button>
-      </div>
+      <PageHeader
+        className="admin-users-page-header"
+        eyebrow="Quản lý tài khoản"
+        title="Tài khoản người dùng"
+        description="Tìm kiếm, phân quyền và kiểm soát trạng thái tài khoản trên hệ thống."
+        actions={(
+          <button className="admin-secondary-button" type="button" onClick={loadUsers} disabled={loading}>
+            <RefreshCw size={17} className={loading ? "admin-spin-icon" : ""} />
+            Làm mới
+          </button>
+        )}
+      />
 
       {notice ? (
-        <div className="admin-users-notice success">
+        <div className="admin-users-notice success" role="status" aria-live="polite">
           <CheckCircle2 size={18} /> {notice}
         </div>
       ) : null}
 
-      {error ? (
-        <div className="admin-error">
-          <AlertTriangle size={18} />
-          <span>{error}</span>
-          <button type="button" onClick={loadUsers}>Thử lại</button>
-        </div>
-      ) : null}
+      <ErrorState
+        className="admin-users-error"
+        message={error}
+        onRetry={loadUsers}
+        compact
+      />
 
       <div className="admin-user-stat-grid">
-        <div className="admin-user-stat-card">
-          <span className="admin-user-stat-icon blue"><Users size={22} /></span>
-          <div><small>Tổng tài khoản</small><strong>{stats.total}</strong><p>Tất cả tài khoản</p></div>
-        </div>
-        <div className="admin-user-stat-card">
-          <span className="admin-user-stat-icon cyan"><UserCog size={22} /></span>
-          <div><small>Khách hàng</small><strong>{stats.customers}</strong><p>Tài khoản khách hàng</p></div>
-        </div>
-        <div className="admin-user-stat-card">
-          <span className="admin-user-stat-icon violet"><ShieldCheck size={22} /></span>
-          <div><small>Đối tác</small><strong>{stats.hotelAdmins}</strong><p>Tài khoản đối tác khách sạn</p></div>
-        </div>
-        <div className="admin-user-stat-card">
-          <span className="admin-user-stat-icon red"><Lock size={22} /></span>
-          <div><small>Đã khóa</small><strong>{stats.locked}</strong><p>Không được phép đăng nhập</p></div>
-        </div>
-        <div className="admin-user-stat-card">
-          <span className="admin-user-stat-icon red"><Trash2 size={22} /></span>
-          <div><small>Đã xóa</small><strong>{stats.deleted}</strong><p>Tài khoản ngừng hoạt động</p></div>
-        </div>
+        <StatCard label="Tổng tài khoản" value={stats.total} hint="Tài khoản đang hiển thị" icon={<Users size={21} />} loading={loading} />
+        <StatCard label="Khách hàng" value={stats.customers} hint="Tài khoản khách hàng" icon={<UserCog size={21} />} tone="info" loading={loading} />
+        <StatCard label="Đối tác" value={stats.hotelAdmins} hint="Đối tác khách sạn" icon={<ShieldCheck size={21} />} tone="brand" loading={loading} />
+        <StatCard label="Đã khóa" value={stats.locked} hint="Tạm dừng đăng nhập" icon={<Lock size={21} />} tone="warning" loading={loading} />
+        <StatCard label="Ngừng hoạt động" value={stats.deleted} hint="Dữ liệu lịch sử được bảo lưu" icon={<Trash2 size={21} />} tone="danger" loading={loading} />
       </div>
 
       <section className="admin-users-panel">
@@ -499,6 +512,7 @@ export default function ManageUsersPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Tìm theo tên hoặc email..."
+              aria-label="Tìm tài khoản theo tên hoặc email"
             />
           </label>
 
@@ -517,13 +531,15 @@ export default function ManageUsersPage() {
         </div>
 
         {loading ? (
-          <div className="admin-loading"><span className="admin-spinner" /> Đang tải danh sách tài khoản...</div>
+          <LoadingState className="admin-users-loading" message="Đang tải danh sách tài khoản..." />
         ) : filteredUsers.length === 0 ? (
-          <div className="admin-empty-state compact">
-            <Users size={35} />
-            <strong>Không tìm thấy tài khoản</strong>
-            <span>Thử thay đổi từ khóa hoặc bộ lọc.</span>
-          </div>
+          <EmptyState
+            className="admin-users-empty"
+            compact
+            icon={<Users size={32} />}
+            title="Không tìm thấy tài khoản"
+            description="Thử thay đổi từ khóa hoặc bộ lọc."
+          />
         ) : (
           <div className="admin-users-table-wrap">
             <table className="admin-users-table">
@@ -539,7 +555,7 @@ export default function ManageUsersPage() {
               <tbody>
                 {filteredUsers.map((item) => (
                   <tr key={item.id ?? item.email}>
-                    <td>
+                    <td data-label="Người dùng">
                       <div className="admin-user-identity">
                         <span className="admin-user-list-avatar">
                           {item.avatarUrl ? <img src={item.avatarUrl} alt="" /> : item.fullName.charAt(0).toUpperCase()}
@@ -547,12 +563,12 @@ export default function ManageUsersPage() {
                         <div><strong>{item.fullName}</strong><span>{item.email}</span></div>
                       </div>
                     </td>
-                    <td><span className={`admin-role-badge ${item.role.toLowerCase().replaceAll("_", "-")}`}>{roleLabel(item.role)}</span></td>
-                    <td><span className={`admin-account-status ${statusClass(item.status)}`}><span />{statusLabel(item.status)}</span></td>
-                    <td className="admin-users-date">{formatDate(item.createdAt)}</td>
-                    <td>
+                    <td data-label="Vai trò"><span className={`admin-role-badge ${roleClass(item.role)}`}>{roleLabel(item.role)}</span></td>
+                    <td data-label="Trạng thái"><StatusBadge status={item.status} label={statusLabel(item.status)} tone={statusTone(item.status)} size="sm" /></td>
+                    <td className="admin-users-date" data-label="Ngày tạo">{formatDate(item.createdAt)}</td>
+                    <td data-label="Thao tác">
                       <div className="admin-users-row-actions">
-                        <button type="button" className="admin-users-icon-button" title="Xem chi tiết" onClick={() => openDetail(item)}><Eye size={17} /></button>
+                        <button type="button" className="admin-users-icon-button" title="Xem chi tiết" aria-label={`Xem chi tiết tài khoản ${item.email}`} onClick={() => openDetail(item)}><Eye size={17} /></button>
                         {!isDeleted(item.status) ? (
                           <>
                             {["CUSTOMER", "HOTEL_ADMIN"].includes(item.role) ? (
@@ -584,10 +600,10 @@ export default function ManageUsersPage() {
                               type="button"
                               className="admin-users-state-button delete"
                               disabled={isSelf(item)}
-                              title={isSelf(item) ? "Bạn không thể xóa chính tài khoản đang đăng nhập" : "Xóa mềm tài khoản"}
+                              title={isSelf(item) ? "Bạn không thể ngừng hoạt động chính tài khoản đang đăng nhập" : "Ngừng hoạt động tài khoản"}
                               onClick={() => setDeleteTarget(item)}
                             >
-                              <Trash2 size={16} /> Xóa
+                              <Trash2 size={16} /> Ngừng hoạt động
                             </button>
                           </>
                         ) : null}
@@ -603,16 +619,16 @@ export default function ManageUsersPage() {
 
       {selected ? (
         <div className="admin-modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setSelected(null)}>
-          <section className="admin-modal admin-user-detail-modal" role="dialog" aria-modal="true">
+          <section className="admin-modal admin-user-detail-modal" role="dialog" aria-modal="true" aria-labelledby="admin-user-detail-title">
             <div className="admin-modal-header">
-              <div><span>THÔNG TIN TÀI KHOẢN</span><h2>Chi tiết tài khoản</h2></div>
+              <div><span>THÔNG TIN TÀI KHOẢN</span><h2 id="admin-user-detail-title">Chi tiết tài khoản</h2></div>
               <button type="button" onClick={() => setSelected(null)} aria-label="Đóng"><X size={19} /></button>
             </div>
 
             <div className="admin-user-detail-hero">
               <span className="admin-user-detail-avatar">{selected.fullName.charAt(0).toUpperCase()}</span>
               <div><h3>{selected.fullName}</h3><p>{selected.email}</p></div>
-              <span className={`admin-account-status ${statusClass(selected.status)}`}><span />{statusLabel(selected.status)}</span>
+              <StatusBadge status={selected.status} label={statusLabel(selected.status)} tone={statusTone(selected.status)} />
             </div>
 
             {detailLoading ? <div className="admin-user-detail-loading">Đang tải thông tin...</div> : null}
@@ -655,7 +671,7 @@ export default function ManageUsersPage() {
                     disabled={isSelf(selected)}
                     onClick={() => setDeleteTarget(selected)}
                   >
-                    <Trash2 size={16} /> Xóa tài khoản
+                    <Trash2 size={16} /> Ngừng hoạt động
                   </button>
                 </>
               ) : (
@@ -707,7 +723,7 @@ export default function ManageUsersPage() {
                 <strong>{roleTarget.fullName}</strong>
                 <small>{roleTarget.email}</small>
               </div>
-              <span className={`admin-role-badge ${roleTarget.role.toLowerCase().replaceAll("_", "-")}`}>
+              <span className={`admin-role-badge ${roleClass(roleTarget.role)}`}>
                 {roleLabel(roleTarget.role)}
               </span>
             </div>
@@ -729,7 +745,7 @@ export default function ManageUsersPage() {
             ) : (
               <>
                 <p className="admin-role-change-description">
-                  Chỉ có thể chuyển về tài khoản khách hàng khi các booking, khách lưu trú và khoản tài chính còn lại đã được xử lý.
+                  Chỉ có thể chuyển về tài khoản khách hàng khi các đặt phòng, khách lưu trú và khoản tài chính còn lại đã được xử lý.
                 </p>
                 {roleEligibilityLoading ? (
                   <div className="admin-role-eligibility-loading">
@@ -772,7 +788,7 @@ export default function ManageUsersPage() {
                   setRoleReason(event.target.value);
                   setRoleActionError("");
                 }}
-                placeholder="Nhập lý do để lưu trong audit log..."
+                placeholder="Nhập lý do thay đổi để lưu trong lịch sử quản trị..."
               />
             </label>
 
@@ -819,11 +835,11 @@ export default function ManageUsersPage() {
 
       {confirmTarget ? (
         <div className="admin-modal-layer admin-confirm-layer" role="presentation" onMouseDown={(event) => !actionLoading && event.target === event.currentTarget && setConfirmTarget(null)}>
-          <section className="admin-modal small admin-lock-confirm" role="dialog" aria-modal="true">
+          <section className="admin-modal small admin-lock-confirm" role="dialog" aria-modal="true" aria-labelledby="admin-account-lock-title">
             <span className={`admin-confirm-icon ${isLocked(confirmTarget.status) ? "unlock" : "lock"}`}>
               {isLocked(confirmTarget.status) ? <Unlock size={26} /> : <Lock size={26} />}
             </span>
-            <h2>{isLocked(confirmTarget.status) ? "Mở khóa tài khoản?" : "Khóa tài khoản?"}</h2>
+            <h2 id="admin-account-lock-title">{isLocked(confirmTarget.status) ? "Mở khóa tài khoản?" : "Khóa tài khoản?"}</h2>
             <p>
               {isLocked(confirmTarget.status)
                 ? <>Tài khoản <strong>{confirmTarget.email}</strong> sẽ có thể đăng nhập lại.</>
@@ -841,18 +857,18 @@ export default function ManageUsersPage() {
 
       {deleteTarget ? (
         <div className="admin-modal-layer admin-confirm-layer" role="presentation" onMouseDown={(event) => !actionLoading && event.target === event.currentTarget && setDeleteTarget(null)}>
-          <section className="admin-modal small admin-lock-confirm" role="dialog" aria-modal="true">
+          <section className="admin-modal small admin-lock-confirm" role="dialog" aria-modal="true" aria-labelledby="admin-account-deactivate-title">
             <span className="admin-confirm-icon delete"><Trash2 size={26} /></span>
-            <h2>Xóa tài khoản?</h2>
+            <h2 id="admin-account-deactivate-title">Ngừng hoạt động tài khoản?</h2>
             <p>
               Tài khoản <strong>{deleteTarget.email}</strong> sẽ không thể đăng nhập lại.
               Lịch sử đặt phòng, thanh toán và hoàn tiền vẫn được giữ nguyên.
             </p>
-            <div className="admin-soft-delete-note">Đây là xóa mềm (Soft Delete), không xóa bản ghi khỏi database.</div>
+            <div className="admin-soft-delete-note">Dữ liệu tài khoản được bảo lưu để đối chiếu lịch sử và các giao dịch liên quan.</div>
             <div className="admin-modal-actions">
               <button type="button" className="admin-cancel-button" disabled={actionLoading} onClick={() => setDeleteTarget(null)}>Hủy</button>
               <button type="button" className="admin-users-state-button delete" disabled={actionLoading} onClick={deleteAccount}>
-                {actionLoading ? "Đang xử lý..." : "Xác nhận xóa"}
+                {actionLoading ? "Đang xử lý..." : "Xác nhận ngừng hoạt động"}
               </button>
             </div>
           </section>

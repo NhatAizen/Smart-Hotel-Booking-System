@@ -1,0 +1,509 @@
+/* =========================================================
+   ENZIUROOMS PHASE 5 · RESPONSIVE / A11Y / FINAL POLISH
+   Keep this file last in styles/index.css. It intentionally
+   contains only cross-app compatibility and polish rules.
+   ========================================================= */
+
+/* ---------- Keyboard accessibility ---------- */
+.skip-link {
+  position: fixed;
+  top: 10px;
+  left: 12px;
+  z-index: calc(var(--z-toast) + 20);
+  max-width: calc(100vw - 24px);
+  padding: 10px 14px;
+  color: #fff;
+  background: var(--color-text-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  text-decoration: none;
+  transform: translateY(calc(-100% - 24px));
+  transition: transform var(--transition-fast);
+}
+
+.skip-link:focus-visible {
+  outline-color: #fff;
+  transform: translateY(0);
+}
+
+.route-content,
+#main-content {
+  min-width: 0;
+  outline: none;
+}
+
+.sr-only,
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* ---------- Route-level loading after code splitting ---------- */
+.route-loading-shell {
+  min-height: min(56vh, 560px);
+  display: grid;
+  place-items: center;
+  width: 100%;
+  padding: clamp(28px, 6vw, 72px) var(--page-gutter);
+}
+
+.route-loading-shell .ui-loading-state,
+.route-loading-shell .admin-loading {
+  margin: 0;
+}
+
+/* ---------- Robust document sizing ---------- */
+html {
+  min-width: 320px;
+  min-height: 100%;
+  scrollbar-gutter: stable;
+}
+
+body,
+#root,
+.public-layout,
+.customer-layout,
+.admin-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+:where(button, [role="button"], input, select, textarea) {
+  touch-action: manipulation;
+}
+
+:where(button, a, input, select, textarea):disabled {
+  cursor: not-allowed;
+}
+
+/* Give anchored sections breathing room below sticky headers. */
+:where([id]) {
+  scroll-margin-top: 96px;
+}
+
+/* ---------- Images ---------- */
+img {
+  height: auto;
+}
+
+.customer-hotel-photo,
+.catalog-image img,
+.admin-navbar-avatar img,
+.account-avatar img,
+.account-dropdown-avatar img {
+  height: 100%;
+}
+
+/* ---------- Shared panels / tables ---------- */
+.ui-table-wrap,
+.wallet-table-wrap,
+.admin-users-table-wrap,
+.admin-roomtype-table-wrap,
+.catalog-table-wrap,
+.hotel-room-table-layout,
+.platform-wallet-table-wrap,
+.system-wallet-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+:where(.ui-table-wrap, .wallet-table-wrap, .admin-users-table-wrap,
+  .admin-roomtype-table-wrap, .catalog-table-wrap, .hotel-room-table-layout,
+  .platform-wallet-table-wrap, .system-wallet-table-wrap):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Long backend values should never force a page-level overflow. */
+:where(
+  .ui-panel,
+  .ui-stat-card,
+  .catalog-card,
+  .checkout-card,
+  .wallet-card,
+  .admin-card,
+  .hotel-dashboard-card,
+  .system-dashboard-card,
+  .notification-card
+) {
+  min-width: 0;
+}
+
+:where(
+  .ui-panel,
+  .catalog-card,
+  .checkout-card,
+  .wallet-card,
+  .admin-card,
+  .hotel-dashboard-card,
+  .system-dashboard-card,
+  .notification-card
+) :where(p, span, small, strong, td, th) {
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Modal final pass ---------- */
+.ui-modal-backdrop {
+  padding-left: max(var(--space-5), env(safe-area-inset-left));
+  padding-right: max(var(--space-5), env(safe-area-inset-right));
+  padding-bottom: max(var(--space-5), env(safe-area-inset-bottom));
+}
+
+.ui-modal__body {
+  overscroll-behavior: contain;
+}
+
+/* ---------- Floating assistants / hotel chat ---------- */
+.enziu-fai-root {
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+}
+
+.hotel-chat-box {
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+}
+
+/* ---------- Maps ---------- */
+.customer-google-map-overlay,
+.hotel-location-picker,
+.hotel-mini-map-shell {
+  max-width: 100%;
+}
+
+.customer-google-map-canvas,
+.hotel-location-picker .leaflet-container,
+.hotel-mini-map-shell .leaflet-container {
+  touch-action: pan-x pan-y;
+}
+
+/* ---------- Laptop polish ---------- */
+@media (max-width: 1366px) {
+  :root {
+    --content-width: 1120px;
+  }
+
+  .admin-content,
+  .hotel-admin-content {
+    min-width: 0;
+  }
+
+  .ui-page-header__actions,
+  .admin-page-heading-actions,
+  .hotel-dashboard-heading-actions,
+  .system-dashboard-heading-actions {
+    flex-wrap: wrap;
+  }
+}
+
+/* ---------- Tablet ---------- */
+@media (max-width: 1024px) {
+  .ui-page-header {
+    gap: var(--space-4);
+  }
+
+  .ui-page-header__actions {
+    max-width: 100%;
+  }
+
+  .ui-filter-bar {
+    align-items: stretch;
+  }
+
+  .ui-filter-bar__controls,
+  .ui-filter-bar__end,
+  .ui-filter-bar__actions {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .customer-hotel-card-body,
+  .hotel-detail-title-row,
+  .hotel-title-actions {
+    min-width: 0;
+  }
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 768px) {
+  :root {
+    --page-gutter: 16px;
+  }
+
+  .route-loading-shell {
+    min-height: 46vh;
+  }
+
+  .admin-main {
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+
+  .ui-page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ui-page-header__actions {
+    width: 100%;
+  }
+
+  .ui-page-header__actions > * {
+    max-width: 100%;
+  }
+
+  .ui-filter-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ui-filter-bar__end {
+    width: 100%;
+  }
+
+  .ui-modal-backdrop {
+    padding: 0;
+  }
+
+  .ui-modal {
+    max-height: calc(100dvh - env(safe-area-inset-top));
+  }
+
+  .ui-modal__header,
+  .ui-modal__body,
+  .ui-modal__footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .ui-modal__footer {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .ui-modal__footer > .ui-button {
+    flex: 1 1 150px;
+  }
+
+  .customer-results-heading > div,
+  .customer-results-heading,
+  .wallet-page-heading,
+  .admin-page-heading {
+    min-width: 0;
+  }
+
+  .customer-map-button,
+  .customer-sort-control,
+  .customer-sort-control select {
+    max-width: 100%;
+  }
+
+  .customer-hotel-card {
+    min-width: 0;
+  }
+
+  .customer-hotel-card-body {
+    min-width: 0;
+  }
+
+  .customer-hotel-name {
+    text-align: left;
+  }
+
+  .enziu-fai-root {
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .enziu-fai-panel {
+    max-height: calc(100dvh - 88px - env(safe-area-inset-top));
+  }
+
+  .hotel-chat-box {
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right));
+    height: min(720px, calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  }
+
+  .customer-google-map-overlay {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ---------- 390px target ---------- */
+@media (max-width: 420px) {
+  :root {
+    --page-gutter: 12px;
+  }
+
+  .container,
+  .admin-content {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .ui-page-header__title,
+  .admin-page-heading h1,
+  .hotel-dashboard-heading h1,
+  .system-dashboard-heading h1,
+  .customer-results-heading h1 {
+    font-size: clamp(1.35rem, 7vw, 1.75rem);
+    line-height: 1.18;
+  }
+
+  .ui-modal__footer {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .ui-modal__footer > .ui-button {
+    width: 100%;
+  }
+
+  .customer-pagination,
+  .ui-pagination {
+    max-width: 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: 4px;
+  }
+
+  .catalog-time-presets > div {
+    width: 100%;
+  }
+}
+
+/* ---------- Motion preference ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+}
+
+/* ---------- High contrast / forced colors ---------- */
+@media (forced-colors: active) {
+  :where(button, a, input, select, textarea):focus-visible {
+    outline: 2px solid Highlight;
+  }
+
+  .ui-badge,
+  .ui-button,
+  .catalog-time-preview,
+  .catalog-time-presets button {
+    forced-color-adjust: auto;
+  }
+}
+
+/* ---------- App-level runtime fallback ---------- */
+.app-error-boundary {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background:
+    radial-gradient(circle at top left, rgba(7, 151, 227, 0.12), transparent 34rem),
+    var(--color-page);
+}
+
+.app-error-boundary__card {
+  width: min(580px, 100%);
+  display: grid;
+  gap: 20px;
+  padding: clamp(24px, 5vw, 38px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.app-error-boundary__icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  color: var(--color-danger);
+  border-radius: 16px;
+  background: var(--color-danger-surface);
+}
+
+.app-error-boundary__eyebrow {
+  margin: 0 0 6px;
+  color: var(--color-brand-600);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.app-error-boundary h1 {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: clamp(1.6rem, 5vw, 2.15rem);
+  line-height: 1.15;
+}
+
+.app-error-boundary p:not(.app-error-boundary__eyebrow) {
+  margin: 10px 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+}
+
+.app-error-boundary__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.app-error-boundary__actions button,
+.app-error-boundary__actions a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 750;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.app-error-boundary__actions button {
+  color: #fff;
+  border: 1px solid var(--color-brand-600);
+  background: var(--color-brand-600);
+}
+
+.app-error-boundary__actions a {
+  color: var(--color-text-strong);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+@media (max-width: 480px) {
+  .app-error-boundary__actions {
+    display: grid;
+  }
+
+  .app-error-boundary__actions > * {
+    width: 100%;
+  }
+}

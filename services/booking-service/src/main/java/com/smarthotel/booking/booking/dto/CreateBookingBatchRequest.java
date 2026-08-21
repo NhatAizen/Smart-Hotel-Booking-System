@@ -60,6 +60,12 @@ public record CreateBookingBatchRequest(
         @Size(min = 8, max = 30, message = "Số điện thoại phải từ 8 đến 30 ký tự")
         String bookerPhone,
 
+        @NotNull(message = "Ngày sinh người đứng tên đặt phòng không được để trống")
+        LocalDate bookerDateOfBirth,
+
+        @AssertTrue(message = "Bạn phải xác nhận người đứng tên đặt phòng đã đủ 18 tuổi")
+        boolean ageConfirmed,
+
         boolean bookerIsGuest,
 
         @Size(max = 100, message = "Họ khách lưu trú tối đa 100 ký tự")
@@ -92,6 +98,12 @@ public record CreateBookingBatchRequest(
         @AssertTrue(message = "Bạn phải đồng ý điều khoản và chính sách đặt phòng")
         boolean termsAccepted,
 
-        UUID holdToken
+        UUID holdToken,
+
+        @Size(max = 40, message = "Mã ưu đãi khách sạn tối đa 40 ký tự")
+        String hotelPromotionCode,
+
+        @Size(max = 40, message = "Mã ưu đãi EnziuRooms tối đa 40 ký tự")
+        String platformPromotionCode
 ) {
 }

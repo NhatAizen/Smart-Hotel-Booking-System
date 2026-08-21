@@ -5,12 +5,13 @@ import {
   ClipboardCheck,
   Gift,
   LayoutDashboard,
-  Settings2,
   ShieldCheck,
+  Star,
   Users,
   WalletCards,
 } from "lucide-react";
 
+import enziuLogo from "../../assets/enziu-logo.png";
 import AdminNavbar from "./AdminNavbar";
 
 const items = [
@@ -22,7 +23,7 @@ const items = [
   },
   {
     to: "/admin/users",
-    label: "Quản lý tài khoản",
+    label: "Tài khoản",
     icon: Users,
   },
   {
@@ -39,6 +40,11 @@ const items = [
     to: "/admin/room-types",
     label: "Duyệt loại phòng",
     icon: BedDouble,
+  },
+  {
+    to: "/admin/reviews",
+    label: "Đánh giá",
+    icon: Star,
   },
   {
     to: "/admin/marketing",
@@ -64,15 +70,15 @@ const desktopNavigation = [
     type: "group",
     label: "Kiểm duyệt",
     icon: ShieldCheck,
-    items: [items[2], items[3], items[4]],
+    items: [items[2], items[3], items[4], items[5]],
   },
   {
     type: "group",
     label: "Kinh doanh",
     icon: WalletCards,
-    items: [items[5], items[6]],
+    items: [items[6], items[7]],
   },
-  { type: "link", item: items[7] },
+  { type: "link", item: items[8] },
 ];
 
 export default function SystemAdminNavbar() {
@@ -80,9 +86,11 @@ export default function SystemAdminNavbar() {
     <AdminNavbar
       variant="system"
       roleLabel="Quản trị"
-      roleDescription="Quản lý EnziuRooms"
+      roleDescription="Điều hành nền tảng EnziuRooms"
       homePath="/admin"
-      brandIcon={Settings2}
+      brandImageUrl={enziuLogo}
+      brandImageAlt="Logo EnziuRooms"
+      brandImageFit="contain"
       items={items}
       desktopNavigation={desktopNavigation}
     />

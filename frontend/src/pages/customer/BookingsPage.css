@@ -64,7 +64,8 @@
 .booking-v2-chat-action:hover,
 .booking-v2-pay-action:hover,
 .booking-v2-cancel-action:hover,
-.booking-v2-delete-action:hover {
+.booking-v2-delete-action:hover,
+.booking-v2-refund-action:hover {
   transform: translateY(-1px);
 }
 
@@ -853,6 +854,15 @@
   color: #16814b;
 }
 
+/* "Đã đánh giá" là trạng thái tĩnh, không phải tác vụ đang tải.
+ * Override rule button:disabled của cột action để Chrome không hiện con trỏ chờ xoay. */
+.booking-v2-actions .booking-v2-reviewed-action:disabled {
+  opacity: 1;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
 .booking-v2-review-modal-action {
   width: 100%;
   padding: 0 13px;
@@ -879,6 +889,14 @@
   border: 1px solid #f2b8a7;
   background: #fff8f5;
   color: #b5482f;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.booking-v2-refund-action:hover:not(:disabled) {
+  background: #fff0ea;
+  border-color: #e9967f;
+  box-shadow: 0 8px 16px rgba(181, 72, 47, 0.12);
 }
 
 .booking-v2-status.no-show,

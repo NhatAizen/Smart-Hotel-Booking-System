@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
           </button>
         </form>
 
-        <Link to="/login" className="auth-back-link"><ArrowLeft size={17} /> Quay lại đăng nhập</Link>
+        <Link to="/login/enziurooms" className="auth-back-link"><ArrowLeft size={17} /> Quay lại đăng nhập</Link>
       </section>
     </main>
   );

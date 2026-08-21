@@ -1242,3 +1242,181 @@
     justify-content: center;
   }
 }
+
+
+/* =========================================================
+ * Voucher box inside the sticky checkout summary
+ * The summary column is intentionally narrow, so the generic
+ * 2-column promotion layout can overflow / overlap its actions.
+ * ========================================================= */
+.checkout-summary-card .checkout-promo-box {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.checkout-summary-card .checkout-membership-note {
+  min-width: 0;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.checkout-summary-card .checkout-membership-note > span,
+.checkout-summary-card .checkout-membership-note > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.checkout-summary-card .checkout-promo-inputs {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 9px;
+}
+
+.checkout-summary-card .checkout-promo-inputs input,
+.checkout-summary-card .checkout-promo-inputs .promo-secondary {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.checkout-summary-card .checkout-promo-suggestions,
+.checkout-summary-card .checkout-promo-suggestion-list,
+.checkout-summary-card .checkout-promo-suggestion,
+.checkout-summary-card .checkout-promo-suggestion-copy,
+.checkout-summary-card .checkout-promo-suggestion-actions {
+  min-width: 0;
+}
+
+.checkout-summary-card .checkout-promo-suggestions-title {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.checkout-summary-card .checkout-promo-suggestion-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.checkout-summary-card .checkout-promo-suggestion {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+}
+
+.checkout-summary-card .checkout-promo-suggestion-copy > strong,
+.checkout-summary-card .checkout-promo-suggestion-copy > span,
+.checkout-summary-card .checkout-promo-suggestion-copy > small {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.checkout-summary-card .checkout-promo-suggestion-actions {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checkout-summary-card .checkout-promo-saved-badge,
+.checkout-summary-card .checkout-promo-suggestion-actions button {
+  max-width: 100%;
+  flex: 0 1 auto;
+}
+
+.checkout-summary-card .checkout-promo-suggestion-actions button {
+  margin-left: auto;
+}
+
+/* =========================================================
+   BOOKER AGE VERIFICATION
+   ========================================================= */
+.checkout-age-status {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin-top: 14px;
+  padding: 13px 14px;
+  border: 1px solid #d6e2ee;
+  border-radius: 12px;
+  background: #f8fbfe;
+}
+
+.checkout-age-status > svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.checkout-age-status > div {
+  display: grid;
+  gap: 3px;
+}
+
+.checkout-age-status strong {
+  color: #20344a;
+  font-size: 0.93rem;
+}
+
+.checkout-age-status span {
+  color: #63778b;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.checkout-age-status.eligible {
+  border-color: #b9dfca;
+  background: #f0fbf5;
+}
+
+.checkout-age-status.eligible > svg,
+.checkout-age-status.eligible strong {
+  color: #197a4b;
+}
+
+.checkout-age-status.blocked {
+  border-color: #efc3c3;
+  background: #fff6f6;
+}
+
+.checkout-age-status.blocked > svg,
+.checkout-age-status.blocked strong {
+  color: #b42318;
+}
+
+.checkout-age-status.pending > svg {
+  color: #6b7f93;
+}
+
+.checkout-age-confirm {
+  margin-bottom: 14px;
+  padding: 13px 14px;
+  border: 1px solid #dce6ef;
+  border-radius: 11px;
+  background: #f8fbfe;
+}
+
+.checkout-age-confirm.enabled {
+  border-color: #bfdcca;
+  background: #f3fbf6;
+}
+
+.checkout-age-confirm.disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.checkout-age-confirm span {
+  color: #37536c;
+  line-height: 1.5;
+}
+
+.checkout-guest-note {
+  margin: -6px 0 14px;
+  color: #61778c;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}

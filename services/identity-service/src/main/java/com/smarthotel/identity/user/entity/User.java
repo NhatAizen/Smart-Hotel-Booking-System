@@ -28,8 +28,14 @@ public class User {
     private UUID id;
 
     @Column(
-            name = "email",
+            name = "username",
             nullable = false,
+            length = 30
+    )
+    private String username;
+
+    @Column(
+            name = "email",
             unique = true,
             length = 255
     )
@@ -124,12 +130,26 @@ public class User {
     @Column(name = "avatar_url", length = 1000)
     private String avatarUrl;
 
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts;
+
+    @Column(name = "login_lock_level", nullable = false)
+    private int loginLockLevel;
+
+    @Column(name = "login_lock_until")
+    private Instant loginLockUntil;
+
+    @Column(name = "last_failed_login_at")
+    private Instant lastFailedLoginAt;
+
     public User(
+            String username,
             String email,
             String passwordHash,
             String fullName,
             UserRole role
     ) {
+        this.username = normalizeUsername(username);
         this.email = normalizeEmail(email);
         this.passwordHash = passwordHash;
         this.fullName = normalizeFullName(fullName);
@@ -137,6 +157,23 @@ public class User {
         this.emailVerified = false;
         this.active = true;
         this.deleted = false;
+        this.failedLoginAttempts = 0;
+        this.loginLockLevel = 0;
+    }
+
+    public User(
+            String email,
+            String passwordHash,
+            String fullName,
+            UserRole role
+    ) {
+        this(
+                "user_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12),
+                email,
+                passwordHash,
+                fullName,
+                role
+        );
     }
 
     @PrePersist
@@ -190,6 +227,52 @@ public class User {
         this.passwordHash = newPasswordHash;
     }
 
+
+    public boolean isLoginTemporarilyLocked(Instant now) {
+        return loginLockUntil != null && now.isBefore(loginLockUntil);
+    }
+
+    public long getRemainingLoginLockSeconds(Instant now) {
+        if (!isLoginTemporarilyLocked(now)) {
+            return 0;
+        }
+
+        long millis = loginLockUntil.toEpochMilli() - now.toEpochMilli();
+        return Math.max(1, (millis + 999) / 1000);
+    }
+
+    /**
+     * Ghi nhận một lần đăng nhập sai. Sau mỗi 5 lần sai liên tiếp,
+     * tài khoản bị khóa tạm thời theo các mốc 1, 2, 5, 15 và 30 phút.
+     */
+    public long recordFailedLogin(Instant now) {
+        if (loginLockUntil != null && !now.isBefore(loginLockUntil)) {
+            loginLockUntil = null;
+        }
+
+        this.failedLoginAttempts += 1;
+        this.lastFailedLoginAt = now;
+
+        if (this.failedLoginAttempts < 5) {
+            return 0;
+        }
+
+        long[] lockDurationsSeconds = {60, 120, 300, 900, 1800};
+        int durationIndex = Math.min(this.loginLockLevel, lockDurationsSeconds.length - 1);
+        long duration = lockDurationsSeconds[durationIndex];
+
+        this.failedLoginAttempts = 0;
+        this.loginLockLevel = Math.min(this.loginLockLevel + 1, lockDurationsSeconds.length - 1);
+        this.loginLockUntil = now.plusSeconds(duration);
+        return duration;
+    }
+
+    public void clearLoginFailures() {
+        this.failedLoginAttempts = 0;
+        this.loginLockLevel = 0;
+        this.loginLockUntil = null;
+        this.lastFailedLoginAt = null;
+    }
 
     public void updateProfile(
             String fullName,
@@ -278,14 +361,20 @@ public class User {
         this.roleTransitionId = null;
     }
 
+    private static String normalizeUsername(String username) {
+        if (username == null) {
+            return null;
+        }
+        return username.trim().toLowerCase(Locale.ROOT);
+    }
+
     private static String normalizeEmail(String email) {
         if (email == null) {
             return null;
         }
 
-        return email
-                .trim()
-                .toLowerCase(Locale.ROOT);
+        String normalized = email.trim().toLowerCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
     }
 
 

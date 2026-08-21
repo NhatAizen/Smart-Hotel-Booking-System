@@ -4,9 +4,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Coffee,
+  DoorOpen,
   Edit3,
   ImagePlus,
+  Images,
+  Info,
   Maximize2,
+  Minus,
   Plus,
   ShieldCheck,
   Trash2,
@@ -34,6 +38,7 @@ import {
   getRoomTypes,
   setRoomTypeCover,
   submitRoomType,
+  updateRoom,
   updateRoomType,
   uploadRoomTypeImages,
 } from "../../services/hotelAdminService";
@@ -75,9 +80,13 @@ const emptyForm = {
   amenities: [],
   status: "ACTIVE",
   roomCount: 0,
-  roomPrefix: "",
+  roomChangeMode: "KEEP",
+  roomChangeCount: 0,
   startNumber: "",
   floor: "",
+  renameRoomId: "",
+  renameRoomNumber: "",
+  renameFloor: "",
 };
 
 function errorMessage(error) {
@@ -227,6 +236,8 @@ export default function RoomTypesPage() {
   const [hotelId, setHotelId] = useState(searchParams.get("hotelId") ?? "");
   const [roomTypes, setRoomTypes] = useState([]);
   const [form, setForm] = useState(emptyForm);
+  const [renumberRooms, setRenumberRooms] = useState([]);
+  const [loadingRenumberRooms, setLoadingRenumberRooms] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [files, setFiles] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -236,6 +247,8 @@ export default function RoomTypesPage() {
   const [loadingTypes, setLoadingTypes] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [imageActionId, setImageActionId] = useState("");
+  const [imageManagerRoomType, setImageManagerRoomType] = useState(null);
+  const [imageManagerUploading, setImageManagerUploading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -280,6 +293,11 @@ export default function RoomTypesPage() {
   const detailImages = useMemo(
     () => roomTypeImages(detailRoomType),
     [detailRoomType],
+  );
+
+  const imageManagerImages = useMemo(
+    () => roomTypeImages(imageManagerRoomType),
+    [imageManagerRoomType],
   );
 
   const newFilePreviews = useMemo(
@@ -386,7 +404,17 @@ export default function RoomTypesPage() {
   }, [detailImages.length]);
 
   useEffect(() => {
-    if (!showForm && !detailRoomType) {
+    if (!imageManagerRoomType?.id) return;
+
+    const refreshed = roomTypes.find(
+      (roomType) => roomType.id === imageManagerRoomType.id,
+    );
+
+    if (refreshed) setImageManagerRoomType(refreshed);
+  }, [roomTypes, imageManagerRoomType?.id]);
+
+  useEffect(() => {
+    if (!showForm && !detailRoomType && !imageManagerRoomType) {
       document.body.style.removeProperty("overflow");
       return undefined;
     }
@@ -396,7 +424,9 @@ export default function RoomTypesPage() {
 
     function handleKeyDown(event) {
       if (event.key === "Escape") {
-        if (detailRoomType) {
+        if (imageManagerRoomType) {
+          setImageManagerRoomType(null);
+        } else if (detailRoomType) {
           setDetailRoomType(null);
         } else {
           setShowForm(false);
@@ -424,7 +454,7 @@ export default function RoomTypesPage() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [showForm, detailRoomType, detailImages.length]);
+  }, [showForm, detailRoomType, imageManagerRoomType, detailImages.length]);
 
   async function refreshRoomTypes() {
     const data = await getRoomTypes(hotelId);
@@ -462,10 +492,14 @@ export default function RoomTypesPage() {
       fullPaymentAllowed: roomType.fullPaymentAllowed !== false,
       amenities: roomType.amenities ?? [],
       status: roomType.status ?? "",
-      roomCount: roomType.roomCount ?? "",
-      roomPrefix: "",
+      roomCount: roomType.roomCount ?? 0,
+      roomChangeMode: "KEEP",
+      roomChangeCount: 0,
       startNumber: "",
       floor: "",
+      renameRoomId: "",
+      renameRoomNumber: "",
+      renameFloor: "",
     });
     setFiles([]);
     setError("");
@@ -476,6 +510,18 @@ export default function RoomTypesPage() {
   function openDetail(roomType) {
     setDetailRoomType(roomType);
     setDetailImageIndex(0);
+  }
+
+  function openImageManager(roomType) {
+    setImageManagerRoomType(roomType);
+    setError("");
+    setMessage("");
+  }
+
+  function closeImageManager() {
+    if (!imageManagerUploading && !imageActionId) {
+      setImageManagerRoomType(null);
+    }
   }
 
   function closeForm() {
@@ -501,8 +547,10 @@ export default function RoomTypesPage() {
                 "maxChildren",
                 "bedCount",
                 "roomCount",
+                "roomChangeCount",
                 "startNumber",
                 "floor",
+                "renameFloor",
                 "depositPercent",
               ].includes(name)
             ? (value === "" ? "" : Number(value))
@@ -543,27 +591,28 @@ export default function RoomTypesPage() {
   function buildRooms(roomTypeId) {
     const count = Math.max(0, Number(form.roomCount));
 
-    if (count === 0) {
+    if (count === 0) return [];
+
+    const start = Number(form.startNumber);
+
+    return Array.from({ length: count }, (_, index) => ({
+      roomTypeId,
+      roomNumber: String(start + index),
+      floor: form.floor === "" ? null : Number(form.floor),
+      customPrice: null,
+      note: "",
+    }));
+  }
+
+  function previewNewRoomNumbers(count = Number(form.roomChangeCount || form.roomCount || 0)) {
+    const start = Number(form.startNumber);
+    if (!Number.isInteger(start) || start < 0 || !Number.isInteger(count) || count <= 0) {
       return [];
     }
 
-    const start = Number(form.startNumber);
-    const prefix = form.roomPrefix.trim();
-
-    return Array.from({ length: count }, (_, index) => {
-      const sequence = start + index;
-      const roomNumber = prefix
-        ? `${prefix}${String(sequence).padStart(2, "0")}`
-        : String(sequence);
-
-      return {
-        roomTypeId,
-        roomNumber,
-        floor: form.floor === "" ? null : Number(form.floor),
-        customPrice: null,
-        note: "",
-      };
-    });
+    return Array.from({ length: Math.min(count, 6) }, (_, index) =>
+      String(start + index),
+    );
   }
 
   function roomBelongsToType(room, roomTypeId) {
@@ -584,51 +633,170 @@ export default function RoomTypesPage() {
     );
   }
 
-  async function syncEditedRoomCount(roomTypeId) {
-    const requestedCount = Math.max(0, Number(form.roomCount ?? 0));
-    const managed = await getManagedRooms(hotelId);
-    const allRooms = Array.isArray(managed)
+  function managedRoomsFromResponse(managed) {
+    return Array.isArray(managed)
       ? managed
       : Array.isArray(managed?.content)
         ? managed.content
         : Array.isArray(managed?.rooms)
           ? managed.rooms
           : [];
+  }
+
+  async function loadRoomsForRenumber(roomTypeId) {
+    const managed = await getManagedRooms(hotelId);
+    return managedRoomsFromResponse(managed)
+      .filter((room) => roomBelongsToType(room, roomTypeId) && roomIsActive(room))
+      .sort((left, right) =>
+        String(left.roomNumber ?? "").localeCompare(
+          String(right.roomNumber ?? ""),
+          "vi",
+          { numeric: true },
+        ),
+      );
+  }
+
+  async function activateRenumberMode() {
+    if (!editingId) return;
+
+    setForm((current) => ({
+      ...current,
+      roomChangeMode: "RENAME",
+      roomChangeCount: 0,
+      startNumber: "",
+      floor: "",
+      renameRoomId: "",
+      renameRoomNumber: "",
+      renameFloor: "",
+    }));
+
+    setLoadingRenumberRooms(true);
+    setError("");
+
+    try {
+      const rooms = await loadRoomsForRenumber(editingId);
+      setRenumberRooms(rooms);
+    } catch (requestError) {
+      setRenumberRooms([]);
+      setError(errorMessage(requestError));
+    } finally {
+      setLoadingRenumberRooms(false);
+    }
+  }
+
+  function selectRoomForRenumber(roomId) {
+    const room = renumberRooms.find((item) => String(item.id) === String(roomId));
+
+    setForm((current) => ({
+      ...current,
+      renameRoomId: roomId,
+      renameRoomNumber: room?.roomNumber ?? "",
+      renameFloor: room?.floor ?? "",
+    }));
+  }
+
+  async function syncRenamedRoom(roomTypeId) {
+    const roomId = String(form.renameRoomId ?? "").trim();
+    const nextRoomNumber = String(form.renameRoomNumber ?? "").trim();
+
+    if (!roomId) {
+      throw new Error("Vui lòng chọn phòng cần đổi số.");
+    }
+
+    if (!nextRoomNumber) {
+      throw new Error("Vui lòng nhập số phòng mới.");
+    }
+
+    const rooms = await loadRoomsForRenumber(roomTypeId);
+    const target = rooms.find((room) => String(room.id) === roomId);
+
+    if (!target) {
+      throw new Error("Không tìm thấy phòng cần đổi số. Hãy tải lại trang và thử lại.");
+    }
+
+    const currentStatus = String(target.status ?? "").toUpperCase();
+    if (["OCCUPIED", "CLEANING"].includes(currentStatus)) {
+      throw new Error(
+        `Phòng ${target.roomNumber} đang ${currentStatus === "OCCUPIED" ? "có khách lưu trú" : "chờ dọn"}. Hãy đổi số sau khi phòng trở về trạng thái trống hoặc bảo trì.`,
+      );
+    }
+
+    const nextFloor = form.renameFloor === "" ? null : Number(form.renameFloor);
+    if (form.renameFloor !== "" && !Number.isInteger(nextFloor)) {
+      throw new Error("Tầng phải là số nguyên hoặc để trống.");
+    }
+
+    const sameNumber = String(target.roomNumber ?? "").trim() === nextRoomNumber;
+    const currentFloor = target.floor == null ? null : Number(target.floor);
+    if (sameNumber && currentFloor === nextFloor) {
+      throw new Error("Số phòng và tầng chưa thay đổi.");
+    }
+
+    await updateRoom(target.id, {
+      roomTypeId: target.roomTypeId ?? target.roomType?.id ?? roomTypeId,
+      roomNumber: nextRoomNumber,
+      floor: nextFloor,
+      status: target.status,
+      customPrice: target.customPrice ?? null,
+      note: target.note ?? "",
+    });
+
+    return {
+      previousRoomNumber: target.roomNumber,
+      nextRoomNumber,
+    };
+  }
+
+  async function syncEditedRooms(roomTypeId) {
+    const mode = form.roomChangeMode ?? "KEEP";
+    const changeCount = Math.max(0, Number(form.roomChangeCount ?? 0));
+
+    if (mode === "KEEP") {
+      return { added: 0, removed: 0 };
+    }
+
+    if (mode === "RENAME") {
+      const renamed = await syncRenamedRoom(roomTypeId);
+      return { added: 0, removed: 0, renamed };
+    }
+
+    if (changeCount === 0) {
+      return { added: 0, removed: 0 };
+    }
+
+    const managed = await getManagedRooms(hotelId);
+    const allRooms = managedRoomsFromResponse(managed);
 
     const activeRooms = allRooms.filter(
       (room) => roomBelongsToType(room, roomTypeId) && roomIsActive(room),
     );
-    const currentCount = activeRooms.length;
 
-    if (requestedCount === currentCount) {
-      return { added: 0, removed: 0 };
-    }
+    if (mode === "ADD") {
+      if (activeRooms.length + changeCount > 200) {
+        throw new Error("Mỗi loại phòng chỉ được quản lý tối đa 200 phòng hoạt động.");
+      }
 
-    if (requestedCount > currentCount) {
-      const addCount = requestedCount - currentCount;
       const start = Number(form.startNumber);
-      const prefix = form.roomPrefix.trim();
-
-      const rooms = Array.from({ length: addCount }, (_, index) => {
-        const sequence = start + index;
-        const roomNumber = prefix
-          ? `${prefix}${String(sequence).padStart(2, "0")}`
-          : String(sequence);
-
-        return {
-          roomTypeId,
-          roomNumber,
-          floor: form.floor === "" ? null : Number(form.floor),
-          customPrice: null,
-          note: "",
-        };
-      });
+      const rooms = Array.from({ length: changeCount }, (_, index) => ({
+        roomTypeId,
+        roomNumber: String(start + index),
+        floor: form.floor === "" ? null : Number(form.floor),
+        customPrice: null,
+        note: "",
+      }));
 
       await createRoomsBatch(hotelId, rooms);
       return { added: rooms.length, removed: 0 };
     }
 
-    const removeCount = currentCount - requestedCount;
+    if (mode !== "REDUCE") {
+      return { added: 0, removed: 0 };
+    }
+
+    if (changeCount > activeRooms.length) {
+      throw new Error(`Không thể ngừng ${changeCount} phòng vì loại phòng hiện chỉ có ${activeRooms.length} phòng hoạt động.`);
+    }
+
     const removable = activeRooms
       .filter(roomCanBeDeactivated)
       .sort((left, right) =>
@@ -639,13 +807,13 @@ export default function RoomTypesPage() {
         ),
       );
 
-    if (removable.length < removeCount) {
+    if (removable.length < changeCount) {
       throw new Error(
-        `Không thể giảm xuống ${requestedCount} phòng. Cần ngừng ${removeCount} phòng nhưng chỉ có ${removable.length} phòng đang trống hoặc bảo trì có thể ngừng an toàn. Phòng đang có khách hoặc cần dọn sẽ không bị thay đổi tự động.`,
+        `Bạn muốn ngừng ${changeCount} phòng nhưng hiện chỉ có ${removable.length} phòng đang trống hoặc bảo trì có thể ngừng an toàn. Phòng đang có khách hoặc cần dọn sẽ được giữ nguyên.`,
       );
     }
 
-    const targets = removable.slice(0, removeCount);
+    const targets = removable.slice(0, changeCount);
     for (const room of targets) {
       await deactivateRoom(room.id);
     }
@@ -698,40 +866,77 @@ export default function RoomTypesPage() {
       return;
     }
 
-    const requestedRoomCount = Number(form.roomCount);
     const currentRoomCount = editingId
       ? Number(editingRoomType?.roomCount ?? 0)
       : 0;
     const startNumber = Number(form.startNumber);
 
-    if (
-      form.roomCount === ""
-      || !Number.isInteger(requestedRoomCount)
-      || requestedRoomCount < 0
-      || requestedRoomCount > 200
-    ) {
-      setError("Số lượng phòng phải là số nguyên từ 0 đến 200.");
-      setSubmitting(false);
-      return;
+    if (!editingId) {
+      const requestedRoomCount = Number(form.roomCount);
+
+      if (
+        form.roomCount === ""
+        || !Number.isInteger(requestedRoomCount)
+        || requestedRoomCount < 0
+        || requestedRoomCount > 200
+      ) {
+        setError("Số lượng phòng ban đầu phải là số nguyên từ 0 đến 200.");
+        setSubmitting(false);
+        return;
+      }
+
+      if (
+        requestedRoomCount > 0
+        && (form.startNumber === "" || !Number.isInteger(startNumber) || startNumber < 0)
+      ) {
+        setError("Vui lòng nhập số phòng đầu tiên. Ví dụ: 101 để tạo 101, 102, 103...");
+        setSubmitting(false);
+        return;
+      }
+    } else if (form.roomChangeMode === "RENAME") {
+      if (!String(form.renameRoomId ?? "").trim()) {
+        setError("Vui lòng chọn phòng cần đổi số.");
+        setSubmitting(false);
+        return;
+      }
+
+      if (!String(form.renameRoomNumber ?? "").trim()) {
+        setError("Vui lòng nhập số phòng mới.");
+        setSubmitting(false);
+        return;
+      }
+
+      if (form.renameFloor !== "" && !Number.isInteger(Number(form.renameFloor))) {
+        setError("Tầng phải là số nguyên hoặc để trống.");
+        setSubmitting(false);
+        return;
+      }
+    } else if (form.roomChangeMode !== "KEEP") {
+      const changeCount = Number(form.roomChangeCount);
+
+      if (!Number.isInteger(changeCount) || changeCount < 1 || changeCount > 200) {
+        setError("Vui lòng nhập số phòng muốn thêm/ngừng từ 1 đến 200.");
+        setSubmitting(false);
+        return;
+      }
+
+      if (
+        form.roomChangeMode === "ADD"
+        && (form.startNumber === "" || !Number.isInteger(startNumber) || startNumber < 0)
+      ) {
+        setError("Vui lòng nhập số phòng đầu tiên cho các phòng mới, ví dụ 106.");
+        setSubmitting(false);
+        return;
+      }
+
+      if (form.roomChangeMode === "REDUCE" && changeCount > currentRoomCount) {
+        setError(`Loại phòng hiện chỉ có ${currentRoomCount} phòng hoạt động.`);
+        setSubmitting(false);
+        return;
+      }
     }
 
-    if (
-      requestedRoomCount > currentRoomCount
-      && (
-        form.startNumber === ""
-        || !Number.isInteger(startNumber)
-        || startNumber < 0
-      )
-    ) {
-      setError("Vui lòng nhập số bắt đầu hợp lệ cho các phòng mới.");
-      setSubmitting(false);
-      return;
-    }
-
-    if (
-      form.floor !== ""
-      && !Number.isInteger(Number(form.floor))
-    ) {
+    if (form.floor !== "" && !Number.isInteger(Number(form.floor))) {
       setError("Tầng của phòng mới phải là số nguyên hoặc để trống.");
       setSubmitting(false);
       return;
@@ -739,24 +944,34 @@ export default function RoomTypesPage() {
 
     try {
       if (editingId) {
+        const previousApproval = editingRoomType?.approvalStatus;
         await updateRoomType(editingId, payload);
 
         if (files.length > 0) {
           await uploadRoomTypeImages(editingId, files);
         }
 
-        const roomSync = await syncEditedRoomCount(editingId);
-
-        await refreshRoomTypes();
+        const roomSync = await syncEditedRooms(editingId);
+        const refreshedTypes = await refreshRoomTypes();
+        const refreshedRoomType = refreshedTypes.find((item) => item.id === editingId);
 
         const roomMessage =
-          roomSync.added > 0
-            ? ` Đã tạo thêm ${roomSync.added} phòng.`
-            : roomSync.removed > 0
-              ? ` Đã ngừng hoạt động ${roomSync.removed} phòng.`
-              : "";
+          roomSync.renamed
+            ? ` Đã đổi phòng ${roomSync.renamed.previousRoomNumber} thành ${roomSync.renamed.nextRoomNumber}.`
+            : roomSync.added > 0
+              ? ` Đã tạo thêm ${roomSync.added} phòng.`
+              : roomSync.removed > 0
+                ? ` Đã ngừng hoạt động ${roomSync.removed} phòng.`
+                : "";
 
-        setMessage(`Đã cập nhật loại phòng.${roomMessage}`);
+        const approvalMessage =
+          previousApproval === "APPROVED"
+            ? refreshedRoomType?.approvalStatus === "APPROVED"
+              ? " Thay đổi nhỏ đã áp dụng ngay, không cần xét duyệt lại."
+              : " Thay đổi quan trọng cần System Admin xét duyệt lại trước khi công khai."
+            : "";
+
+        setMessage(`Đã cập nhật loại phòng.${roomMessage}${approvalMessage}`);
       } else {
         const saved = await createRoomType(hotelId, payload);
 
@@ -787,18 +1002,27 @@ export default function RoomTypesPage() {
     }
   }
 
-  async function handleSetCover(image) {
-    if (!editingId || !image.id || image.id === "cover-url") {
-      return;
+  async function refreshImageTarget(roomTypeId) {
+    const types = await refreshRoomTypes();
+    const refreshed = types.find((item) => item.id === roomTypeId) ?? null;
+
+    if (imageManagerRoomType?.id === roomTypeId && refreshed) {
+      setImageManagerRoomType(refreshed);
     }
+
+    return refreshed;
+  }
+
+  async function handleSetCover(roomTypeId, image) {
+    if (!roomTypeId || !image.id || image.id === "cover-url") return;
 
     setImageActionId(String(image.id));
     setError("");
 
     try {
-      await setRoomTypeCover(editingId, image.id);
-      await refreshRoomTypes();
-      setMessage("Đã đổi ảnh bìa loại phòng.");
+      await setRoomTypeCover(roomTypeId, image.id);
+      await refreshImageTarget(roomTypeId);
+      setMessage("Đã đổi ảnh bìa loại phòng. Thay đổi ảnh không cần xét duyệt lại.");
     } catch (requestError) {
       setError(errorMessage(requestError));
     } finally {
@@ -806,26 +1030,42 @@ export default function RoomTypesPage() {
     }
   }
 
-  async function handleDeleteExistingImage(image) {
-    if (!editingId || !image.id || image.id === "cover-url") {
-      return;
-    }
+  async function handleDeleteExistingImage(roomTypeId, image) {
+    if (!roomTypeId || !image.id || image.id === "cover-url") return;
 
-    if (!window.confirm("Xóa ảnh này khỏi loại phòng?")) {
-      return;
-    }
+    if (!window.confirm("Xóa ảnh này khỏi loại phòng?")) return;
 
     setImageActionId(String(image.id));
     setError("");
 
     try {
-      await deleteRoomTypeImage(editingId, image.id);
-      await refreshRoomTypes();
-      setMessage("Đã xóa ảnh loại phòng.");
+      await deleteRoomTypeImage(roomTypeId, image.id);
+      await refreshImageTarget(roomTypeId);
+      setMessage("Đã xóa ảnh loại phòng. Thay đổi ảnh không cần xét duyệt lại.");
     } catch (requestError) {
       setError(errorMessage(requestError));
     } finally {
       setImageActionId("");
+    }
+  }
+
+  async function handleImageManagerUpload(event) {
+    const selectedFiles = Array.from(event.target.files ?? []);
+    event.target.value = "";
+
+    if (!imageManagerRoomType?.id || selectedFiles.length === 0) return;
+
+    setImageManagerUploading(true);
+    setError("");
+
+    try {
+      await uploadRoomTypeImages(imageManagerRoomType.id, selectedFiles);
+      await refreshImageTarget(imageManagerRoomType.id);
+      setMessage(`Đã thêm ${selectedFiles.length} ảnh. Ảnh mới không làm mất trạng thái đã duyệt.`);
+    } catch (requestError) {
+      setError(errorMessage(requestError));
+    } finally {
+      setImageManagerUploading(false);
     }
   }
 
@@ -960,7 +1200,7 @@ export default function RoomTypesPage() {
                   aria-label={`Xem chi tiết ${roomType.name}`}
                 >
                   {images[0]?.url ? (
-                    <img src={images[0].url} alt={roomType.name} />
+                    <img src={images[0].url} alt={roomType.name} loading="lazy" decoding="async" />
                   ) : (
                     <div className="catalog-hotel-cover-empty">
                       <ImagePlus size={40} />
@@ -1059,6 +1299,15 @@ export default function RoomTypesPage() {
                   <button
                     type="button"
                     className="catalog-secondary"
+                    onClick={() => openImageManager(roomType)}
+                  >
+                    <Images size={16} />
+                    Quản lý ảnh
+                  </button>
+
+                  <button
+                    type="button"
+                    className="catalog-secondary"
                     onClick={() => openEdit(roomType)}
                   >
                     <Edit3 size={16} />
@@ -1114,6 +1363,20 @@ export default function RoomTypesPage() {
                 <X size={19} />
               </button>
             </div>
+
+            {editingId && editingRoomType?.approvalStatus === "APPROVED" ? (
+              <div className="catalog-smart-approval-note">
+                <Info size={19} />
+                <div>
+                  <strong>Không phải chỉnh sửa nào cũng cần duyệt lại</strong>
+                  <p>
+                    Mô tả, tiện nghi, hình ảnh, số phòng và điều chỉnh giá không quá 25%
+                    được áp dụng ngay. Đổi tên, thay sức chứa/giường/diện tích, chính sách
+                    thanh toán hoặc tăng giá hơn 25% sẽ chuyển về trạng thái cần xét duyệt lại.
+                  </p>
+                </div>
+              </div>
+            ) : null}
 
             <div className="catalog-form-grid">
               <label className="catalog-field catalog-field-full">
@@ -1363,7 +1626,7 @@ export default function RoomTypesPage() {
                     <div className="catalog-image-grid">
                       {existingEditImages.map((image) => (
                         <div className="catalog-image catalog-managed-image" key={image.id}>
-                          <img src={image.url} alt="Ảnh loại phòng" />
+                          <img src={image.url} alt="Ảnh loại phòng" loading="lazy" decoding="async" />
 
                           {image.isCover ? (
                             <span className="catalog-image-cover">Ảnh bìa</span>
@@ -1372,7 +1635,7 @@ export default function RoomTypesPage() {
                               type="button"
                               className="catalog-set-cover"
                               disabled={imageActionId === String(image.id)}
-                              onClick={() => handleSetCover(image)}
+                              onClick={() => handleSetCover(editingId, image)}
                             >
                               Đặt làm bìa
                             </button>
@@ -1383,7 +1646,7 @@ export default function RoomTypesPage() {
                               type="button"
                               className="catalog-delete-image"
                               disabled={imageActionId === String(image.id)}
-                              onClick={() => handleDeleteExistingImage(image)}
+                              onClick={() => handleDeleteExistingImage(editingId, image)}
                               aria-label="Xóa ảnh"
                             >
                               <X size={16} />
@@ -1445,79 +1708,194 @@ export default function RoomTypesPage() {
               </div>
             </div>
 
-            <div className="catalog-field">
-                <span>
-                  {editingId
-                    ? "Điều chỉnh số lượng phòng"
-                    : "Tạo phòng cùng lúc"}
-                </span>
+            <div className="catalog-field catalog-field-full catalog-room-inventory-editor">
+              <span>{editingId ? "Phòng thực tế" : "Tạo phòng ban đầu"}</span>
 
-                {editingId ? (
-                  <small>
-                    Số lượng hiện tại: {valueWithUnit(editingRoomType?.roomCount, " phòng")}.
-                    Tăng số lượng sẽ tạo thêm phòng. Giảm số lượng sẽ ngừng hoạt
-                    động các phòng đang trống hoặc bảo trì; phòng đang có khách
-                    hay cần dọn sẽ không bị thay đổi tự động.
-                  </small>
-                ) : null}
+              {editingId ? (
+                <>
+                  <div className="catalog-room-current">
+                    <div>
+                      <DoorOpen size={21} />
+                      <span>Đang có</span>
+                      <strong>{valueWithUnit(editingRoomType?.roomCount, " phòng")}</strong>
+                    </div>
+                    <p>
+                      Chỉ chọn một thao tác khi bạn thật sự muốn thay đổi số phòng.
+                      Nếu chỉ sửa tên, mô tả, giá hoặc tiện nghi, hãy để “Giữ nguyên”.
+                    </p>
+                  </div>
 
-                <div className="catalog-batch-box">
+                  <div className="catalog-room-change-modes" role="group" aria-label="Chọn cách thay đổi số phòng">
+                    <button
+                      type="button"
+                      className={form.roomChangeMode === "KEEP" ? "active" : ""}
+                      onClick={() => setForm((current) => ({ ...current, roomChangeMode: "KEEP", roomChangeCount: 0, startNumber: "", floor: "", renameRoomId: "", renameRoomNumber: "", renameFloor: "" }))}
+                    >
+                      <Check size={18} />
+                      <span><strong>Giữ nguyên</strong><small>Không tạo hoặc ngừng phòng</small></span>
+                    </button>
+                    <button
+                      type="button"
+                      className={form.roomChangeMode === "ADD" ? "active" : ""}
+                      onClick={() => setForm((current) => ({ ...current, roomChangeMode: "ADD", roomChangeCount: current.roomChangeCount || 1, renameRoomId: "", renameRoomNumber: "", renameFloor: "" }))}
+                    >
+                      <Plus size={18} />
+                      <span><strong>Thêm phòng</strong><small>Tạo thêm phòng thực tế</small></span>
+                    </button>
+                    <button
+                      type="button"
+                      className={form.roomChangeMode === "REDUCE" ? "active danger" : ""}
+                      onClick={() => setForm((current) => ({ ...current, roomChangeMode: "REDUCE", roomChangeCount: current.roomChangeCount || 1, startNumber: "", floor: "", renameRoomId: "", renameRoomNumber: "", renameFloor: "" }))}
+                    >
+                      <Minus size={18} />
+                      <span><strong>Giảm phòng</strong><small>Ngừng phòng trống/bảo trì</small></span>
+                    </button>
+                    <button
+                      type="button"
+                      className={form.roomChangeMode === "RENAME" ? "active" : ""}
+                      onClick={activateRenumberMode}
+                    >
+                      <Edit3 size={18} />
+                      <span><strong>Đổi số phòng</strong><small>Ví dụ 106 → 208</small></span>
+                    </button>
+                  </div>
+
+                  {form.roomChangeMode === "ADD" ? (
+                    <div className="catalog-room-change-panel">
+                      <label className="catalog-field">
+                        <span>Số phòng muốn thêm</span>
+                        <input name="roomChangeCount" type="number" min="1" max="200" value={form.roomChangeCount} onChange={handleChange} />
+                      </label>
+                      <label className="catalog-field">
+                        <span>Số phòng đầu tiên</span>
+                        <input name="startNumber" type="number" min="0" value={form.startNumber} onChange={handleChange} placeholder="Ví dụ: 106" />
+                        <small>Ví dụ thêm 3 phòng từ 106 → 106, 107, 108.</small>
+                      </label>
+                      <label className="catalog-field">
+                        <span>Tầng</span>
+                        <input name="floor" type="number" value={form.floor} onChange={handleChange} placeholder="Ví dụ: 1" />
+                      </label>
+                      {previewNewRoomNumbers().length > 0 ? (
+                        <div className="catalog-room-preview">
+                          <span>Sẽ tạo:</span>
+                          <strong>{previewNewRoomNumbers().join(", ")}{Number(form.roomChangeCount) > 6 ? "…" : ""}</strong>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {form.roomChangeMode === "RENAME" ? (
+                    <div className="catalog-room-change-panel catalog-room-rename-panel">
+                      <div className="catalog-room-rename-heading">
+                        <strong>Đổi số một phòng thực tế</strong>
+                        <small>Thao tác này không thay đổi loại phòng và không cần System Admin duyệt lại.</small>
+                      </div>
+
+                      <label className="catalog-field">
+                        <span>Phòng hiện tại</span>
+                        <select
+                          value={form.renameRoomId}
+                          onChange={(event) => selectRoomForRenumber(event.target.value)}
+                          disabled={loadingRenumberRooms}
+                        >
+                          <option value="">
+                            {loadingRenumberRooms ? "Đang tải phòng..." : "Chọn phòng cần đổi"}
+                          </option>
+                          {renumberRooms.map((room) => (
+                            <option key={room.id} value={room.id}>
+                              Phòng {room.roomNumber}
+                              {room.floor != null ? ` · Tầng ${room.floor}` : ""}
+                              {room.status ? ` · ${statusLabel(room.status)}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="catalog-field">
+                        <span>Số phòng mới</span>
+                        <input
+                          name="renameRoomNumber"
+                          value={form.renameRoomNumber}
+                          onChange={handleChange}
+                          maxLength={40}
+                          placeholder="Ví dụ: 208"
+                          disabled={!form.renameRoomId}
+                        />
+                      </label>
+
+                      <label className="catalog-field">
+                        <span>Tầng</span>
+                        <input
+                          name="renameFloor"
+                          type="number"
+                          value={form.renameFloor}
+                          onChange={handleChange}
+                          placeholder="Ví dụ: 2"
+                          disabled={!form.renameRoomId}
+                        />
+                        <small>Giữ nguyên số tầng hiện tại hoặc sửa nếu phòng chuyển tầng.</small>
+                      </label>
+
+                      {form.renameRoomId && form.renameRoomNumber ? (
+                        <div className="catalog-room-preview catalog-room-rename-preview">
+                          <span>Kết quả:</span>
+                          <strong>
+                            Phòng {form.renameRoomNumber}
+                            {form.renameFloor !== "" ? ` · Tầng ${form.renameFloor}` : ""}
+                          </strong>
+                        </div>
+                      ) : null}
+
+                      <div className="catalog-room-safety-note">
+                        <Info size={18} />
+                        <p>
+                          Không đổi số khi phòng đang <strong>có khách</strong> hoặc <strong>chờ dọn</strong>.
+                          Số phòng mới phải chưa tồn tại trong cùng khách sạn.
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {form.roomChangeMode === "REDUCE" ? (
+                    <div className="catalog-room-change-panel catalog-room-reduce-panel">
+                      <label className="catalog-field">
+                        <span>Số phòng muốn ngừng hoạt động</span>
+                        <input name="roomChangeCount" type="number" min="1" max={Math.max(1, Number(editingRoomType?.roomCount ?? 1))} value={form.roomChangeCount} onChange={handleChange} />
+                      </label>
+                      <div className="catalog-room-safety-note">
+                        <Info size={18} />
+                        <p>
+                          Hệ thống chỉ ngừng các phòng đang <strong>trống</strong> hoặc <strong>bảo trì</strong>,
+                          ưu tiên số phòng lớn nhất. Phòng đang có khách hoặc đang chờ dọn sẽ không bị đụng tới.
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="catalog-room-create-panel">
                   <label className="catalog-field">
-                    <span>
-                      {editingId ? "Số lượng phòng mong muốn" : "Số lượng phòng"}
-                    </span>
-                    <input
-                      name="roomCount"
-                      type="number"
-                      min="0"
-                      max="200"
-                      value={form.roomCount}
-                      onChange={handleChange}
-                      required
-                    />
+                    <span>Số lượng phòng ban đầu</span>
+                    <input name="roomCount" type="number" min="0" max="200" value={form.roomCount} onChange={handleChange} required />
                   </label>
-
                   <label className="catalog-field">
-                    <span>Tiền tố số phòng mới</span>
-                    <input
-                      name="roomPrefix"
-                      value={form.roomPrefix}
-                      onChange={handleChange}
-                      placeholder="Để trống nếu không dùng tiền tố"
-                    />
+                    <span>Số phòng đầu tiên</span>
+                    <input name="startNumber" type="number" min="0" value={form.startNumber} onChange={handleChange} required={Number(form.roomCount) > 0} placeholder="Ví dụ: 101" />
+                    <small>Nếu tạo 5 phòng từ 101, hệ thống sẽ tạo 101 → 105.</small>
                   </label>
-
                   <label className="catalog-field">
-                    <span>Số phòng mới bắt đầu từ</span>
-                    <input
-                      name="startNumber"
-                      type="number"
-                      min="0"
-                      value={form.startNumber}
-                      onChange={handleChange}
-                      required={
-                        Number(form.roomCount)
-                          > Number(editingRoomType?.roomCount ?? 0)
-                      }
-                    />
+                    <span>Tầng</span>
+                    <input name="floor" type="number" value={form.floor} onChange={handleChange} placeholder="Ví dụ: 1" />
                   </label>
-
-                  <label className="catalog-field">
-                    <span>Tầng cho phòng mới</span>
-                    <input
-                      name="floor"
-                      type="number"
-                      value={form.floor}
-                      onChange={handleChange}
-                    />
-                  </label>
+                  {previewNewRoomNumbers(Number(form.roomCount)).length > 0 ? (
+                    <div className="catalog-room-preview">
+                      <span>Sẽ tạo:</span>
+                      <strong>{previewNewRoomNumbers(Number(form.roomCount)).join(", ")}{Number(form.roomCount) > 6 ? "…" : ""}</strong>
+                    </div>
+                  ) : null}
                 </div>
-
-                <small>
-                  Hệ thống ghép tiền tố với số bắt đầu để tạo số phòng mới.
-                  Khi chỉ sửa thông tin loại phòng, hãy giữ nguyên số lượng hiện tại.
-                </small>
-              </div>
+              )}
+            </div>
 
             <div className="catalog-actions">
               <button
@@ -1541,6 +1919,87 @@ export default function RoomTypesPage() {
               </button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {imageManagerRoomType ? (
+        <div
+          className="catalog-modal-backdrop catalog-image-manager-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeImageManager();
+          }}
+        >
+          <section
+            className="catalog-image-manager-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="room-image-manager-title"
+          >
+            <div className="catalog-image-manager-header">
+              <div>
+                <span className="catalog-kicker">HÌNH ẢNH LOẠI PHÒNG</span>
+                <h2 id="room-image-manager-title">Quản lý ảnh · {imageManagerRoomType.name}</h2>
+                <p>Chọn ảnh đại diện khách hàng sẽ thấy đầu tiên. Đổi ảnh hoặc ảnh bìa không cần xét duyệt lại.</p>
+              </div>
+              <button type="button" className="catalog-icon-button" onClick={closeImageManager} aria-label="Đóng quản lý ảnh">
+                <X size={19} />
+              </button>
+            </div>
+
+            <label className="catalog-image-manager-upload">
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                disabled={imageManagerUploading}
+                onChange={handleImageManagerUpload}
+              />
+              <ImagePlus size={20} />
+              <span>{imageManagerUploading ? "Đang tải ảnh..." : "Thêm ảnh mới"}</span>
+            </label>
+
+            {imageManagerImages.length === 0 ? (
+              <div className="catalog-image-manager-empty">
+                <ImagePlus size={42} />
+                <strong>Loại phòng chưa có ảnh</strong>
+                <span>Hãy thêm ảnh để khách hàng dễ hình dung phòng hơn.</span>
+              </div>
+            ) : (
+              <div className="catalog-image-manager-grid">
+                {imageManagerImages.map((image, index) => (
+                  <article className={`catalog-image-manager-item${image.isCover ? " is-cover" : ""}`} key={image.id}>
+                    <img src={image.url} alt={`${imageManagerRoomType.name} - ảnh ${index + 1}`} loading="lazy" decoding="async" />
+                    <div className="catalog-image-manager-item-bar">
+                      {image.isCover ? (
+                        <span className="catalog-image-manager-cover-badge"><Check size={14} /> Ảnh bìa</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="catalog-image-manager-cover-button"
+                          disabled={imageActionId === String(image.id)}
+                          onClick={() => handleSetCover(imageManagerRoomType.id, image)}
+                        >
+                          Đặt làm ảnh bìa
+                        </button>
+                      )}
+                      {image.id !== "cover-url" ? (
+                        <button
+                          type="button"
+                          className="catalog-image-manager-delete"
+                          disabled={imageActionId === String(image.id)}
+                          onClick={() => handleDeleteExistingImage(imageManagerRoomType.id, image)}
+                          aria-label={`Xóa ảnh ${index + 1}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       ) : null}
 

@@ -1,0 +1,436 @@
+.system-wallet-page {
+  --system-wallet-border: var(--color-border-subtle, #e3eaf1);
+  --system-wallet-muted: var(--color-text-muted, #6d7f92);
+  width: 100%;
+}
+
+.system-wallet-page > .ui-page-header {
+  margin-bottom: 0;
+}
+
+.system-wallet-page > .ui-error-state {
+  margin: 0;
+}
+
+.system-wallet-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4, 16px);
+}
+
+.system-wallet-source-warning {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-3, 12px);
+  padding: var(--space-4, 16px);
+  border: 1px solid #efd59d;
+  border-radius: var(--radius-lg, 16px);
+  background: #fff9ed;
+  color: #805d16;
+}
+
+.system-wallet-source-warning > svg {
+  margin-top: 2px;
+  color: #b9780b;
+}
+
+.system-wallet-source-warning strong {
+  color: #704f10;
+}
+
+.system-wallet-source-warning ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: #8a6b2f;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.system-wallet-source-warning button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #e4c57f;
+  border-radius: 10px;
+  background: #fff;
+  color: #775311;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.system-wallet-source-warning button:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+.system-wallet-source-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 var(--space-4, 16px) var(--space-3, 12px);
+  padding: 9px 11px;
+  border: 1px solid #f0d9ad;
+  border-radius: 11px;
+  background: #fffaf1;
+  color: #886526;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.system-wallet-page .ui-stat-card,
+.system-wallet-page .wallet-panel {
+  border-color: var(--system-wallet-border);
+  box-shadow: var(--shadow-xs, 0 4px 16px rgba(18, 43, 68, 0.05));
+}
+
+.system-wallet-page .wallet-table-wrap {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong, #c6d4e1) transparent;
+}
+
+.system-wallet-page .system-refund-table {
+  min-width: 1680px;
+}
+
+.system-wallet-page .system-refund-table td {
+  min-width: 118px;
+  vertical-align: top;
+}
+
+.system-wallet-page .system-refund-table td:first-child,
+.system-wallet-page .system-refund-table td:nth-child(7),
+.system-wallet-page .system-refund-table td:nth-child(8) {
+  min-width: 180px;
+}
+
+.system-wallet-page .system-reference {
+  display: inline-block;
+  max-width: 14rem;
+  overflow: hidden;
+  color: var(--system-wallet-muted);
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.system-wallet-page .refund-workflow-panel > .ui-error-state {
+  margin: var(--space-4, 16px);
+}
+
+.system-wallet-filter {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.system-wallet-filter > span {
+  color: var(--system-wallet-muted);
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: 750;
+}
+
+.system-wallet-page button:focus-visible,
+.system-wallet-page select:focus-visible,
+.system-wallet-page input:focus-visible,
+.system-wallet-page textarea:focus-visible {
+  outline: 3px solid rgba(23, 107, 196, 0.2);
+  outline-offset: 2px;
+}
+
+.system-wallet-withdrawal-dialog {
+  max-height: calc(100dvh - 2rem);
+}
+
+.system-wallet-withdrawal-body {
+  padding: 0;
+}
+
+.system-wallet-withdrawal-content {
+  min-width: 0;
+}
+
+.system-wallet-withdrawal-dialog .wallet-real-summary {
+  padding-top: var(--space-5, 20px);
+}
+
+.system-wallet-withdrawal-dialog .wallet-real-summary .ui-badge {
+  margin-top: 0.2rem;
+}
+
+.system-wallet-proof-content {
+  display: grid;
+  gap: var(--space-4, 16px);
+}
+
+.system-wallet-proof-content .wallet-proof-modal-head {
+  padding: 0;
+  border: 0;
+}
+
+.system-wallet-proof-content .wallet-proof-modal-head strong {
+  color: var(--color-text-strong, #18324a);
+  font-size: var(--font-size-lg, 1.125rem);
+}
+
+.system-wallet-proof-content .wallet-proof-customer-image {
+  width: 100%;
+  max-height: min(64dvh, 680px);
+  object-fit: contain;
+  border: 1px solid var(--system-wallet-border);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--color-surface-subtle, #f7f9fb);
+}
+
+.system-wallet-decision-field {
+  display: grid;
+  gap: var(--space-2, 8px);
+  color: var(--color-text-strong, #18324a);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: 750;
+}
+
+.system-wallet-decision-content {
+  display: grid;
+  gap: var(--space-4, 16px);
+}
+
+.system-wallet-decision-field textarea {
+  width: 100%;
+  min-height: 7rem;
+  resize: vertical;
+  padding: var(--space-3, 12px);
+  border: 1px solid var(--color-border, #d5e0ea);
+  border-radius: var(--radius-md, 12px);
+  background: var(--color-surface, #fff);
+  color: var(--color-text, #334b60);
+  font: inherit;
+}
+
+.system-wallet-refund-decision {
+  display: grid;
+  gap: var(--space-5, 20px);
+}
+
+.system-wallet-refund-decision dl {
+  display: grid;
+  gap: var(--space-3, 12px);
+  margin: 0;
+}
+
+.system-wallet-refund-decision dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4, 16px);
+  padding-bottom: var(--space-2, 8px);
+  border-bottom: 1px solid var(--system-wallet-border);
+}
+
+.system-wallet-refund-decision dt {
+  color: var(--system-wallet-muted);
+  font-size: var(--font-size-sm, 0.875rem);
+}
+
+.system-wallet-refund-decision dd {
+  margin: 0;
+  color: var(--color-text-strong, #18324a);
+  font-weight: 750;
+  text-align: right;
+}
+
+.system-wallet-refund-decision p {
+  margin: 0;
+  color: var(--system-wallet-muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 1180px) {
+  .system-wallet-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .system-wallet-source-warning {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .system-wallet-source-warning button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .system-wallet-page .wallet-table-wrap {
+    overflow: visible;
+  }
+
+  .system-wallet-page .wallet-table,
+  .system-wallet-page .system-refund-table {
+    min-width: 0;
+  }
+
+  .system-wallet-page .wallet-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .system-wallet-page .wallet-table tbody {
+    display: grid;
+    gap: var(--space-3, 12px);
+    padding: var(--space-3, 12px);
+  }
+
+  .system-wallet-page .wallet-table tr {
+    display: block;
+    overflow: hidden;
+    border: 1px solid var(--system-wallet-border);
+    border-radius: var(--radius-lg, 16px);
+    background: var(--color-surface, #fff);
+  }
+
+  .system-wallet-page .wallet-table td,
+  .system-wallet-page .system-refund-table td {
+    width: 100%;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(8.5rem, 0.4fr) minmax(0, 1fr);
+    gap: var(--space-3, 12px);
+    padding: 0.75rem 0.875rem;
+    border-bottom: 1px solid var(--system-wallet-border);
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .system-wallet-page .wallet-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .system-wallet-page .wallet-table td::before {
+    content: attr(data-label);
+    color: var(--system-wallet-muted);
+    font-size: var(--font-size-xs, 0.75rem);
+    font-weight: 750;
+    text-align: left;
+  }
+
+  .system-wallet-page .wallet-table td.wallet-empty {
+    display: block;
+    text-align: center;
+  }
+
+  .system-wallet-page .wallet-table td.wallet-empty::before {
+    content: none;
+  }
+
+  .system-wallet-page .wallet-actions {
+    justify-content: flex-end;
+  }
+
+  .system-wallet-page .wallet-table td > .ui-badge {
+    justify-self: end;
+  }
+
+  .system-wallet-withdrawal-dialog .wallet-real-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: var(--space-4, 16px);
+  }
+
+  .system-wallet-withdrawal-dialog .wallet-real-destination,
+  .system-wallet-withdrawal-dialog .wallet-real-approval-box,
+  .system-wallet-withdrawal-dialog .wallet-real-transfer-form,
+  .system-wallet-withdrawal-dialog .wallet-paid-proof-panel {
+    margin-right: var(--space-4, 16px);
+    margin-left: var(--space-4, 16px);
+  }
+}
+
+@media (max-width: 620px) {
+  .system-wallet-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .system-wallet-page .wallet-panel-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .system-wallet-filter,
+  .system-wallet-filter select {
+    width: 100%;
+  }
+
+  .system-wallet-page .wallet-table td,
+  .system-wallet-page .system-refund-table td {
+    grid-template-columns: 1fr;
+    text-align: left;
+  }
+
+  .system-wallet-page .wallet-table td > .ui-badge,
+  .system-wallet-page .wallet-actions {
+    justify-self: start;
+    justify-content: flex-start;
+  }
+
+  .system-wallet-withdrawal-dialog .wallet-real-summary,
+  .system-wallet-withdrawal-dialog .wallet-bank-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .system-wallet-withdrawal-dialog .wallet-bank-detail-grid > div.wide {
+    grid-column: auto;
+    padding-right: var(--space-3, 12px);
+  }
+
+  .system-wallet-withdrawal-dialog .wallet-bank-detail-grid button {
+    position: static;
+    width: max-content;
+    margin-top: var(--space-2, 8px);
+    transform: none;
+  }
+
+  .system-wallet-withdrawal-dialog .wallet-admin-qr-box,
+  .system-wallet-withdrawal-dialog .wallet-real-approval-box,
+  .system-wallet-withdrawal-dialog .wallet-paid-proof-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .system-wallet-withdrawal-dialog .wallet-admin-qr-box img {
+    width: min(100%, 220px);
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  .system-wallet-withdrawal-dialog .wallet-real-approval-box .wallet-primary-button {
+    width: 100%;
+  }
+
+  .system-wallet-refund-decision dl > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-1, 4px);
+  }
+
+  .system-wallet-refund-decision dd {
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .system-wallet-page *,
+  .system-wallet-page *::before,
+  .system-wallet-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

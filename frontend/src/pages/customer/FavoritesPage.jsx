@@ -249,7 +249,7 @@ export default function FavoritesPage() {
                     <article className="favorite-card" key={item.id ?? item.hotelId}>
                       <div className="favorite-card-media">
                         {cover ? (
-                          <img src={cover} alt={hotel?.name ?? "Khách sạn"} />
+                          <img src={cover} alt={hotel?.name ?? "Khách sạn"} loading="lazy" decoding="async" />
                         ) : (
                           <div className="favorite-card-placeholder">
                             <Building2 size={44} />

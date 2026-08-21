@@ -10,51 +10,39 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 
-/**
- * Sinh JWT Access Token sau khi ngÆ°á»i dÃ¹ng Ä‘Äƒng nháº­p thÃ nh cÃ´ng.
- */
 @Service
 public class JwtService {
 
     private final JwtEncoder jwtEncoder;
     private final JwtProperties jwtProperties;
 
-    public JwtService(
-            JwtEncoder jwtEncoder,
-            JwtProperties jwtProperties
-    ) {
+    public JwtService(JwtEncoder jwtEncoder, JwtProperties jwtProperties) {
         this.jwtEncoder = jwtEncoder;
         this.jwtProperties = jwtProperties;
     }
 
     public String generateAccessToken(User user) {
         Instant issuedAt = Instant.now();
-        Instant expiresAt = issuedAt.plusSeconds(
-                jwtProperties.expirationSeconds()
-        );
+        Instant expiresAt = issuedAt.plusSeconds(jwtProperties.expirationSeconds());
 
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
                 .issuer(jwtProperties.issuer())
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
-
-                // Subject lÃ  ID ngÆ°á»i dÃ¹ng.
                 .subject(user.getId().toString())
-
-                // Custom claims.
-                .claim("email", user.getEmail())
+                .claim("username", user.getUsername())
                 .claim("fullName", user.getFullName())
                 .claim("role", user.getRole().name())
-                .claim("emailVerified", user.isEmailVerified())
-                .build();
+                .claim("emailVerified", user.isEmailVerified());
 
-        JwsHeader header = JwsHeader
-                .with(MacAlgorithm.HS256)
-                .type("JWT")
-                .build();
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
+            claims.claim("email", user.getEmail());
+        }
+
+        JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).type("JWT").build();
 
         return jwtEncoder
-                .encode(JwtEncoderParameters.from(header, claims))
+                .encode(JwtEncoderParameters.from(header, claims.build()))
                 .getTokenValue();
     }
 

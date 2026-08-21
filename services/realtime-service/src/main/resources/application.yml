@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: realtime-service
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    connection-timeout: 5000
+
+server:
+  port: ${SERVER_PORT:8087}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: ${JWT_ISSUER:smart-hotel-identity-service}
+  realtime:
+    exchange: ${REALTIME_EXCHANGE:enziurooms.events}
+    queue: ${REALTIME_QUEUE:enziurooms.realtime}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.smarthotel.realtime: INFO
+    org.springframework.amqp: WARN

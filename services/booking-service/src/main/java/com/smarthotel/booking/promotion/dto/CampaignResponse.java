@@ -1,0 +1,3 @@
+package com.smarthotel.booking.promotion.dto;
+import com.smarthotel.booking.promotion.entity.Campaign;import java.time.Instant;import java.util.UUID;
+public record CampaignResponse(UUID id,String name,String title,String description,String badgeText,UUID promotionId,String promotionCode,Instant startAt,Instant endAt,boolean active,boolean visibleNow){public static CampaignResponse from(Campaign c,String promotionCode){return new CampaignResponse(c.getId(),c.getName(),c.getTitle(),c.getDescription(),c.getBadgeText(),c.getPromotionId(),promotionCode,c.getStartAt(),c.getEndAt(),c.isActive(),c.visibleNow(Instant.now()));}}

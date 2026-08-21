@@ -46,3 +46,7 @@ frontend/build/
 
 # Runtime logs
 *.log
+
+# Backup archives
+*.7z
+*.zip

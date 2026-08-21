@@ -20,6 +20,9 @@ import java.util.UUID;
 @Table(name = "hotel_reviews")
 public class HotelReview {
 
+    public static final String MODERATION_VISIBLE = "VISIBLE";
+    public static final String MODERATION_HIDDEN = "HIDDEN";
+
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
@@ -103,6 +106,27 @@ public class HotelReview {
     @Column(name = "image_url", nullable = false, length = 1000)
     private List<String> imageUrls = new ArrayList<>();
 
+    @Column(name = "hotel_reply", columnDefinition = "TEXT")
+    private String hotelReply;
+
+    @Column(name = "hotel_reply_at")
+    private Instant hotelReplyAt;
+
+    @Column(name = "hotel_reply_by")
+    private UUID hotelReplyBy;
+
+    @Column(name = "moderation_status", nullable = false, length = 16)
+    private String moderationStatus;
+
+    @Column(name = "hidden_reason", columnDefinition = "TEXT")
+    private String hiddenReason;
+
+    @Column(name = "hidden_at")
+    private Instant hiddenAt;
+
+    @Column(name = "hidden_by")
+    private UUID hiddenBy;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -162,7 +186,71 @@ public class HotelReview {
         this.comment = positiveComment;
         this.negativeComment = negativeComment;
         this.imageUrls = imageUrls == null ? new ArrayList<>() : new ArrayList<>(imageUrls);
+        this.moderationStatus = MODERATION_VISIBLE;
         this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    public void createHotelReply(UUID hotelAdminId, String content) {
+        if (hasHotelReply()) {
+            throw new IllegalStateException("Đánh giá này đã có phản hồi từ khách sạn");
+        }
+        setHotelReply(hotelAdminId, content);
+    }
+
+    public void updateHotelReply(UUID hotelAdminId, String content) {
+        if (!hasHotelReply()) {
+            throw new IllegalStateException("Đánh giá này chưa có phản hồi để cập nhật");
+        }
+        setHotelReply(hotelAdminId, content);
+    }
+
+    public void deleteHotelReply() {
+        if (!hasHotelReply()) {
+            throw new IllegalStateException("Đánh giá này chưa có phản hồi để xóa");
+        }
+        this.hotelReply = null;
+        this.hotelReplyAt = null;
+        this.hotelReplyBy = null;
+        this.updatedAt = Instant.now();
+    }
+
+    public void hide(UUID systemAdminId, String reason) {
+        if (isHidden()) {
+            throw new IllegalStateException("Đánh giá này đã bị ẩn");
+        }
+        Instant now = Instant.now();
+        this.moderationStatus = MODERATION_HIDDEN;
+        this.hiddenReason = reason;
+        this.hiddenAt = now;
+        this.hiddenBy = systemAdminId;
+        this.updatedAt = now;
+    }
+
+    public void restore() {
+        if (!isHidden()) {
+            throw new IllegalStateException("Đánh giá này đang hiển thị");
+        }
+        this.moderationStatus = MODERATION_VISIBLE;
+        this.hiddenReason = null;
+        this.hiddenAt = null;
+        this.hiddenBy = null;
+        this.updatedAt = Instant.now();
+    }
+
+    public boolean isHidden() {
+        return MODERATION_HIDDEN.equalsIgnoreCase(moderationStatus);
+    }
+
+    public boolean hasHotelReply() {
+        return hotelReply != null && !hotelReply.isBlank();
+    }
+
+    private void setHotelReply(UUID hotelAdminId, String content) {
+        Instant now = Instant.now();
+        this.hotelReply = content;
+        this.hotelReplyAt = now;
+        this.hotelReplyBy = hotelAdminId;
         this.updatedAt = now;
     }
 
@@ -191,6 +279,13 @@ public class HotelReview {
     public String getPositiveComment() { return positiveComment; }
     public String getNegativeComment() { return negativeComment; }
     public List<String> getImageUrls() { return imageUrls; }
+    public String getHotelReply() { return hotelReply; }
+    public Instant getHotelReplyAt() { return hotelReplyAt; }
+    public UUID getHotelReplyBy() { return hotelReplyBy; }
+    public String getModerationStatus() { return moderationStatus; }
+    public String getHiddenReason() { return hiddenReason; }
+    public Instant getHiddenAt() { return hiddenAt; }
+    public UUID getHiddenBy() { return hiddenBy; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

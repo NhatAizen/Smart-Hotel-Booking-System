@@ -47,8 +47,8 @@ public class AuthController {
     @Operation(
             summary = "ÄÄƒng kÃ½ tÃ i khoáº£n",
             description = """
-                    Táº¡o tÃ i khoáº£n khÃ¡ch hÃ ng má»›i vÃ  gá»­i email xÃ¡c thá»±c.
-                    TÃ i khoáº£n má»›i máº·c Ä‘á»‹nh cÃ³ role CUSTOMER.
+                    Tạo tài khoản khách hàng mới. Email là tùy chọn; nếu có email,
+                    hệ thống sẽ gửi liên kết xác thực. Tài khoản mới mặc định có role CUSTOMER.
                     """
     )
     @PostMapping("/register")
@@ -63,8 +63,9 @@ public class AuthController {
     @Operation(
             summary = "ÄÄƒng nháº­p",
             description = """
-                    Kiá»ƒm tra email vÃ  máº­t kháº©u.
-                    Tráº£ vá» JWT access token vÃ  refresh token náº¿u há»£p lá»‡.
+                    Kiểm tra tên đăng nhập/email và mật khẩu.
+                    Sai quá nhiều lần sẽ khóa đăng nhập tạm thời theo thời gian tăng dần.
+                    Trả về JWT access token và refresh token nếu hợp lệ.
                     """
     )
     @PostMapping("/login")

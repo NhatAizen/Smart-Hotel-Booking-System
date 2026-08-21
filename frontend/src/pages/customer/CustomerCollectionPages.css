@@ -582,3 +582,29 @@
     flex-direction: column;
   }
 }
+
+.my-review-hotel-reply {
+  margin-top: 18px;
+  padding: 14px 15px;
+  border: 1px solid #d5e6f4;
+  border-radius: 13px;
+  background: #f5faff;
+}
+
+.my-review-hotel-reply strong {
+  color: #24547b;
+  font-size: 14px;
+}
+
+.my-review-hotel-reply p {
+  margin: 8px 0 0;
+  color: #405a72;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.my-review-hotel-reply small {
+  display: block;
+  margin-top: 8px;
+  color: #8491a1;
+}

@@ -37,6 +37,9 @@ public class RoomType {
     @Column(name = "base_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal basePrice;
 
+    @Column(name = "approved_base_price", precision = 12, scale = 2)
+    private BigDecimal approvedBasePrice;
+
     @Column(name = "max_adults", nullable = false)
     private Integer maxAdults;
 
@@ -162,7 +165,8 @@ public class RoomType {
             Integer depositPercent,
             boolean fullPaymentAllowed,
             Set<String> amenities,
-            RoomTypeStatus status
+            RoomTypeStatus status,
+            boolean requiresReapproval
     ) {
         applyDetails(
                 name, description, basePrice, maxAdults, maxChildren,
@@ -172,14 +176,13 @@ public class RoomType {
                 amenities
         );
         this.status = status;
-        if (this.approvalStatus == RoomTypeApprovalStatus.APPROVED
-                || this.approvalStatus == RoomTypeApprovalStatus.REJECTED) {
-            this.approvalStatus = RoomTypeApprovalStatus.DRAFT;
-            this.rejectionReason = null;
-            this.submittedAt = null;
-            this.reviewedAt = null;
-            this.reviewedBy = null;
+
+        if (this.approvalStatus == RoomTypeApprovalStatus.PENDING
+                || this.approvalStatus == RoomTypeApprovalStatus.REJECTED
+                || (this.approvalStatus == RoomTypeApprovalStatus.APPROVED && requiresReapproval)) {
+            resetApprovalToDraft();
         }
+
         this.updatedAt = Instant.now();
     }
 
@@ -202,6 +205,7 @@ public class RoomType {
             throw new IllegalStateException("Chỉ loại phòng đang chờ duyệt mới có thể được phê duyệt");
         }
         approvalStatus = RoomTypeApprovalStatus.APPROVED;
+        approvedBasePrice = basePrice;
         rejectionReason = null;
         reviewedAt = Instant.now();
         reviewedBy = systemAdminId;
@@ -217,6 +221,14 @@ public class RoomType {
         reviewedAt = Instant.now();
         reviewedBy = systemAdminId;
         updatedAt = Instant.now();
+    }
+
+    private void resetApprovalToDraft() {
+        this.approvalStatus = RoomTypeApprovalStatus.DRAFT;
+        this.rejectionReason = null;
+        this.submittedAt = null;
+        this.reviewedAt = null;
+        this.reviewedBy = null;
     }
 
     public void deactivate() {
@@ -296,6 +308,7 @@ public class RoomType {
     public String getName() { return name; }
     public String getDescription() { return description; }
     public BigDecimal getBasePrice() { return basePrice; }
+    public BigDecimal getApprovedBasePrice() { return approvedBasePrice; }
     public Integer getMaxAdults() { return maxAdults; }
     public Integer getMaxChildren() { return maxChildren; }
     public String getBedType() { return bedType; }

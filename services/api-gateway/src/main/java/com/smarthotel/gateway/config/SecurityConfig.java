@@ -60,6 +60,10 @@ public class SecurityConfig {
                         )
                         .permitAll()
 
+                        /* WebSocket tự xác minh JWT trong handshake query token. */
+                        .pathMatchers("/ws/**")
+                        .permitAll()
+
                         /*
                          * Avatar/profile media phải public.
                          *
@@ -107,9 +111,28 @@ public class SecurityConfig {
                                 "/api/admin/room-types/**",
                                 "/api/admin/wallet/**",
                                 "/api/admin/withdrawals/**",
-                                "/api/admin/payments/**"
+                                "/api/admin/payments/**",
+                                "/api/admin/refunds/**"
                         )
                         .hasRole("SYSTEM_ADMIN")
+
+                        .pathMatchers(HttpMethod.GET, "/api/refunds/*/hotel-proof")
+                        .hasAnyRole("CUSTOMER", "HOTEL_ADMIN", "SYSTEM_ADMIN")
+
+                        .pathMatchers(HttpMethod.POST, "/api/refunds/requests")
+                        .hasRole("CUSTOMER")
+
+                        .pathMatchers(HttpMethod.GET, "/api/refunds/requests/me", "/api/refunds/requests/booking/*")
+                        .hasRole("CUSTOMER")
+
+                        .pathMatchers(HttpMethod.GET, "/api/refunds/hotel")
+                        .hasRole("HOTEL_ADMIN")
+
+                        .pathMatchers(HttpMethod.POST,
+                                "/api/refunds/*/approve",
+                                "/api/refunds/*/reject",
+                                "/api/refunds/*/hotel-proof")
+                        .hasRole("HOTEL_ADMIN")
 
                         .pathMatchers(
                                 HttpMethod.POST,
@@ -143,6 +166,19 @@ public class SecurityConfig {
                                 "/api/payments/*/refund"
                         )
                         .hasRole("SYSTEM_ADMIN")
+
+                        .pathMatchers(HttpMethod.PATCH, "/api/bookings/*/no-show")
+                        .hasRole("HOTEL_ADMIN")
+
+                        /*
+                         * Toàn bộ luồng QR check-in và xác minh CCCD chỉ dành cho HOTEL_ADMIN.
+                         */
+                        .pathMatchers(
+                                HttpMethod.POST,
+                                "/api/bookings/check-in/verify",
+                                "/api/bookings/*/check-in/**"
+                        )
+                        .hasRole("HOTEL_ADMIN")
 
                         /*
                          * CUSTOMER gửi hồ sơ đối tác.
@@ -305,6 +341,31 @@ public class SecurityConfig {
                                 "/api/bookings/*/cancel"
                         )
                         .hasRole("CUSTOMER")
+
+
+                        /*
+                         * CUSTOMER chat với khách sạn theo booking đã xác nhận.
+                         */
+                        .pathMatchers("/api/chat/**")
+                        .hasRole("CUSTOMER")
+
+                        /*
+                         * HOTEL ADMIN quản lý hội thoại của khách sạn.
+                         */
+                        .pathMatchers("/api/hotel-admin/chat/**")
+                        .hasRole("HOTEL_ADMIN")
+
+                        /*
+                         * HOTEL ADMIN chỉ quản lý/phản hồi review của khách sạn mình.
+                         */
+                        .pathMatchers("/api/hotel-admin/reviews/**")
+                        .hasRole("HOTEL_ADMIN")
+
+                        /*
+                         * SYSTEM ADMIN kiểm duyệt review toàn hệ thống.
+                         */
+                        .pathMatchers("/api/admin/reviews/**")
+                        .hasRole("SYSTEM_ADMIN")
 
                         /*
                          * Enziu AI V2 đọc booking cá nhân nên chỉ CUSTOMER được gọi.

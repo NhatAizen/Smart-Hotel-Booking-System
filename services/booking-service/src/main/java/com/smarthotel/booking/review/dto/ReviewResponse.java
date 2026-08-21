@@ -14,6 +14,7 @@ public record ReviewResponse(
         String customerName,
         String customerAvatarUrl,
         UUID hotelId,
+        String hotelName,
         UUID roomTypeId,
         LocalDate checkIn,
         LocalDate checkOut,
@@ -33,16 +34,25 @@ public record ReviewResponse(
         String positiveComment,
         String negativeComment,
         List<String> images,
-        Instant createdAt
+        String hotelReply,
+        Instant hotelReplyAt,
+        UUID hotelReplyBy,
+        String moderationStatus,
+        String hiddenReason,
+        Instant hiddenAt,
+        UUID hiddenBy,
+        Instant createdAt,
+        Instant updatedAt
 ) {
     public static ReviewResponse from(HotelReview review) {
-        return from(review, review.getCustomerName(), null);
+        return from(review, review.getCustomerName(), null, null);
     }
 
     public static ReviewResponse from(
             HotelReview review,
             String currentCustomerName,
-            String currentCustomerAvatarUrl
+            String currentCustomerAvatarUrl,
+            String hotelName
     ) {
         return new ReviewResponse(
                 review.getId(),
@@ -51,6 +61,7 @@ public record ReviewResponse(
                 currentCustomerName,
                 currentCustomerAvatarUrl,
                 review.getHotelId(),
+                hotelName,
                 review.getRoomTypeId(),
                 review.getCheckIn(),
                 review.getCheckOut(),
@@ -70,7 +81,15 @@ public record ReviewResponse(
                 review.getPositiveComment(),
                 review.getNegativeComment(),
                 List.copyOf(review.getImageUrls()),
-                review.getCreatedAt()
+                review.getHotelReply(),
+                review.getHotelReplyAt(),
+                review.getHotelReplyBy(),
+                review.getModerationStatus(),
+                review.getHiddenReason(),
+                review.getHiddenAt(),
+                review.getHiddenBy(),
+                review.getCreatedAt(),
+                review.getUpdatedAt()
         );
     }
 }

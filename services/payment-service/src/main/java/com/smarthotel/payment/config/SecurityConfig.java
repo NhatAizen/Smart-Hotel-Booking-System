@@ -57,6 +57,19 @@ public class SecurityConfig {
                                 "/api/role-change/owners/*/demotion-fence/*"
                         ).hasRole("SYSTEM_ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("SYSTEM_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/refunds/*/hotel-proof")
+                        .hasAnyRole("CUSTOMER", "HOTEL_ADMIN", "SYSTEM_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/refunds/requests/me", "/api/refunds/requests/booking/*")
+                        .hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.POST, "/api/refunds/requests")
+                        .hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.GET, "/api/refunds/hotel")
+                        .hasRole("HOTEL_ADMIN")
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/refunds/*/approve",
+                                "/api/refunds/*/reject",
+                                "/api/refunds/*/hotel-proof")
+                        .hasRole("HOTEL_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/wallets/top-up/payos").hasRole("HOTEL_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/withdrawals/hotel").hasRole("HOTEL_ADMIN")
                         .requestMatchers(HttpMethod.GET,

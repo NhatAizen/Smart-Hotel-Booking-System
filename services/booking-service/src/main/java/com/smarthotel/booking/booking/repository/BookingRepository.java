@@ -20,6 +20,14 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     );
 
     List<Booking> findAllByHotelIdOrderByCreatedAtDesc(UUID hotelId);
+    @Query(value = """
+            SELECT COUNT(DISTINCT COALESCE(booking_group_id, id))
+            FROM bookings
+            WHERE customer_id = :customerId
+              AND status = 'CHECKED_OUT'
+            """, nativeQuery = true)
+    long countCompletedBookingGroups(@Param("customerId") UUID customerId);
+
 
     List<Booking> findAllByStatusOrderByCreatedAtDesc(BookingStatus status);
 
@@ -86,7 +94,10 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             SELECT COUNT(b) > 0
             FROM Booking b
             WHERE b.roomId = :roomId
-              AND b.status <> com.smarthotel.booking.booking.entity.BookingStatus.CANCELLED
+              AND b.status NOT IN (
+                    com.smarthotel.booking.booking.entity.BookingStatus.CANCELLED,
+                    com.smarthotel.booking.booking.entity.BookingStatus.NO_SHOW
+              )
               AND (
                     b.status <> com.smarthotel.booking.booking.entity.BookingStatus.PENDING_PAYMENT
                     OR b.paymentExpiresAt IS NULL
@@ -106,7 +117,10 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             SELECT DISTINCT b.roomId
             FROM Booking b
             WHERE b.hotelId = :hotelId
-              AND b.status <> com.smarthotel.booking.booking.entity.BookingStatus.CANCELLED
+              AND b.status NOT IN (
+                    com.smarthotel.booking.booking.entity.BookingStatus.CANCELLED,
+                    com.smarthotel.booking.booking.entity.BookingStatus.NO_SHOW
+              )
               AND (
                     b.status <> com.smarthotel.booking.booking.entity.BookingStatus.PENDING_PAYMENT
                     OR b.paymentExpiresAt IS NULL

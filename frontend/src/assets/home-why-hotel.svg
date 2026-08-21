@@ -1,0 +1,91 @@
+<svg width="560" height="330" viewBox="0 0 560 330" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sky" x1="80" y1="30" x2="470" y2="288" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F5FBFF"/>
+      <stop offset="1" stop-color="#DCEFFF"/>
+    </linearGradient>
+    <linearGradient id="hotelBody" x1="210" y1="94" x2="367" y2="268" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7FCFF"/>
+      <stop offset="1" stop-color="#CFEAFF"/>
+    </linearGradient>
+    <linearGradient id="tower" x1="250" y1="112" x2="330" y2="260" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ECF8FF"/>
+      <stop offset="1" stop-color="#B9DEFA"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="266" y1="132" x2="318" y2="232" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#65B6ED"/>
+      <stop offset="1" stop-color="#318DD1"/>
+    </linearGradient>
+    <linearGradient id="case" x1="118" y1="224" x2="174" y2="286" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#80D6F9"/>
+      <stop offset="1" stop-color="#36A6E8"/>
+    </linearGradient>
+    <filter id="shadow" x="130" y="66" width="322" height="252" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#4A91C6" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <ellipse cx="314" cy="286" rx="196" ry="24" fill="#B7DCF6" fill-opacity="0.42"/>
+  <ellipse cx="325" cy="150" rx="166" ry="126" fill="url(#sky)"/>
+
+  <g opacity="0.72">
+    <rect x="52" y="75" width="102" height="24" rx="12" fill="#D9EEFC"/>
+    <circle cx="87" cy="73" r="20" fill="#E8F6FF"/>
+    <circle cx="124" cy="70" r="27" fill="#E1F2FE"/>
+    <rect x="412" y="95" width="94" height="22" rx="11" fill="#D9EEFC"/>
+    <circle cx="438" cy="90" r="19" fill="#EAF7FF"/>
+    <circle cx="474" cy="88" r="25" fill="#E3F3FD"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="206" y="105" width="180" height="162" rx="18" fill="url(#hotelBody)" stroke="#A7D6F5" stroke-width="2"/>
+    <rect x="241" y="92" width="110" height="175" rx="16" fill="url(#tower)" stroke="#93CAF0" stroke-width="2"/>
+
+    <rect x="229" y="81" width="134" height="32" rx="12" fill="#EAF7FF" stroke="#9FD0F1" stroke-width="2"/>
+    <text x="296" y="103" text-anchor="middle" fill="#2D8FDC" font-size="18" font-weight="800" font-family="Arial, sans-serif">HOTEL</text>
+
+    <rect x="258" y="126" width="76" height="114" rx="12" fill="url(#glass)" fill-opacity="0.95"/>
+    <rect x="270" y="141" width="20" height="22" rx="4" fill="#DDF3FF" fill-opacity="0.86"/>
+    <rect x="302" y="141" width="20" height="22" rx="4" fill="#DDF3FF" fill-opacity="0.86"/>
+    <rect x="270" y="176" width="20" height="22" rx="4" fill="#DDF3FF" fill-opacity="0.86"/>
+    <rect x="302" y="176" width="20" height="22" rx="4" fill="#DDF3FF" fill-opacity="0.86"/>
+    <path d="M279 240V223C279 213.611 286.611 206 296 206C305.389 206 313 213.611 313 223V240" fill="#DDF3FF"/>
+
+    <g fill="#74BCEB">
+      <rect x="216" y="132" width="16" height="21" rx="3"/>
+      <rect x="216" y="168" width="16" height="21" rx="3"/>
+      <rect x="216" y="204" width="16" height="21" rx="3"/>
+      <rect x="360" y="132" width="16" height="21" rx="3"/>
+      <rect x="360" y="168" width="16" height="21" rx="3"/>
+      <rect x="360" y="204" width="16" height="21" rx="3"/>
+    </g>
+  </g>
+
+  <g transform="translate(135 190)">
+    <path d="M10 90C12 58 18 34 32 12" stroke="#58A874" stroke-width="7" stroke-linecap="round"/>
+    <path d="M31 17C15 6 3 8 0 20C13 22 23 22 31 17Z" fill="#65B984"/>
+    <path d="M31 18C38 0 52 -5 61 3C54 14 43 19 31 18Z" fill="#4CA56E"/>
+    <path d="M31 20C45 17 58 22 60 34C47 35 38 30 31 20Z" fill="#72BF8D"/>
+    <path d="M30 21C20 23 10 31 9 42C21 41 29 34 30 21Z" fill="#51AC73"/>
+  </g>
+
+  <g transform="translate(390 200)">
+    <path d="M13 76C15 48 19 28 31 9" stroke="#58A874" stroke-width="6" stroke-linecap="round"/>
+    <path d="M30 13C17 3 6 4 3 15C14 17 23 17 30 13Z" fill="#66B985"/>
+    <path d="M30 14C36 -1 48 -5 56 2C50 11 40 15 30 14Z" fill="#4CA56E"/>
+    <path d="M30 16C42 14 53 18 55 29C43 30 36 25 30 16Z" fill="#72BF8D"/>
+  </g>
+
+  <g>
+    <rect x="112" y="237" width="58" height="54" rx="12" fill="url(#case)" stroke="#2F98DB" stroke-width="2"/>
+    <path d="M128 237V226C128 218 134 212 142 212C150 212 156 218 156 226V237" stroke="#2F98DB" stroke-width="5" stroke-linecap="round"/>
+    <rect x="124" y="251" width="34" height="5" rx="2.5" fill="#BDEBFF"/>
+    <circle cx="125" cy="294" r="4" fill="#2E8FCC"/>
+    <circle cx="157" cy="294" r="4" fill="#2E8FCC"/>
+  </g>
+
+  <g opacity="0.8">
+    <path d="M175 279C196 264 218 261 238 271" stroke="#91C8ED" stroke-width="5" stroke-linecap="round"/>
+    <path d="M355 273C378 258 405 258 430 274" stroke="#91C8ED" stroke-width="5" stroke-linecap="round"/>
+  </g>
+</svg>

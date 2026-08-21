@@ -106,17 +106,14 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    if (form.newPassword.length < 8) {
-      setError(
-        "Mật khẩu mới phải có ít nhất 8 ký tự.",
+    const strongPassword =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s])\S{8,72}$/.test(
+        form.newPassword,
       );
 
-      return;
-    }
-
-    if (form.newPassword.length > 72) {
+    if (!strongPassword) {
       setError(
-        "Mật khẩu mới không được vượt quá 72 ký tự.",
+        "Mật khẩu phải từ 8–72 ký tự, có chữ hoa, chữ thường, số, ký tự đặc biệt và không chứa khoảng trắng.",
       );
 
       return;
@@ -206,7 +203,7 @@ export default function ResetPasswordPage() {
           </Link>
 
           <Link
-            to="/login"
+            to="/login/enziurooms"
             className="auth-back-link"
           >
             <ArrowLeft size={17} />
@@ -331,8 +328,8 @@ export default function ResetPasswordPage() {
               </div>
 
               <small>
-                Từ 8 đến 72 ký tự. Nên có chữ hoa,
-                chữ thường, số và ký tự đặc biệt.
+                Bắt buộc 8–72 ký tự, có chữ hoa, chữ thường,
+                số, ký tự đặc biệt và không có khoảng trắng.
               </small>
             </label>
 
@@ -375,7 +372,7 @@ export default function ResetPasswordPage() {
         ) : null}
 
         <Link
-          to="/login"
+          to="/login/enziurooms"
           className="auth-back-link"
         >
           <ArrowLeft size={17} />

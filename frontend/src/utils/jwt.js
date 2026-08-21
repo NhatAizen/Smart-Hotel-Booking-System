@@ -178,9 +178,13 @@ export function buildUserFromToken(token) {
       payload.sub ??
       null,
 
+    username:
+      payload.username ??
+      payload.preferred_username ??
+      null,
+
     email:
       payload.email ??
-      payload.preferred_username ??
       null,
 
     fullName:
@@ -204,15 +208,6 @@ export function buildUserFromToken(token) {
       null,
   };
 
-  console.log(
-    "[AUTH] JWT payload:",
-    payload,
-  );
-
-  console.log(
-    "[AUTH] User từ JWT:",
-    user,
-  );
 
   return user;
 }

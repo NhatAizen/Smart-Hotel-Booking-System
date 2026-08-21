@@ -1,5 +1,5 @@
 import {
-  Building2, CalendarDays, ChevronRight, Clock3, MapPin, Search, Users, X,
+  BedDouble, Building2, CalendarDays, ChevronRight, Clock3, MapPin, Search, Users, X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -397,7 +397,7 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
       </div>
       <div className="shared-search-field shared-search-rooms">
         <label htmlFor={`search-rooms-${variant}`}>Số phòng</label>
-        <div className="shared-search-control"><select id={`search-rooms-${variant}`} name="rooms" value={form.rooms} onChange={handleChange}>{[1, 2, 3, 4].map((count) => <option key={count} value={count}>{count} phòng</option>)}</select></div>
+        <div className="shared-search-control"><BedDouble size={22} aria-hidden="true" /><select id={`search-rooms-${variant}`} name="rooms" value={form.rooms} onChange={handleChange}>{[1, 2, 3, 4].map((count) => <option key={count} value={count}>{count} phòng</option>)}</select></div>
       </div>
       <button type="submit" className="shared-search-submit"><Search size={22} />Tìm kiếm</button>
     </form>

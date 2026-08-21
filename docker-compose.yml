@@ -131,6 +131,31 @@ services:
       retries: 5
 
 
+  chat-postgres:
+    image: postgres:16-alpine
+    container_name: smart-hotel-chat-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: chat_db
+      POSTGRES_USER: chat_user
+      POSTGRES_PASSWORD: chat_password
+
+    ports:
+      - "5438:5432"
+
+    volumes:
+      - chat_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U chat_user -d chat_db
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
   # =========================================================
   # DEVELOPMENT INFRASTRUCTURE
   # =========================================================
@@ -173,6 +198,36 @@ services:
       start_period: 10s
 
 
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: smart-hotel-rabbitmq
+    restart: unless-stopped
+
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-enziu}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-enziu_dev}
+
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./infrastructure/rabbitmq/config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./infrastructure/rabbitmq/config/definitions.json:/etc/rabbitmq/definitions.json:ro
+
+    healthcheck:
+      test:
+        - CMD
+        - rabbitmq-diagnostics
+        - -q
+        - ping
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+
   # =========================================================
   # BACKEND SERVICES
   # =========================================================
@@ -211,12 +266,6 @@ services:
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5300}
       PUBLIC_BASE_URL: http://localhost:8081
       NOTIFICATION_SERVICE_URL: http://notification-service:8085
-
-      # Identity Service cần gọi các service này khi kiểm tra điều kiện
-      # CUSTOMER <-> HOTEL_ADMIN. Trong Docker không được dùng localhost.
-      HOTEL_SERVICE_URL: http://hotel-service:8082
-      BOOKING_SERVICE_URL: http://booking-service:8083
-      PAYMENT_SERVICE_URL: http://payment-service:8084
 
       JWT_SECRET: ${JWT_SECRET}
       JPA_SHOW_SQL: "false"
@@ -337,6 +386,11 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
 
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-enziu}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-enziu_dev}
+
       REVIEW_MEDIA_UPLOAD_DIR: /app/uploads/reviews
       PUBLIC_REVIEW_MEDIA_BASE_URL: http://localhost:8080/api/reviews/media
       REVIEW_MEDIA_MAX_FILE_SIZE_BYTES: 5242880
@@ -353,6 +407,8 @@ services:
       booking-postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       identity-service:
         condition: service_healthy
@@ -451,6 +507,11 @@ services:
 
       JPA_SHOW_SQL: "false"
 
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-enziu}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-enziu_dev}
+
     ports:
       - "8085:8085"
 
@@ -460,6 +521,9 @@ services:
 
       mailpit:
         condition: service_started
+
+      rabbitmq:
+        condition: service_healthy
 
     healthcheck:
       test:
@@ -551,6 +615,104 @@ services:
       start_period: 40s
 
 
+  realtime-service:
+    build:
+      context: ./services/realtime-service
+      dockerfile: Dockerfile
+
+    container_name: smart-hotel-realtime-service
+    restart: unless-stopped
+
+    environment:
+      SERVER_PORT: 8087
+      JWT_SECRET: ${JWT_SECRET}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-enziu}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-enziu_dev}
+      REALTIME_EXCHANGE: enziurooms.events
+      REALTIME_QUEUE: enziurooms.realtime
+
+    ports:
+      - "8087:8087"
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://localhost:8087/actuator/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+
+  chat-service:
+    build:
+      context: ./services/chat-service
+      dockerfile: Dockerfile
+
+    container_name: smart-hotel-chat-service
+    restart: unless-stopped
+
+    environment:
+      SERVER_PORT: 8088
+
+      DB_URL: jdbc:postgresql://chat-postgres:5432/chat_db
+      DB_USERNAME: chat_user
+      DB_PASSWORD: chat_password
+
+      JWT_SECRET: ${JWT_SECRET}
+
+      BOOKING_SERVICE_URL: http://booking-service:8083
+      HOTEL_SERVICE_URL: http://hotel-service:8082
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      AI_SERVICE_URL: http://ai-service:8086
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-enziu}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-enziu_dev}
+
+      CHAT_SYNC_INITIAL_DELAY_MS: 15000
+      CHAT_SYNC_FIXED_DELAY_MS: 60000
+      CHAT_REMINDER_DISPATCH_DELAY_MS: 30000
+
+    ports:
+      - "8088:8088"
+
+    depends_on:
+      chat-postgres:
+        condition: service_healthy
+
+      booking-service:
+        condition: service_healthy
+
+      hotel-service:
+        condition: service_healthy
+
+      notification-service:
+        condition: service_healthy
+
+      ai-service:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://localhost:8088/actuator/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+
   api-gateway:
     build:
       context: ./services/api-gateway
@@ -570,6 +732,8 @@ services:
       PAYMENT_SERVICE_URL: http://payment-service:8084
       NOTIFICATION_SERVICE_URL: http://notification-service:8085
       AI_SERVICE_URL: http://ai-service:8086
+      REALTIME_SERVICE_WS_URL: ws://realtime-service:8087
+      CHAT_SERVICE_URL: http://chat-service:8088
 
     ports:
       - "8080:8080"
@@ -593,6 +757,12 @@ services:
       ai-service:
         condition: service_healthy
 
+      realtime-service:
+        condition: service_healthy
+
+      chat-service:
+        condition: service_healthy
+
     healthcheck:
       test:
         - CMD-SHELL
@@ -611,6 +781,8 @@ volumes:
   booking_postgres_data:
   payment_postgres_data:
   notification_postgres_data:
+  chat_postgres_data:
   hotel_media_data:
   booking_review_media_data:
   redis_data:
+  rabbitmq_data:

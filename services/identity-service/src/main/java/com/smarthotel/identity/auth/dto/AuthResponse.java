@@ -7,6 +7,7 @@ import java.util.UUID;
 public record AuthResponse(
 
         UUID userId,
+        String username,
         String email,
         String fullName,
         String role,
@@ -24,6 +25,7 @@ public record AuthResponse(
     public static AuthResponse registered(User user) {
         return new AuthResponse(
                 user.getId(),
+                user.getUsername(),
                 user.getEmail(),
                 user.getFullName(),
                 user.getRole().name(),
@@ -32,7 +34,9 @@ public record AuthResponse(
                 null,
                 null,
                 null,
-                "Đăng ký tài khoản thành công"
+                user.getEmail() == null
+                        ? "Đăng ký thành công. Bạn có thể đăng nhập bằng tên đăng nhập."
+                        : "Đăng ký thành công. Hãy kiểm tra email để xác thực tài khoản."
         );
     }
 
@@ -44,6 +48,7 @@ public record AuthResponse(
     ) {
         return new AuthResponse(
                 user.getId(),
+                user.getUsername(),
                 user.getEmail(),
                 user.getFullName(),
                 user.getRole().name(),
@@ -64,6 +69,7 @@ public record AuthResponse(
     ) {
         return new AuthResponse(
                 user.getId(),
+                user.getUsername(),
                 user.getEmail(),
                 user.getFullName(),
                 user.getRole().name(),

@@ -456,6 +456,20 @@ public class PaymentService {
 
     @Transactional
     public PaymentResponse refund(UUID paymentId) {
+        PaymentResponse response = refundComponentForApprovedRequest(paymentId);
+        bookingClient.markRefunded(response.bookingId());
+        return response;
+    }
+
+    /**
+     * Hoàn đúng một payment component đã được duyệt trong refund request.
+     *
+     * Khác refund(paymentId) ở chỗ KHÔNG tự đánh dấu toàn booking REFUNDED.
+     * RefundRequestService sẽ chỉ finalize booking sau khi cả phần EnziuRooms,
+     * phần khách sạn thu trực tiếp và phần đối soát thủ công (nếu có) đều xong.
+     */
+    @Transactional
+    public PaymentResponse refundComponentForApprovedRequest(UUID paymentId) {
         Payment payment = findPayment(paymentId);
         if (payment.getStatus() == PaymentStatus.REFUNDED) {
             return PaymentResponse.from(payment);
@@ -469,19 +483,17 @@ public class PaymentService {
         if (payment.getMethod() == PaymentMethod.CASH) {
             throw new IllegalStateException(
                     "Giao dịch tiền mặt tại quầy không nằm trong tiền EnziuRooms đang giữ. "
-                            + "Khách sạn phải hoàn trực tiếp hoặc System Admin xử lý đối soát thủ công."
+                            + "Khách sạn phải hoàn trực tiếp và tải chứng từ."
             );
         }
         if (payment.isRevenueReleased()) {
             throw new IllegalStateException(
-                    "Doanh thu của giao dịch này đã được giải ngân cho khách sạn. "
-                            + "Không thể hoàn tự động từ pending; cần quy trình đối soát thủ công."
+                    "Doanh thu của giao dịch này đã được giải ngân. Cần đối soát thủ công trước khi hoàn."
             );
         }
         walletService.reverseSuccessfulPayment(payment);
         walletService.creditCustomerRefund(payment);
         payment.refund();
-        bookingClient.markRefunded(payment.getBookingId());
         return PaymentResponse.from(payment);
     }
 

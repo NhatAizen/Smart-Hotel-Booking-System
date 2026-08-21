@@ -457,3 +457,408 @@
   color: #9a762f;
   font-size: 11px;
 }
+
+/* =========================================================
+   QR CCCD IDENTITY VERIFICATION
+   ========================================================= */
+.checkin-camera-mode-label {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(8, 31, 52, 0.82);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.checkin-identity-card {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #d8e4ef;
+  border-radius: 16px;
+  background: #fbfdff;
+}
+
+.checkin-identity-card.verified {
+  border-color: #b9dfca;
+  background: #f3fbf6;
+}
+
+.checkin-identity-card.failed {
+  border-color: #efc4c4;
+  background: #fff7f7;
+}
+
+.checkin-identity-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.checkin-identity-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #eaf4fc;
+  color: #1677c8;
+}
+
+.checkin-identity-card.verified .checkin-identity-icon {
+  background: #dff5e8;
+  color: #167547;
+}
+
+.checkin-identity-card.failed .checkin-identity-icon {
+  background: #fee9e9;
+  color: #b42318;
+}
+
+.checkin-identity-header small {
+  color: #6c8196;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.checkin-identity-header h3 {
+  margin: 3px 0 4px;
+  color: #17324c;
+  font-size: 1rem;
+}
+
+.checkin-identity-header p {
+  margin: 0;
+  color: #61778c;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.checkin-identity-status {
+  align-self: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #edf3f8;
+  color: #536b81;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.checkin-identity-card.verified .checkin-identity-status {
+  background: #dff5e8;
+  color: #166d43;
+}
+
+.checkin-identity-card.failed .checkin-identity-status {
+  background: #fee7e7;
+  color: #a91f1f;
+}
+
+.checkin-identity-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.checkin-identity-details > div {
+  display: grid;
+  gap: 4px;
+  padding: 11px 12px;
+  border: 1px solid #e0e9f1;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.checkin-identity-details span {
+  color: #788b9d;
+  font-size: 0.76rem;
+}
+
+.checkin-identity-details strong {
+  color: #263f57;
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.checkin-identity-details strong.good {
+  color: #177247;
+}
+
+.checkin-identity-details strong.bad {
+  color: #b42318;
+}
+
+.checkin-identity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.checkin-identity-actions button,
+.checkin-identity-actions label {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid #c8d9e7;
+  border-radius: 11px;
+  background: #fff;
+  color: #1c5f94;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.checkin-identity-actions button:first-child {
+  border-color: #1677c8;
+  background: #1677c8;
+  color: #fff;
+}
+
+.checkin-identity-actions input[type="file"] {
+  display: none;
+}
+
+.checkin-identity-actions button:disabled,
+.checkin-identity-actions label.disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+@media (max-width: 860px) {
+  .checkin-identity-header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .checkin-identity-status {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .checkin-identity-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .checkin-identity-details {
+    grid-template-columns: 1fr;
+  }
+
+  .checkin-identity-actions button,
+  .checkin-identity-actions label {
+    width: 100%;
+  }
+}
+
+/* Camera preview luôn được mount để tránh race giữa React render và getUserMedia. */
+.checkin-camera-frame.is-hidden {
+  display: none;
+}
+
+.checkin-camera-frame.is-active {
+  display: block;
+}
+
+.checkin-camera-frame video {
+  display: block;
+}
+
+/* =========================================================
+   INLINE IDENTITY ERROR
+   Lỗi CCCD hiển thị ngay trong khối xác minh thay vì banner đầu trang.
+   ========================================================= */
+.checkin-identity-alert {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  margin-top: 14px;
+  padding: 11px 12px;
+  color: #9f241d;
+  background: #fff;
+  border: 1px solid #efc8c4;
+  border-radius: 12px;
+  box-shadow: 0 5px 16px rgba(180, 35, 24, 0.05);
+}
+
+.checkin-identity-alert-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  color: #c4322a;
+  background: #feeceb;
+  border-radius: 9px;
+}
+
+.checkin-identity-alert > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.checkin-identity-alert strong {
+  color: #9f241d;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.checkin-identity-alert > div > span {
+  color: #b64a43;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.checkin-identity-alert button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid #efc8c4;
+  border-radius: 9px;
+  color: #a52b24;
+  background: #fff6f5;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.checkin-identity-alert button:hover:not(:disabled) {
+  background: #feeceb;
+}
+
+.checkin-identity-alert button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 680px) {
+  .checkin-identity-alert {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .checkin-identity-alert button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
+/* =========================================================
+   MANUAL IDENTITY VERIFICATION
+   Hotel Admin có thể quét QR CCCD hoặc đối chiếu giấy tờ trực tiếp tại quầy.
+   ========================================================= */
+.checkin-identity-actions .checkin-manual-verify-button {
+  border-color: #9fd8ca;
+  background: #effaf7;
+  color: #13725e;
+}
+
+.checkin-identity-actions .checkin-manual-verify-button:hover:not(:disabled) {
+  border-color: #64bca8;
+  background: #e3f7f1;
+}
+
+.checkin-manual-confirm {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #a9d9ce;
+  border-radius: 13px;
+  background: #f4fbf9;
+  box-shadow: 0 6px 18px rgba(19, 114, 94, 0.06);
+}
+
+.checkin-manual-confirm-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #dff4ee;
+  color: #13725e;
+}
+
+.checkin-manual-confirm > div:nth-child(2) {
+  min-width: 0;
+}
+
+.checkin-manual-confirm strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #174d43;
+  font-size: 0.88rem;
+}
+
+.checkin-manual-confirm p {
+  margin: 0;
+  color: #5a756f;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.checkin-manual-confirm-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkin-manual-confirm-actions button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid #c8d9d4;
+  border-radius: 10px;
+  background: #fff;
+  color: #536e68;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.checkin-manual-confirm-actions button.confirm {
+  border-color: #168f77;
+  background: #168f77;
+  color: #fff;
+}
+
+.checkin-manual-confirm-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (max-width: 760px) {
+  .checkin-manual-confirm {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .checkin-manual-confirm-actions {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .checkin-manual-confirm-actions button {
+    flex: 1;
+  }
+}

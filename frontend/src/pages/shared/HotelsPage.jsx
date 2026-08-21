@@ -1,7 +1,7 @@
 import {
   ChevronRight,
   Heart,
-  Map,
+  Map as MapIcon,
   MapPin,
   Search,
   SlidersHorizontal,
@@ -76,6 +76,28 @@ function normalizeText(value) {
 function amenityLabel(amenity) {
   if (typeof amenity === "string") return amenity.trim();
   return String(amenity?.name ?? amenity?.label ?? "").trim();
+}
+
+function compactHotelDescription(value, maxLength = 210) {
+  const text = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!text || text.length <= maxLength) return text;
+
+  const shortened = text.slice(0, maxLength + 1);
+  const sentenceEnd = Math.max(
+    shortened.lastIndexOf(". "),
+    shortened.lastIndexOf("! "),
+    shortened.lastIndexOf("? "),
+  );
+
+  if (sentenceEnd >= Math.floor(maxLength * 0.58)) {
+    return `${shortened.slice(0, sentenceEnd + 1).trim()}…`;
+  }
+
+  const lastSpace = shortened.lastIndexOf(" ");
+  return `${shortened.slice(0, lastSpace > 0 ? lastSpace : maxLength).trim()}…`;
 }
 
 export default function HotelsPage() {
@@ -683,7 +705,7 @@ export default function HotelsPage() {
                 className="customer-map-button"
                 onClick={() => setMapMode(true)}
               >
-                <Map size={18} />
+                <MapIcon size={18} />
                 Xem bản đồ
               </button>
             </div>
@@ -791,7 +813,12 @@ export default function HotelsPage() {
                           </div>
 
                           {hotel.description ? (
-                            <p className="customer-hotel-description">{hotel.description}</p>
+                            <p
+                              className="customer-hotel-description"
+                              title={hotel.description}
+                            >
+                              {compactHotelDescription(hotel.description)}
+                            </p>
                           ) : null}
 
                           {Array.isArray(hotel.amenities) && hotel.amenities.length ? (

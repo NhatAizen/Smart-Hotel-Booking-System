@@ -966,3 +966,1678 @@
     padding: 20px;
   }
 }
+
+
+/* ===== EnziuRooms Auth refresh 2026-08-20 ===== */
+.auth-page-modern {
+  padding: 34px;
+  background:
+    radial-gradient(circle at 0 0, rgba(14, 165, 233, .18), transparent 31%),
+    radial-gradient(circle at 100% 100%, rgba(37, 99, 235, .12), transparent 34%),
+    linear-gradient(135deg, #eef7ff 0%, #f8fbff 45%, #edf8fc 100%);
+}
+
+.auth-shell-modern {
+  width: min(1180px, 100%);
+  min-height: 710px;
+  grid-template-columns: minmax(0, 1.03fr) minmax(440px, .97fr);
+  border: 1px solid rgba(255,255,255,.78);
+  border-radius: 32px;
+  box-shadow: 0 35px 100px rgba(18, 51, 82, .18), 0 4px 18px rgba(18, 51, 82, .06);
+}
+
+.auth-showcase-modern {
+  padding: 44px 50px;
+  background:
+    linear-gradient(155deg, rgba(3, 64, 123, .90), rgba(0, 135, 199, .74)),
+    url("../../assets/hero.png") center / cover no-repeat;
+}
+
+.auth-showcase-modern::before {
+  width: 360px;
+  height: 360px;
+  right: -125px;
+  top: -100px;
+  background: rgba(255,255,255,.09);
+}
+
+.auth-showcase-modern::after {
+  width: 230px;
+  height: 230px;
+  left: -95px;
+  bottom: 55px;
+  background: rgba(42, 203, 255, .11);
+}
+
+.auth-showcase-modern .auth-showcase-content {
+  max-width: 530px;
+}
+
+.auth-showcase-modern h1 {
+  margin-top: 20px;
+  font-size: clamp(40px, 4vw, 58px);
+  line-height: 1.04;
+}
+
+.auth-benefits-modern > div {
+  padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 13px;
+  background: rgba(5, 45, 82, .13);
+  backdrop-filter: blur(8px);
+}
+
+.auth-feature-strip {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.auth-feature-strip span {
+  padding: 8px 11px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 999px;
+  color: rgba(255,255,255,.9);
+  background: rgba(3, 37, 71, .22);
+  backdrop-filter: blur(10px);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.auth-form-panel-modern {
+  position: relative;
+  padding: 48px 58px;
+  background:
+    radial-gradient(circle at 100% 0, rgba(14,165,233,.055), transparent 28%),
+    #fff;
+}
+
+.auth-security-pill {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 7px 10px;
+  color: #0879bd;
+  background: #edf8ff;
+  border: 1px solid #d8effc;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.auth-form-panel-modern .auth-form-heading h2 {
+  font-size: 36px;
+  letter-spacing: -1.3px;
+}
+
+.auth-form-panel-modern .auth-input-wrap {
+  min-height: 52px;
+  border-radius: 14px;
+  border-color: #dbe5ef;
+  background: #fbfdff;
+}
+
+.auth-form-panel-modern .auth-input-wrap:focus-within {
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(7,151,227,.10), 0 10px 24px rgba(7,151,227,.07);
+}
+
+.auth-submit-modern {
+  min-height: 54px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0797e3, #0668bc);
+  box-shadow: 0 14px 28px rgba(7, 127, 201, .24);
+}
+
+.auth-alert-rich {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.auth-alert-rich > div {
+  display: grid;
+  gap: 3px;
+}
+
+.auth-alert-rich strong { font-size: 12px; }
+.auth-alert-rich span { font-size: 12px; }
+.auth-alert-rich b {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  border-radius: 9px;
+  background: rgba(255,255,255,.58);
+  font-size: 12px;
+}
+
+.auth-login-security-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  color: #617188;
+  background: #f7fafc;
+  border: 1px solid #e8eef4;
+  border-radius: 11px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.auth-login-security-note svg { flex: 0 0 auto; color: #0a83ca; margin-top: 1px; }
+
+.auth-register-panel-modern {
+  justify-content: flex-start;
+  padding-top: 34px;
+  padding-bottom: 34px;
+  overflow-y: auto;
+}
+
+.auth-shell-register.auth-shell-modern { min-height: 825px; }
+
+.auth-register-panel-modern .auth-form-heading { margin-bottom: 16px; }
+.auth-register-panel-modern .auth-divider { margin: 14px 0; }
+.auth-social-grid-compact .auth-social-button { min-height: 42px; }
+.auth-register-form { gap: 12px; }
+
+.auth-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.auth-field > span em {
+  margin-left: 5px;
+  color: #8392a6;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.auth-optional-note {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #718198 !important;
+}
+
+.auth-password-strength-6 { grid-template-columns: repeat(6, 1fr); }
+
+.auth-password-rules {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 8px;
+}
+
+.auth-password-rules span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #9aa7b5;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.auth-password-rules span svg {
+  padding: 1px;
+  border-radius: 50%;
+  color: #a6b0bb;
+  background: #eef2f6;
+}
+
+.auth-password-rules span.ok { color: #13805b; }
+.auth-password-rules span.ok svg { color: #fff; background: #24a875; }
+
+.auth-input-valid {
+  border-color: #91d8bb !important;
+  background: #f8fffb !important;
+}
+
+.auth-valid-icon { color: #20a16f !important; }
+
+@media (max-width: 900px) {
+  .auth-shell-modern,
+  .auth-shell-register.auth-shell-modern {
+    width: min(600px, 100%);
+    min-height: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .auth-form-panel-modern,
+  .auth-register-panel-modern { padding: 40px; }
+}
+
+@media (max-width: 560px) {
+  .auth-page-modern { padding: 0; }
+  .auth-form-panel-modern,
+  .auth-register-panel-modern { padding: 26px 20px 34px; }
+  .auth-two-column,
+  .auth-password-rules { grid-template-columns: 1fr; }
+  .auth-form-panel-modern .auth-form-heading h2 { font-size: 30px; }
+}
+
+/* ===== EnziuRooms Login Hub 2026-08-20 ===== */
+/* Desktop layout matched to the approved full-screen mockup. */
+
+.auth-login-hub-page {
+  min-height: 100vh;
+  padding: 12px 12px 18px;
+  color: #10233f;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 4% 2%, rgba(51, 143, 229, .18), transparent 25%),
+    radial-gradient(circle at 98% 92%, rgba(69, 167, 239, .15), transparent 31%),
+    linear-gradient(135deg, #f7fbff 0%, #eef6fc 52%, #f9fcff 100%);
+}
+
+.auth-login-hub-page::before,
+.auth-login-hub-page::after {
+  content: "";
+  position: fixed;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 48% 52% 64% 36%;
+}
+
+.auth-login-hub-page::before {
+  width: 430px;
+  height: 230px;
+  left: -130px;
+  bottom: -120px;
+  background: rgba(128, 197, 244, .16);
+  transform: rotate(16deg);
+}
+
+.auth-login-hub-page::after {
+  width: 370px;
+  height: 190px;
+  right: -105px;
+  bottom: -98px;
+  background: rgba(87, 170, 231, .12);
+  transform: rotate(-16deg);
+}
+
+.auth-login-hub-shell {
+  position: relative;
+  z-index: 1;
+  width: calc(100vw - 24px);
+  max-width: none;
+  margin: 0 auto;
+}
+
+/* ---------- Hero ---------- */
+.auth-login-hero {
+  position: relative;
+  min-height: 520px;
+  overflow: hidden;
+  border: 1px solid rgba(212, 225, 238, .84);
+  border-radius: 30px;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(249, 252, 255, .99) 0%,
+      rgba(248, 252, 255, .97) 32%,
+      rgba(248, 252, 255, .78) 45%,
+      rgba(248, 252, 255, .30) 57%,
+      rgba(248, 252, 255, .02) 70%
+    ),
+    url("../../assets/auth-resort-hero.jpg") right center / 64% 100% no-repeat,
+    linear-gradient(135deg, #eef7ff, #ffffff);
+  box-shadow:
+    0 26px 70px rgba(25, 72, 111, .14),
+    0 3px 14px rgba(25, 72, 111, .05);
+}
+
+.auth-login-hero-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 3% 3%, rgba(37, 99, 235, .16), transparent 24%),
+    linear-gradient(120deg, rgba(255, 255, 255, .25), transparent 49%);
+}
+
+.auth-login-hero-overlay::before {
+  content: "";
+  position: absolute;
+  width: 390px;
+  height: 390px;
+  left: -150px;
+  top: -190px;
+  border-radius: 50%;
+  border: 1px solid rgba(70, 151, 220, .16);
+  box-shadow:
+    0 0 0 48px rgba(70, 151, 220, .055),
+    0 0 0 92px rgba(70, 151, 220, .035);
+}
+
+.auth-login-hero-content {
+  position: relative;
+  z-index: 2;
+  width: 54%;
+  max-width: 870px;
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 24px 52px 40px 7.2vw;
+}
+
+.auth-login-hero-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 350px;
+  max-width: 100%;
+
+  margin: -4px 0 2px 0;
+}
+
+.auth-login-hero-brand img {
+  width: 300px;
+  height: 230px;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 30px;
+  filter: drop-shadow(0 12px 25px rgba(26, 61, 94, .14));
+}
+
+.auth-login-hero h1 {
+  max-width: 760px;
+  margin: -2px 0 26px;
+  color: #10294b;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(50px, 4.45vw, 72px);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -1.8px;
+}
+
+.auth-login-hero-benefits {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(18px, 2vw, 34px);
+  max-width: 820px;
+}
+
+.auth-login-hero-benefits > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  min-width: 0;
+}
+
+.auth-login-hero-benefits > div > span {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #1774dc, #0b5ec9);
+  box-shadow: 0 9px 20px rgba(16, 102, 206, .27);
+}
+
+.auth-login-hero-benefits p {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  margin: 3px 0 0;
+}
+
+.auth-login-hero-benefits strong {
+  color: #173354;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.auth-login-hero-benefits small {
+  max-width: 180px;
+  color: #60728a;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* ---------- Notices ---------- */
+.auth-hub-notice {
+  width: calc(100% - 9vw);
+  margin: 14px auto 0;
+  padding: 12px 16px;
+  color: #17618c;
+  border: 1px solid #cde8f8;
+  border-radius: 13px;
+  background: #eff9ff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* ---------- Provider cards ---------- */
+.auth-provider-grid {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 18px;
+  padding: 0 clamp(26px, 4.3vw, 72px);
+  margin-top: -32px;
+}
+
+.auth-provider-card {
+  position: relative;
+  min-height: 390px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  padding: 42px 34px 32px;
+  border: 1px solid rgba(224, 232, 240, .94);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, .97);
+  box-shadow:
+    0 21px 54px rgba(25, 67, 105, .11),
+    0 2px 10px rgba(25, 67, 105, .035);
+  transition: transform .24s ease, box-shadow .24s ease, border-color .24s ease;
+}
+
+.auth-provider-card:hover:not(.is-expanded) {
+  transform: translateY(-5px);
+  border-color: rgba(177, 204, 230, .95);
+  box-shadow:
+    0 28px 65px rgba(25, 67, 105, .15),
+    0 3px 13px rgba(25, 67, 105, .05);
+}
+
+.auth-provider-card::before {
+  content: "";
+  position: absolute;
+  width: 245px;
+  height: 205px;
+  left: -105px;
+  top: -120px;
+  border-radius: 50%;
+  background: rgba(250, 223, 208, .37);
+}
+
+.auth-provider-card-facebook::before {
+  background: rgba(218, 234, 255, .67);
+}
+
+.auth-provider-card-decor {
+  position: absolute;
+  top: 34px;
+  right: 28px;
+  width: 70px;
+  height: 70px;
+  opacity: .47;
+  background-image: radial-gradient(circle, #e9c8b7 3.2px, transparent 3.8px);
+  background-size: 19px 19px;
+}
+
+.auth-provider-card-facebook .auth-provider-card-decor {
+  background-image: radial-gradient(circle, #bfd7fb 3.2px, transparent 3.8px);
+}
+
+.auth-provider-logo-shell {
+  position: relative;
+  z-index: 2;
+  width: 118px;
+  height: 118px;
+  display: grid;
+  place-items: center;
+  margin: 4px auto 26px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow:
+    0 13px 30px rgba(19, 53, 88, .13),
+    inset 0 0 0 1px #edf2f7;
+}
+
+.auth-provider-logo-enziu {
+  width: 128px;
+  height: 128px;
+  padding: 7px;
+}
+
+.auth-provider-logo-enziu img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.auth-provider-logo-svg {
+  width: 66px;
+  height: 66px;
+  display: block;
+}
+
+.auth-facebook-mark {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  border-radius: 50%;
+  background: #1877f2;
+  box-shadow: 0 10px 22px rgba(24, 119, 242, .25);
+  font-family: Arial, sans-serif;
+  font-size: 66px;
+  font-weight: 700;
+  line-height: 1;
+  padding-top: 15px;
+}
+
+.auth-provider-card h2 {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  color: #102b50;
+  font-size: clamp(22px, 1.55vw, 27px);
+  line-height: 1.25;
+  letter-spacing: -.55px;
+  text-align: center;
+}
+
+.auth-provider-card > p {
+  position: relative;
+  z-index: 2;
+  max-width: 390px;
+  min-height: 52px;
+  margin: 12px auto 28px;
+  color: #718098;
+  font-size: 15px;
+  line-height: 1.58;
+  text-align: center;
+}
+
+.auth-provider-action {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: auto;
+  padding: 0 20px 0 26px;
+  color: #075fc5;
+  border: 1.7px solid #0c6eff;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .97);
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 850;
+  transition: all .2s ease;
+}
+
+.auth-provider-card-enziu .auth-provider-action {
+  color: #0d427e;
+  border-color: #123f79;
+}
+
+.auth-provider-action:hover {
+  color: #ffffff;
+  background: #0b6de6;
+  border-color: #0b6de6;
+  box-shadow: 0 11px 24px rgba(11, 109, 230, .21);
+  transform: translateY(-1px);
+}
+
+.auth-provider-card-enziu .auth-provider-action:hover {
+  background: linear-gradient(135deg, #103866, #0b5fae);
+  border-color: #103866;
+}
+
+/* ---------- Expanded EnziuRooms login ---------- */
+.auth-provider-card-enziu.is-expanded {
+  min-height: 700px;
+  padding: 26px 26px 24px;
+  border-color: #bfd7ec;
+}
+
+.auth-provider-card-enziu.is-expanded .auth-provider-logo-shell {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 10px;
+  padding: 4px;
+}
+
+.auth-provider-card-enziu.is-expanded > h2 {
+  font-size: 21px;
+}
+
+.auth-provider-card-enziu.is-expanded > p {
+  min-height: 0;
+  margin: 7px auto 14px;
+  font-size: 12px;
+}
+
+.auth-enziu-expanded {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #dce7f1;
+  border-radius: 17px;
+  background: rgba(250, 253, 255, .97);
+  animation: auth-enziu-reveal .24s ease both;
+}
+
+@keyframes auth-enziu-reveal {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.auth-enziu-collapse {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 2px 7px;
+  color: #21476f;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.auth-enziu-alert {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 9px;
+  padding: 10px 11px;
+  border-radius: 11px;
+  font-size: 11px;
+}
+
+.auth-enziu-alert-error {
+  color: #b33a3a;
+  border: 1px solid #f4cccc;
+  background: #fff3f3;
+}
+
+.auth-enziu-alert > div {
+  display: grid;
+  gap: 2px;
+}
+
+.auth-enziu-alert strong { font-size: 11px; }
+.auth-enziu-alert span { line-height: 1.38; }
+
+.auth-enziu-alert b {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.auth-enziu-form {
+  display: grid;
+  gap: 11px;
+}
+
+.auth-enziu-form > label {
+  display: grid;
+  gap: 6px;
+}
+
+.auth-enziu-form > label > span {
+  color: #273f5f;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.auth-enziu-input {
+  min-height: 47px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  color: #8290a0;
+  border: 1px solid #d4e0eb;
+  border-radius: 11px;
+  background: #ffffff;
+  transition: .2s ease;
+}
+
+.auth-enziu-input:focus-within {
+  color: #0d73cf;
+  border-color: #55a8ea;
+  box-shadow: 0 0 0 3px rgba(13, 115, 207, .09);
+}
+
+.auth-enziu-input input {
+  min-width: 0;
+  flex: 1;
+  height: 45px;
+  padding: 0;
+  color: #1f334e;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 12px;
+}
+
+.auth-enziu-input input::placeholder { color: #a1acb9; }
+
+.auth-enziu-password-toggle {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: #7f90a4;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.auth-enziu-password-toggle:hover {
+  color: #0c6fcb;
+  background: #eef7fd;
+}
+
+.auth-enziu-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+}
+
+.auth-enziu-options > a {
+  color: #096cc6;
+  font-weight: 800;
+}
+
+.auth-enziu-remember {
+  display: inline-flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 6px !important;
+  color: #69798e;
+  cursor: pointer;
+}
+
+.auth-enziu-remember input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #0c75d6;
+}
+
+.auth-enziu-submit {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #ffffff;
+  border: 0;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #0a8fe2, #0869c5);
+  box-shadow: 0 10px 20px rgba(10, 111, 199, .19);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.auth-enziu-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 13px 24px rgba(10, 111, 199, .24);
+}
+
+.auth-enziu-submit:disabled {
+  opacity: .67;
+  cursor: not-allowed;
+}
+
+.auth-enziu-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.auth-enziu-links a {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 9px 7px;
+  color: #0871ce;
+  border: 1px solid #dbe9f4;
+  border-radius: 9px;
+  background: #ffffff;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.auth-enziu-links a:hover {
+  border-color: #acd3f2;
+  background: #f2f9fe;
+}
+
+.auth-enziu-security-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 9px 10px;
+  color: #69798e;
+  border-radius: 9px;
+  background: #eef6fb;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.auth-enziu-security-note svg {
+  flex: 0 0 auto;
+  color: #0b79cf;
+}
+
+/* ---------- Footer ---------- */
+.auth-login-hub-footer {
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 25px;
+  color: #6d7f95;
+  font-size: 13px;
+}
+
+.auth-login-hub-footer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth-login-hub-footer span:first-child svg { color: #315376; }
+.auth-login-hub-footer span:nth-of-type(2) svg { color: #315376; }
+.auth-login-hub-footer span:last-child svg { color: #f14b61; }
+
+.auth-login-hub-footer i {
+  width: 1px;
+  height: 19px;
+  background: #cbd6e1;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1320px) {
+  .auth-login-hero {
+    min-height: 470px;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(249,252,255,.99) 0%,
+        rgba(248,252,255,.95) 38%,
+        rgba(248,252,255,.62) 54%,
+        rgba(248,252,255,.08) 72%
+      ),
+      url("../../assets/auth-resort-hero.jpg") right center / 66% 100% no-repeat,
+      #f7fbff;
+  }
+
+  .auth-login-hero-content {
+    width: 57%;
+    min-height: 470px;
+    padding-left: 5vw;
+  }
+
+  .auth-login-hero-brand {
+    margin-left: 5vw;
+  }
+
+  .auth-login-hero-brand img {
+    width: 250px;
+    height: 190px;
+  }
+
+  .auth-login-hero h1 {
+    font-size: clamp(44px, 4.1vw, 60px);
+  }
+
+  .auth-login-hero-benefits small {
+    font-size: 11px;
+  }
+
+  .auth-provider-grid {
+    padding-inline: 32px;
+  }
+
+  .auth-provider-card {
+    min-height: 370px;
+    padding-inline: 28px;
+  }
+
+  .auth-provider-card h2 {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 980px) {
+  .auth-login-hub-page {
+    padding: 14px;
+  }
+
+  .auth-login-hub-shell {
+    width: 100%;
+  }
+
+  .auth-login-hero {
+    min-height: 420px;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(250,253,255,.98) 0%,
+        rgba(250,253,255,.94) 60%,
+        rgba(250,253,255,.52) 100%
+      ),
+      url("../../assets/auth-resort-hero.jpg") center bottom / cover no-repeat;
+  }
+
+  .auth-login-hero-content {
+    width: 100%;
+    max-width: none;
+    min-height: 420px;
+    padding: 20px 28px 92px;
+  }
+
+  .auth-login-hero-brand {
+    margin-left: 0;
+  }
+
+  .auth-login-hero-brand img {
+    width: 180px;
+    height: 135px;
+  }
+
+  .auth-login-hero h1 {
+    max-width: 650px;
+    font-size: clamp(40px, 6vw, 54px);
+  }
+
+  .auth-login-hero-benefits {
+    max-width: 100%;
+  }
+
+  .auth-login-hero-benefits small {
+    display: none;
+  }
+
+  .auth-provider-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 16px;
+    padding: 0;
+  }
+
+  .auth-provider-card {
+    min-height: 330px;
+  }
+
+  .auth-provider-card-enziu.is-expanded {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .auth-login-hub-page {
+    padding: 0;
+  }
+
+  .auth-login-hub-shell {
+    width: 100%;
+  }
+
+  .auth-login-hero {
+    min-height: 390px;
+    border-radius: 0 0 24px 24px;
+    border-inline: 0;
+    border-top: 0;
+  }
+
+  .auth-login-hero-content {
+    min-height: 390px;
+    padding: 18px 20px 82px;
+  }
+
+  .auth-login-hero-brand img {
+    width: 150px;
+    height: 112px;
+  }
+
+  .auth-login-hero h1 {
+    margin-bottom: 18px;
+    font-size: 34px;
+    letter-spacing: -1px;
+  }
+
+  .auth-login-hero-benefits {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .auth-login-hero-benefits > div > span {
+    width: 36px;
+    height: 36px;
+  }
+
+  .auth-login-hero-benefits strong {
+    font-size: 12px;
+  }
+
+  .auth-hub-notice {
+    width: auto;
+    margin-inline: 14px;
+  }
+
+  .auth-provider-grid {
+    margin: 14px;
+  }
+
+  .auth-provider-card {
+    min-height: 310px;
+    padding: 30px 20px 24px;
+    border-radius: 20px;
+  }
+
+  .auth-provider-logo-shell {
+    width: 92px;
+    height: 92px;
+  }
+
+  .auth-provider-logo-enziu {
+    width: 102px;
+    height: 102px;
+  }
+
+  .auth-provider-card h2 {
+    font-size: 20px;
+  }
+
+  .auth-provider-card > p {
+    font-size: 13px;
+  }
+
+  .auth-provider-action {
+    min-height: 54px;
+    font-size: 13px;
+  }
+
+  .auth-enziu-links {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-login-hub-footer {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 4px 18px 18px;
+    font-size: 11px;
+  }
+
+  .auth-login-hub-footer i {
+    display: none;
+  }
+}
+
+
+/* ===== Fit 100% viewport on common desktop/laptop screens =====
+   Keeps the approved design, but scales the hero/cards down when viewport height
+   is limited (e.g. Chrome 100% zoom on 1600x900 / 1920x1080). */
+@media (min-width: 981px) and (max-height: 950px) {
+  .auth-login-hub-page {
+    min-height: 100vh;
+    padding: 8px 10px 10px;
+  }
+
+  .auth-login-hub-shell {
+    width: calc(100vw - 20px);
+  }
+
+  .auth-login-hero {
+    min-height: 350px;
+    border-radius: 24px;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(249,252,255,.99) 0%,
+        rgba(248,252,255,.97) 31%,
+        rgba(248,252,255,.75) 45%,
+        rgba(248,252,255,.28) 57%,
+        rgba(248,252,255,.02) 70%
+      ),
+      url("../../assets/auth-resort-hero.jpg") right center / 64% 100% no-repeat,
+      linear-gradient(135deg, #eef7ff, #ffffff);
+  }
+
+  .auth-login-hero-content {
+    width: 54%;
+    min-height: 350px;
+    max-width: 780px;
+    padding: 10px 34px 24px 6.8vw;
+  }
+
+  .auth-login-hero-brand {
+    margin: -4px 0 -6px 6vw;
+  }
+
+  .auth-login-hero-brand img {
+    width: 205px;
+    height: 150px;
+    border-radius: 22px;
+  }
+
+  .auth-login-hero h1 {
+    max-width: 680px;
+    margin: 0 0 14px;
+    font-size: clamp(40px, 3.7vw, 56px);
+    line-height: 1.03;
+    letter-spacing: -1.2px;
+  }
+
+  .auth-login-hero-benefits {
+    gap: 18px;
+    max-width: 720px;
+  }
+
+  .auth-login-hero-benefits > div {
+    gap: 10px;
+  }
+
+  .auth-login-hero-benefits > div > span {
+    width: 42px;
+    height: 42px;
+  }
+
+  .auth-login-hero-benefits strong {
+    font-size: 13px;
+  }
+
+  .auth-login-hero-benefits small {
+    max-width: 150px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+
+  .auth-hub-notice {
+    margin-top: 8px;
+    padding-block: 8px;
+  }
+
+  .auth-provider-grid {
+    gap: 14px;
+    padding: 0 clamp(24px, 4.2vw, 68px);
+    margin-top: -22px;
+  }
+
+  .auth-provider-card {
+    min-height: 285px;
+    padding: 24px 26px 22px;
+    border-radius: 22px;
+  }
+
+  .auth-provider-card::before {
+    width: 190px;
+    height: 160px;
+    left: -85px;
+    top: -100px;
+  }
+
+  .auth-provider-card-decor {
+    top: 24px;
+    right: 22px;
+    width: 58px;
+    height: 58px;
+    background-size: 16px 16px;
+  }
+
+  .auth-provider-logo-shell {
+    width: 84px;
+    height: 84px;
+    margin: 0 auto 14px;
+  }
+
+  .auth-provider-logo-enziu {
+    width: 92px;
+    height: 92px;
+    padding: 5px;
+  }
+
+  .auth-provider-logo-svg {
+    width: 49px;
+    height: 49px;
+  }
+
+  .auth-facebook-mark {
+    width: 54px;
+    height: 54px;
+    font-size: 50px;
+    padding-top: 11px;
+  }
+
+  .auth-provider-card h2 {
+    font-size: clamp(19px, 1.35vw, 23px);
+  }
+
+  .auth-provider-card > p {
+    max-width: 350px;
+    min-height: 38px;
+    margin: 8px auto 15px;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .auth-provider-action {
+    min-height: 48px;
+    padding: 0 17px 0 20px;
+    border-radius: 12px;
+    font-size: 12.5px;
+  }
+
+  .auth-login-hub-footer {
+    min-height: 42px;
+    gap: 20px;
+    font-size: 11px;
+  }
+
+  /* Expanded EnziuRooms card still stays compact enough for normal use. */
+  .auth-provider-card-enziu.is-expanded {
+    min-height: 500px;
+    padding: 18px 20px 18px;
+  }
+
+  .auth-provider-card-enziu.is-expanded .auth-provider-logo-shell {
+    width: 62px;
+    height: 62px;
+    margin-bottom: 6px;
+  }
+
+  .auth-provider-card-enziu.is-expanded > h2 {
+    font-size: 18px;
+  }
+
+  .auth-provider-card-enziu.is-expanded > p {
+    margin: 4px auto 8px;
+    font-size: 10px;
+  }
+
+  .auth-enziu-expanded {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .auth-enziu-form {
+    gap: 8px;
+  }
+
+  .auth-enziu-input {
+    min-height: 40px;
+  }
+
+  .auth-enziu-input input {
+    height: 39px;
+  }
+
+  .auth-enziu-submit {
+    min-height: 41px;
+  }
+}
+
+/* Extra-compact height for smaller laptop viewports while preserving 100% browser zoom. */
+@media (min-width: 981px) and (max-height: 800px) {
+  .auth-login-hero {
+    min-height: 315px;
+  }
+
+  .auth-login-hero-content {
+    min-height: 315px;
+    padding-top: 6px;
+    padding-bottom: 18px;
+  }
+
+  .auth-login-hero-brand img {
+    width: 178px;
+    height: 126px;
+  }
+
+  .auth-login-hero h1 {
+    margin-bottom: 10px;
+    font-size: clamp(36px, 3.35vw, 49px);
+  }
+
+  .auth-login-hero-benefits > div > span {
+    width: 38px;
+    height: 38px;
+  }
+
+  .auth-provider-grid {
+    margin-top: -18px;
+  }
+
+  .auth-provider-card {
+    min-height: 260px;
+    padding-top: 19px;
+    padding-bottom: 18px;
+  }
+
+  .auth-provider-logo-shell {
+    width: 74px;
+    height: 74px;
+    margin-bottom: 10px;
+  }
+
+  .auth-provider-logo-enziu {
+    width: 82px;
+    height: 82px;
+  }
+
+  .auth-provider-logo-svg {
+    width: 43px;
+    height: 43px;
+  }
+
+  .auth-facebook-mark {
+    width: 48px;
+    height: 48px;
+    font-size: 44px;
+    padding-top: 10px;
+  }
+
+  .auth-provider-card > p {
+    margin-bottom: 10px;
+  }
+
+  .auth-provider-action {
+    min-height: 44px;
+  }
+
+  .auth-login-hub-footer {
+    min-height: 34px;
+  }
+}
+
+
+/* ===== Exact viewport fit - no bottom empty space =====
+   Desktop: hero + 3 cards + footer always fill the visible browser viewport.
+   When EnziuRooms form expands, normal vertical scrolling is allowed. */
+@media (min-width: 981px) {
+  .auth-login-hub-page {
+    height: 100dvh;
+    min-height: 100dvh;
+    padding: 8px 10px 8px;
+    overflow-x: hidden;
+    overflow-y: hidden;
+  }
+
+  .auth-login-hub-shell {
+    width: calc(100vw - 20px);
+    height: calc(100dvh - 16px);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin: 0 auto;
+  }
+
+  /* Hero takes roughly the same visual ratio as the approved mockup. */
+  .auth-login-hero {
+    flex: 0 0 55dvh;
+    min-height: 0;
+    height: 55dvh;
+    max-height: 580px;
+    border-radius: 24px;
+  }
+
+  .auth-login-hero-content {
+    width: 54%;
+    min-height: 0;
+    height: 100%;
+    max-width: 820px;
+    padding: 10px 38px 28px 6.8vw;
+  }
+
+  .auth-login-hero-brand {
+    margin: -4px 0 -2px 6vw;
+  }
+
+  .auth-login-hero-brand img {
+    width: clamp(190px, 13vw, 245px);
+    height: clamp(138px, 16dvh, 185px);
+    border-radius: 24px;
+  }
+
+  .auth-login-hero h1 {
+    max-width: 720px;
+    margin: 0 0 clamp(12px, 1.8dvh, 20px);
+    font-size: clamp(42px, 3.75vw, 61px);
+    line-height: 1.03;
+    letter-spacing: -1.35px;
+  }
+
+  .auth-login-hero-benefits {
+    gap: clamp(16px, 1.7vw, 28px);
+    max-width: 760px;
+  }
+
+  .auth-login-hero-benefits > div {
+    gap: 10px;
+  }
+
+  .auth-login-hero-benefits > div > span {
+    width: clamp(40px, 3.2vw, 49px);
+    height: clamp(40px, 3.2vw, 49px);
+  }
+
+  .auth-login-hero-benefits strong {
+    font-size: clamp(12px, .95vw, 14px);
+  }
+
+  .auth-login-hero-benefits small {
+    max-width: 170px;
+    font-size: clamp(10px, .76vw, 12px);
+    line-height: 1.38;
+  }
+
+  /* This row flexes to consume all space left under the hero. */
+  .auth-provider-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    align-items: stretch;
+    gap: 14px;
+    padding: 0 clamp(28px, 4.25vw, 70px);
+    margin-top: -22px;
+  }
+
+  .auth-provider-card {
+    width: 100%;
+    min-height: 0;
+    height: 100%;
+    padding: clamp(20px, 2.3dvh, 28px) 26px clamp(18px, 2dvh, 24px);
+    border-radius: 22px;
+  }
+
+  .auth-provider-card::before {
+    width: 190px;
+    height: 160px;
+    left: -85px;
+    top: -100px;
+  }
+
+  .auth-provider-card-decor {
+    top: 24px;
+    right: 22px;
+    width: 58px;
+    height: 58px;
+    background-size: 16px 16px;
+  }
+
+  .auth-provider-logo-shell {
+    width: clamp(76px, 9dvh, 96px);
+    height: clamp(76px, 9dvh, 96px);
+    margin: 0 auto clamp(10px, 1.6dvh, 16px);
+  }
+
+  .auth-provider-logo-enziu {
+    width: clamp(84px, 10dvh, 104px);
+    height: clamp(84px, 10dvh, 104px);
+    padding: 5px;
+  }
+
+  .auth-provider-logo-svg {
+    width: clamp(44px, 5.2dvh, 55px);
+    height: clamp(44px, 5.2dvh, 55px);
+  }
+
+  .auth-facebook-mark {
+    width: clamp(50px, 5.8dvh, 61px);
+    height: clamp(50px, 5.8dvh, 61px);
+    font-size: clamp(46px, 5.5dvh, 56px);
+    padding-top: 11px;
+  }
+
+  .auth-provider-card h2 {
+    font-size: clamp(20px, 1.45vw, 25px);
+  }
+
+  .auth-provider-card > p {
+    max-width: 360px;
+    min-height: 0;
+    margin: clamp(7px, 1.1dvh, 11px) auto clamp(10px, 1.6dvh, 18px);
+    font-size: clamp(11px, .86vw, 13px);
+    line-height: 1.45;
+  }
+
+  .auth-provider-action {
+    min-height: clamp(46px, 5.6dvh, 56px);
+    margin-top: auto;
+    padding: 0 18px 0 22px;
+    border-radius: 12px;
+    font-size: clamp(12px, .88vw, 14px);
+  }
+
+  .auth-login-hub-footer {
+    flex: 0 0 42px;
+    min-height: 42px;
+    height: 42px;
+    gap: 20px;
+    margin: 0;
+    padding: 0;
+    font-size: 11px;
+  }
+
+  /* If the internal EnziuRooms form is opened, allow the page to grow/scroll. */
+  .auth-login-hub-page:has(.auth-provider-card-enziu.is-expanded) {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+  }
+
+  .auth-login-hub-page:has(.auth-provider-card-enziu.is-expanded)
+  .auth-login-hub-shell {
+    height: auto;
+    min-height: calc(100dvh - 16px);
+  }
+
+  .auth-login-hub-page:has(.auth-provider-card-enziu.is-expanded)
+  .auth-provider-grid {
+    flex: 0 0 auto;
+    min-height: 500px;
+  }
+
+  .auth-login-hub-page:has(.auth-provider-card-enziu.is-expanded)
+  .auth-provider-card {
+    height: auto;
+    min-height: 500px;
+  }
+
+  .auth-login-hub-page:has(.auth-provider-card-enziu.is-expanded)
+  .auth-provider-card-enziu.is-expanded {
+    min-height: 610px;
+  }
+}
+
+/* Laptop height tuning: still exactly fills 100% without leaving blank space. */
+@media (min-width: 981px) and (max-height: 820px) {
+  .auth-login-hero {
+    flex-basis: 53dvh;
+    height: 53dvh;
+  }
+
+  .auth-login-hero-brand img {
+    width: clamp(165px, 11.5vw, 205px);
+    height: clamp(116px, 14dvh, 150px);
+  }
+
+  .auth-login-hero h1 {
+    font-size: clamp(37px, 3.35vw, 52px);
+    margin-bottom: 10px;
+  }
+
+  .auth-login-hero-benefits > div > span {
+    width: 38px;
+    height: 38px;
+  }
+
+  .auth-provider-logo-shell {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 9px;
+  }
+
+  .auth-provider-logo-enziu {
+    width: 80px;
+    height: 80px;
+  }
+
+  .auth-provider-logo-svg {
+    width: 42px;
+    height: 42px;
+  }
+
+  .auth-facebook-mark {
+    width: 47px;
+    height: 47px;
+    font-size: 43px;
+    padding-top: 9px;
+  }
+
+  .auth-provider-card h2 {
+    font-size: 19px;
+  }
+
+  .auth-provider-card > p {
+    margin: 6px auto 9px;
+    font-size: 10.5px;
+  }
+
+  .auth-provider-action {
+    min-height: 43px;
+  }
+
+  .auth-login-hub-footer {
+    flex-basis: 34px;
+    min-height: 34px;
+    height: 34px;
+  }
+}

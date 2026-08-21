@@ -8,6 +8,7 @@ import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Component
@@ -74,6 +75,8 @@ public class BookingClient {
             UUID hotelId,
             UUID roomTypeId,
             UUID roomId,
+            LocalDate checkIn,
+            LocalDate checkOut,
             BigDecimal totalPrice,
             BigDecimal paidAmount,
             BigDecimal remainingAmount,

@@ -373,10 +373,15 @@
 }
 
 .customer-hotel-description {
+  display: -webkit-box;
   margin: 11px 0 13px;
+  overflow: hidden;
   color: #435569;
   font-size: 13px;
   line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
 }
 
 .customer-amenity-list,

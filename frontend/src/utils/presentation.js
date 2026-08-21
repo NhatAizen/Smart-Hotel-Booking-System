@@ -13,10 +13,18 @@ export const TRANSACTION_TYPE_LABELS = Object.freeze({
   BOOKING_PAYMENT: "Thanh toán đặt phòng",
   BOOKING_REVENUE: "Doanh thu đặt phòng",
   HOTEL_PAYOUT: "Đối soát khách sạn",
+  HOTEL_REVENUE_PENDING: "Doanh thu khách sạn đang giữ",
+  HOTEL_REVENUE_RELEASED: "Doanh thu đã giải ngân",
+  WALLET_TOP_UP: "Nạp tiền vào ví",
   WITHDRAWAL: "Rút tiền",
   WITHDRAWAL_HOLD: "Tạm giữ chờ rút",
   WITHDRAWAL_RELEASED: "Hoàn lại tiền tạm giữ",
   WITHDRAWAL_PAID: "Đã chuyển về ngân hàng",
+  CASH_REVENUE_RECORDED: "Doanh thu tiền mặt",
+  HOTEL_COMMISSION_DEBIT: "Khấu trừ hoa hồng khách sạn",
+  HOTEL_COMMISSION_DEBT_ACCRUED: "Phát sinh công nợ hoa hồng",
+  HOTEL_COMMISSION_DEBT_SETTLED: "Đã cấn trừ công nợ hoa hồng",
+  MANUAL_ADJUSTMENT: "Điều chỉnh thủ công",
 });
 
 export const BED_TYPE_LABELS = Object.freeze({

@@ -68,8 +68,11 @@ public class SecurityConfig {
                                 "/api/bookings/*/check-in/**",
                                 "/api/bookings/current-stays",
                                 "/api/bookings/*/check-out",
-                                "/api/bookings/*/late-checkout/assess"
+                                "/api/bookings/*/late-checkout/assess",
+                                "/api/bookings/*/no-show"
                         ).hasRole("HOTEL_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/bookings", "/api/bookings/batch")
+                        .hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/bookings/me")
                         .hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.PATCH, "/api/bookings/*/cancel")
@@ -108,6 +111,29 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/pricing/quote")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/campaigns/active", "/api/promotions/available")
+                        .permitAll()
+                        .requestMatchers(
+                                "/api/membership/me",
+                                "/api/membership/tiers",
+                                "/api/discounts/preview",
+                                "/api/promotions/recommendations",
+                                "/api/promotions/saved/me",
+                                "/api/promotions/*/save"
+                        )
+                        .hasRole("CUSTOMER")
+                        .requestMatchers(
+                                "/api/hotel-admin/promotions/**",
+                                "/api/hotel-admin/reviews/**"
+                        )
+                        .hasRole("HOTEL_ADMIN")
+                        .requestMatchers(
+                                "/api/admin/promotions/**",
+                                "/api/admin/campaigns/**",
+                                "/api/admin/membership-tiers/**",
+                                "/api/admin/reviews/**"
+                        )
+                        .hasRole("SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/reviews/bookings/**")
                         .hasAnyRole("CUSTOMER", "HOTEL_ADMIN")
                         .requestMatchers(

@@ -3,6 +3,7 @@ package com.smarthotel.hotel.roomtype.service;
 import com.smarthotel.hotel.common.exception.DuplicateRoomTypeNameException;
 import com.smarthotel.hotel.common.exception.RoomTypeNotFoundException;
 import com.smarthotel.hotel.hotel.service.HotelService;
+import com.smarthotel.hotel.integration.notification.NotificationClient;
 import com.smarthotel.hotel.hotel.entity.HotelApprovalStatus;
 import com.smarthotel.hotel.media.dto.ImageResponse;
 import com.smarthotel.hotel.media.repository.RoomTypeImageRepository;
@@ -19,8 +20,10 @@ import com.smarthotel.hotel.roomtype.repository.RoomTypeRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -32,19 +35,22 @@ public class RoomTypeService {
     private final RoomRepository roomRepository;
     private final HotelService hotelService;
     private final MediaStorageService mediaStorageService;
+    private final NotificationClient notificationClient;
 
     public RoomTypeService(
             RoomTypeRepository roomTypeRepository,
             RoomTypeImageRepository imageRepository,
             RoomRepository roomRepository,
             HotelService hotelService,
-            MediaStorageService mediaStorageService
+            MediaStorageService mediaStorageService,
+            NotificationClient notificationClient
     ) {
         this.roomTypeRepository = roomTypeRepository;
         this.imageRepository = imageRepository;
         this.roomRepository = roomRepository;
         this.hotelService = hotelService;
         this.mediaStorageService = mediaStorageService;
+        this.notificationClient = notificationClient;
     }
 
     @Transactional
@@ -147,6 +153,8 @@ public class RoomTypeService {
             throw new DuplicateRoomTypeNameException(name);
         }
 
+        boolean requiresReapproval = requiresReapproval(roomType, request, name);
+
         roomType.update(
                 name,
                 normalizeNullable(request.description()),
@@ -164,7 +172,8 @@ public class RoomTypeService {
                 request.depositPercent(),
                 request.fullPaymentAllowed(),
                 normalizeAmenities(request.amenities()),
-                request.status()
+                request.status(),
+                requiresReapproval
         );
 
         return toResponse(roomType);
@@ -181,6 +190,14 @@ public class RoomTypeService {
             throw new IllegalStateException("Loại phòng đang ngừng hoạt động");
         }
         roomType.submitForApproval();
+        notificationClient.sendRole(
+                "SYSTEM_ADMIN",
+                "Có loại phòng chờ duyệt",
+                "Loại phòng " + roomType.getName() + " của khách sạn " + hotel.getName() + " vừa được gửi xét duyệt.",
+                "ROOM_TYPE_SUBMITTED",
+                "HOTEL",
+                "/admin/room-types"
+        );
         return toResponse(roomType);
     }
 
@@ -197,6 +214,17 @@ public class RoomTypeService {
     public RoomTypeResponse approve(UUID roomTypeId, UUID systemAdminId) {
         RoomType roomType = find(roomTypeId);
         roomType.approve(systemAdminId);
+        var hotel = hotelService.findHotel(roomType.getHotelId());
+        if (hotel.getOwnerId() != null) {
+            notificationClient.sendUser(
+                    hotel.getOwnerId(),
+                    "Loại phòng đã được duyệt",
+                    "Loại phòng " + roomType.getName() + " của khách sạn " + hotel.getName() + " đã được duyệt.",
+                    "ROOM_TYPE_APPROVED",
+                    "HOTEL",
+                    "/hotel-admin/room-types"
+            );
+        }
         return toResponse(roomType);
     }
 
@@ -207,7 +235,69 @@ public class RoomTypeService {
         }
         RoomType roomType = find(roomTypeId);
         roomType.reject(systemAdminId, reason.trim());
+        var hotel = hotelService.findHotel(roomType.getHotelId());
+        if (hotel.getOwnerId() != null) {
+            notificationClient.sendUser(
+                    hotel.getOwnerId(),
+                    "Loại phòng bị từ chối",
+                    "Loại phòng " + roomType.getName() + " của khách sạn " + hotel.getName()
+                            + " bị từ chối. Lý do: " + reason.trim(),
+                    "ROOM_TYPE_REJECTED",
+                    "HOTEL",
+                    "/hotel-admin/room-types"
+            );
+        }
         return toResponse(roomType);
+    }
+
+    private boolean requiresReapproval(
+            RoomType current,
+            UpdateRoomTypeRequest request,
+            String normalizedName
+    ) {
+        if (current.getApprovalStatus() != RoomTypeApprovalStatus.APPROVED) {
+            return false;
+        }
+
+        if (!Objects.equals(current.getName(), normalizedName)) {
+            return true;
+        }
+
+        BigDecimal approvedPrice = current.getApprovedBasePrice() != null
+                ? current.getApprovedBasePrice()
+                : current.getBasePrice();
+
+        if (approvedPrice != null && request.basePrice() != null) {
+            BigDecimal reviewThreshold = approvedPrice.multiply(new BigDecimal("1.25"));
+            if (request.basePrice().compareTo(reviewThreshold) > 0) {
+                return true;
+            }
+        }
+
+        if (!Objects.equals(current.getMaxAdults(), request.maxAdults())
+                || !Objects.equals(current.getMaxChildren(), request.maxChildren())
+                || !sameText(current.getBedType(), request.bedType())
+                || !Objects.equals(current.getBedCount(), request.bedCount())
+                || !sameDecimal(current.getAreaSqm(), request.areaSqm())) {
+            return true;
+        }
+
+        return current.isRefundable() != request.refundable()
+                || current.isPayAtHotelAllowed() != request.payAtHotelAllowed()
+                || current.isDepositAllowed() != request.depositAllowed()
+                || !Objects.equals(current.getDepositPercent(), request.depositPercent())
+                || current.isFullPaymentAllowed() != request.fullPaymentAllowed();
+    }
+
+    private boolean sameText(String left, String right) {
+        return Objects.equals(normalizeNullable(left), normalizeNullable(right));
+    }
+
+    private boolean sameDecimal(BigDecimal left, BigDecimal right) {
+        if (left == null || right == null) {
+            return left == null && right == null;
+        }
+        return left.compareTo(right) == 0;
     }
 
     @Transactional

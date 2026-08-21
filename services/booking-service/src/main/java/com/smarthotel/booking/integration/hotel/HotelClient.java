@@ -1,6 +1,7 @@
 package com.smarthotel.booking.integration.hotel;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
@@ -9,6 +10,7 @@ import org.springframework.web.client.RestClient;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -40,6 +42,23 @@ public class HotelClient {
             throw new IllegalStateException("Hotel Service không trả về thông tin khách sạn");
         }
         return response;
+    }
+
+    public List<OwnedHotelDetails> getMyHotels(String bearerToken) {
+        if (bearerToken == null || bearerToken.isBlank()) {
+            throw new IllegalStateException("Thiếu token Hotel Admin để kiểm tra quyền khách sạn");
+        }
+
+        List<OwnedHotelDetails> response = restClient.get()
+                .uri("/api/hotels/mine")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + bearerToken)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (request, httpResponse) -> {
+                    throw new IllegalStateException("Không thể tải danh sách khách sạn của Hotel Admin");
+                })
+                .body(new ParameterizedTypeReference<List<OwnedHotelDetails>>() {});
+
+        return response == null ? List.of() : response;
     }
 
     public RoomDetails getRoom(UUID roomId) {
@@ -113,6 +132,13 @@ public class HotelClient {
     ) {
     }
 
+    public record OwnedHotelDetails(
+            UUID id,
+            UUID ownerId,
+            String name
+    ) {
+    }
+
     public record RoomDetails(
             UUID id,
             UUID hotelId,
@@ -145,5 +171,4 @@ public class HotelClient {
             boolean fullPaymentAllowed
     ) {
     }
-
 }
