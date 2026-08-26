@@ -112,11 +112,16 @@ public class Payment {
         this.paymentType = paymentType;
         this.status = PaymentStatus.PENDING;
         this.commissionRate = moneyRate(commissionRate);
-        this.commissionAmount = money(
-                this.amount.multiply(this.commissionRate)
-                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+
+        // VND không có đơn vị thập phân trong đối soát thực tế. Payment.amount vẫn
+        // giữ scale=2 để tương thích Booking Service, nhưng phần tiền thực tế được
+        // hạch toán cho platform/hotel phải dựa trên số VND nguyên mà PayOS/tiền mặt thu.
+        BigDecimal settlementAmount = wholeDong(this.amount);
+        this.commissionAmount = wholeDong(
+                settlementAmount.multiply(this.commissionRate)
+                        .divide(BigDecimal.valueOf(100), 8, RoundingMode.HALF_UP)
         );
-        this.hotelNetAmount = money(this.amount.subtract(this.commissionAmount));
+        this.hotelNetAmount = settlementAmount.subtract(this.commissionAmount);
         this.bookingApplied = false;
         this.walletApplied = false;
         this.revenueReleased = false;
@@ -211,6 +216,13 @@ public class Payment {
 
     private static BigDecimal money(BigDecimal value) {
         return value.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private static BigDecimal wholeDong(BigDecimal value) {
+        if (value == null) {
+            return BigDecimal.ZERO.setScale(0, RoundingMode.HALF_UP);
+        }
+        return value.setScale(0, RoundingMode.HALF_UP);
     }
 
     private static BigDecimal moneyRate(BigDecimal value) {

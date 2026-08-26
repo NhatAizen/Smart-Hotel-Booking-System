@@ -89,7 +89,7 @@ function defaultDate(offset) {
 }
 
 function formatMoney(value) {
-  return `${Number(value ?? 0).toLocaleString("vi-VN")} ₫`;
+  return `${Math.round(Number(value ?? 0)).toLocaleString("vi-VN", { maximumFractionDigits: 0 })} ₫`;
 }
 
 function promotionDiscountLabel(promotion) {

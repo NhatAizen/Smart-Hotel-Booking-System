@@ -248,3 +248,58 @@ export async function restoreSystemAdminReview(reviewId) {
   );
   return response.data;
 }
+
+/* =========================================================
+   ROOM CHANGE REQUESTS / BOOKING MANAGEMENT
+========================================================= */
+
+export async function createRoomChangeRequest(bookingId, targetRoomId, reason) {
+  const response = await apiClient.post(
+    `/bookings/${bookingId}/room-change-requests`,
+    { targetRoomId, reason },
+  );
+  return response.data;
+}
+
+export async function getMyRoomChangeRequests() {
+  const response = await apiClient.get("/bookings/room-change-requests/me");
+  return response.data;
+}
+
+export async function getHotelRoomChangeRequests(hotelId) {
+  if (!hotelId) return [];
+  const response = await apiClient.get("/bookings/room-change-requests/hotel", {
+    params: { hotelId },
+  });
+  return response.data;
+}
+
+export async function getRoomChangeQuote(requestId) {
+  const response = await apiClient.get(
+    `/bookings/room-change-requests/${requestId}/quote`,
+  );
+  return response.data;
+}
+
+export async function approveRoomChangeRequest(requestId, note = "") {
+  const response = await apiClient.patch(
+    `/bookings/room-change-requests/${requestId}/approve`,
+    { note },
+  );
+  return response.data;
+}
+
+export async function rejectRoomChangeRequest(requestId, note = "") {
+  const response = await apiClient.patch(
+    `/bookings/room-change-requests/${requestId}/reject`,
+    { note },
+  );
+  return response.data;
+}
+
+export async function getSystemBookings(status = "") {
+  const response = await apiClient.get("/bookings/admin/all", {
+    params: status ? { status } : undefined,
+  });
+  return response.data;
+}

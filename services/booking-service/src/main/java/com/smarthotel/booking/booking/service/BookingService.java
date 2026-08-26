@@ -652,7 +652,7 @@ public class BookingService {
         Booking booking = findBooking(bookingId);
         ensureCodeMatches(booking, rawCode);
         OwnedBookingContext context = requireOwnedBooking(hotelAdminId, booking);
-        validateCheckInDate(booking);
+        validateCheckInDate(booking, context.hotel());
 
         VietnamCitizenIdQrParser.CitizenIdQrData citizen =
                 VietnamCitizenIdQrParser.parse(identityQrData);
@@ -718,7 +718,7 @@ public class BookingService {
         Booking booking = findBooking(bookingId);
         ensureCodeMatches(booking, rawCode);
         OwnedBookingContext context = requireOwnedBooking(hotelAdminId, booking);
-        validateCheckInDate(booking);
+        validateCheckInDate(booking, context.hotel());
 
         LocalDate expectedDateOfBirth = identityExpectedDateOfBirth(booking);
         Integer ageAtCheckIn = null;
@@ -770,7 +770,7 @@ public class BookingService {
         Booking booking = findBooking(bookingId);
         ensureCodeMatches(booking, rawCode);
         OwnedBookingContext context = requireOwnedBooking(hotelAdminId, booking);
-        validateCheckInDate(booking);
+        validateCheckInDate(booking, context.hotel());
         ensureIdentityVerified(booking);
         booking.checkIn();
         hotelClient.updateRoomStatus(context.room(), "OCCUPIED", bearerToken);
@@ -789,7 +789,7 @@ public class BookingService {
     public BookingResponse checkIn(UUID hotelAdminId, UUID bookingId, String bearerToken) {
         Booking booking = findBooking(bookingId);
         OwnedBookingContext context = requireOwnedBooking(hotelAdminId, booking);
-        validateCheckInDate(booking);
+        validateCheckInDate(booking, context.hotel());
         ensureIdentityVerified(booking);
         booking.checkIn();
         hotelClient.updateRoomStatus(context.room(), "OCCUPIED", bearerToken);
@@ -1108,9 +1108,24 @@ public class BookingService {
 
     private CheckInDetailsResponse toCheckInDetails(OwnedBookingContext context) {
         Booking booking = context.booking();
-        LocalDate today = LocalDate.now(HOTEL_TIME_ZONE);
-        boolean dateValid = !today.isBefore(booking.getCheckIn())
-                && today.isBefore(booking.getCheckOut());
+
+        LocalTime checkInTime = context.hotel().checkInTime() != null
+                ? context.hotel().checkInTime()
+                : LocalTime.of(14, 0);
+        LocalTime checkOutTime = context.hotel().checkOutTime() != null
+                ? context.hotel().checkOutTime()
+                : LocalTime.NOON;
+
+        LocalDateTime expectedCheckInAt = LocalDateTime.of(
+                booking.getCheckIn(), checkInTime
+        );
+        LocalDateTime expectedCheckOutAt = LocalDateTime.of(
+                booking.getCheckOut(), checkOutTime
+        );
+        LocalDateTime now = LocalDateTime.now(HOTEL_TIME_ZONE);
+
+        boolean dateValid = !now.isBefore(expectedCheckInAt)
+                && now.isBefore(expectedCheckOutAt);
         boolean paymentComplete = booking.getPaymentStatus() == BookingPaymentStatus.PAID
                 && booking.getRemainingAmount().signum() == 0;
         boolean identityVerified = booking.isIdentityVerified();
@@ -1126,10 +1141,12 @@ public class BookingService {
             actionMessage = "Khách đã nhận phòng";
         } else if (booking.getStatus() == BookingStatus.CHECKED_OUT) {
             actionMessage = "Booking đã hoàn tất trả phòng";
-        } else if (today.isBefore(booking.getCheckIn())) {
-            actionMessage = "Chưa đến ngày nhận phòng";
-        } else if (!today.isBefore(booking.getCheckOut())) {
-            actionMessage = "Đã qua thời gian nhận phòng của booking";
+        } else if (booking.getStatus() == BookingStatus.NO_SHOW) {
+            actionMessage = "Booking đã được đánh dấu không đến";
+        } else if (now.isBefore(expectedCheckInAt)) {
+            actionMessage = "Chưa đến thời gian nhận phòng";
+        } else if (!now.isBefore(expectedCheckOutAt)) {
+            actionMessage = "Booking đã hết thời gian lưu trú";
         } else if (!paymentComplete) {
             actionMessage = "Khách còn phải thanh toán "
                     + booking.getRemainingAmount().stripTrailingZeros().toPlainString()
@@ -1140,6 +1157,8 @@ public class BookingService {
             actionMessage = "Cần xác minh giấy tờ người đại diện nhận phòng trước khi check-in";
         } else if (booking.getStatus() != BookingStatus.CONFIRMED) {
             actionMessage = "Booking chưa ở trạng thái sẵn sàng nhận phòng";
+        } else if (now.toLocalDate().isAfter(booking.getCheckIn())) {
+            actionMessage = "Khách đến nhận phòng trễ nhưng booking vẫn còn hiệu lực. Có thể tiếp tục nhận phòng";
         } else {
             actionMessage = "Booking, thanh toán và danh tính đều hợp lệ. Có thể nhận phòng";
         }
@@ -1148,16 +1167,6 @@ public class BookingService {
                 safe(context.hotel().address()),
                 safe(context.hotel().city())
         ).stream().filter(value -> !value.isBlank()).toList());
-
-        LocalTime checkInTime = context.hotel().checkInTime() != null
-                ? context.hotel().checkInTime()
-                : LocalTime.of(14, 0);
-        LocalTime checkOutTime = context.hotel().checkOutTime() != null
-                ? context.hotel().checkOutTime()
-                : LocalTime.NOON;
-
-        LocalDateTime expectedCheckInAt = LocalDateTime.of(booking.getCheckIn(), checkInTime);
-        LocalDateTime expectedCheckOutAt = LocalDateTime.of(booking.getCheckOut(), checkOutTime);
 
         PricingService.LateCheckoutQuote lateQuote = pricingService.lateCheckoutQuote(
                 booking, expectedCheckOutAt, Instant.now()
@@ -1219,13 +1228,30 @@ public class BookingService {
         );
     }
 
-    private void validateCheckInDate(Booking booking) {
-        LocalDate today = LocalDate.now(HOTEL_TIME_ZONE);
-        if (today.isBefore(booking.getCheckIn())) {
-            throw new IllegalStateException("Chưa đến ngày nhận phòng");
+    private void validateCheckInDate(
+            Booking booking,
+            HotelClient.HotelDetails hotel
+    ) {
+        LocalTime checkInTime = hotel.checkInTime() != null
+                ? hotel.checkInTime()
+                : LocalTime.of(14, 0);
+        LocalTime checkOutTime = hotel.checkOutTime() != null
+                ? hotel.checkOutTime()
+                : LocalTime.NOON;
+
+        LocalDateTime expectedCheckInAt = LocalDateTime.of(
+                booking.getCheckIn(), checkInTime
+        );
+        LocalDateTime expectedCheckOutAt = LocalDateTime.of(
+                booking.getCheckOut(), checkOutTime
+        );
+        LocalDateTime now = LocalDateTime.now(HOTEL_TIME_ZONE);
+
+        if (now.isBefore(expectedCheckInAt)) {
+            throw new IllegalStateException("Chưa đến thời gian nhận phòng");
         }
-        if (!today.isBefore(booking.getCheckOut())) {
-            throw new IllegalStateException("Đã qua thời gian nhận phòng của booking");
+        if (!now.isBefore(expectedCheckOutAt)) {
+            throw new IllegalStateException("Booking đã hết thời gian lưu trú");
         }
     }
 

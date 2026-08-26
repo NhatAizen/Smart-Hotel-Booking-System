@@ -1632,3 +1632,20 @@
     justify-items: start;
   }
 }
+/* Results page search header: tighter, aligned with the catalog container. */
+.customer-hotels-page .customer-search-hero {
+  min-height: 0;
+  align-items: center;
+  padding: 28px 0 24px;
+  background:
+    radial-gradient(circle at 84% 0%, rgba(73, 177, 237, .08), transparent 30%),
+    linear-gradient(180deg, #f7fbff 0%, #f4f8fc 100%);
+}
+
+.customer-hotels-page .customer-search-hero .container {
+  overflow: visible;
+}
+
+.customer-hotels-page .customer-results-container {
+  padding-top: 18px;
+}

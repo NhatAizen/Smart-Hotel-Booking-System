@@ -1,19 +1,12 @@
-FROM eclipse-temurin:17-jdk-alpine AS builder
+FROM maven:3.9.9-eclipse-temurin-17 AS builder
 
 WORKDIR /app
 
-COPY .mvn .mvn
-COPY mvnw .
-COPY mvnw.cmd .
 COPY pom.xml .
-
-RUN chmod +x mvnw
-RUN ./mvnw --batch-mode --no-transfer-progress dependency:go-offline
+RUN mvn --batch-mode --no-transfer-progress -DskipTests dependency:go-offline
 
 COPY src src
-
-RUN ./mvnw --batch-mode --no-transfer-progress clean package -DskipTests
-
+RUN mvn --batch-mode --no-transfer-progress clean package -DskipTests
 
 FROM eclipse-temurin:17-jre-alpine
 

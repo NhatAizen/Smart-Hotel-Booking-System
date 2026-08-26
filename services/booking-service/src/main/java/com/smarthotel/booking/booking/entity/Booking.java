@@ -390,6 +390,78 @@ public class Booking {
         this.updatedAt = Instant.now();
     }
 
+    /**
+     * Đổi phòng cho booking đã CONFIRMED nhưng chưa check-in.
+     * Giữ nguyên số tiền đã thanh toán; tính lại giá và số tiền còn lại theo phòng mới.
+     * Các ưu đãi đã áp dụng cho booking vẫn được giữ nguyên.
+     */
+    public void applyRoomChange(
+            UUID newRoomTypeId,
+            UUID newRoomId,
+            BigDecimal newBaseAccommodationAmount,
+            BigDecimal newWeekendSurchargeAmount,
+            BigDecimal newSpecialDateSurchargeAmount
+    ) {
+        ensureStatus(BookingStatus.CONFIRMED);
+
+        if (newRoomId == null || newRoomTypeId == null) {
+            throw new IllegalArgumentException("Phòng thay thế không hợp lệ");
+        }
+
+        if (newRoomId.equals(this.roomId)) {
+            throw new IllegalArgumentException("Phòng thay thế phải khác phòng hiện tại");
+        }
+
+        BigDecimal base = money(newBaseAccommodationAmount);
+        BigDecimal weekend = money(newWeekendSurchargeAmount);
+        BigDecimal special = money(newSpecialDateSurchargeAmount);
+
+        BigDecimal newGross = money(base.add(weekend).add(special));
+        BigDecimal discount = money(this.totalDiscountAmount);
+
+        if (discount.compareTo(newGross) > 0) {
+            throw new IllegalStateException(
+                    "Tổng ưu đãi hiện tại vượt quá giá phòng thay thế"
+            );
+        }
+
+        BigDecimal newTotal = money(
+                newGross
+                        .subtract(discount)
+                        .add(money(this.lateCheckoutFee))
+        );
+
+        BigDecimal alreadyPaid = money(this.paidAmount);
+
+        if (alreadyPaid.compareTo(newTotal) > 0) {
+            throw new IllegalStateException(
+                    "Phòng thay thế rẻ hơn số tiền khách đã thanh toán; cần xử lý hoàn tiền riêng"
+            );
+        }
+
+        this.roomTypeId = newRoomTypeId;
+        this.roomId = newRoomId;
+
+        this.baseAccommodationAmount = base;
+        this.weekendSurchargeAmount = weekend;
+        this.specialDateSurchargeAmount = special;
+        this.grossAmount = newGross;
+
+        this.totalPrice = newTotal;
+        this.remainingAmount = money(
+                newTotal.subtract(alreadyPaid).max(BigDecimal.ZERO)
+        );
+
+        if (this.remainingAmount.signum() == 0) {
+            this.paymentStatus = BookingPaymentStatus.PAID;
+        } else if (alreadyPaid.signum() > 0) {
+            this.paymentStatus = BookingPaymentStatus.PARTIALLY_PAID;
+        } else {
+            this.paymentStatus = BookingPaymentStatus.UNPAID;
+        }
+
+        this.updatedAt = Instant.now();
+    }
     public void assessLateCheckoutFee(BigDecimal fee, Instant assessedAt) {
         ensureStatus(BookingStatus.CHECKED_IN);
 

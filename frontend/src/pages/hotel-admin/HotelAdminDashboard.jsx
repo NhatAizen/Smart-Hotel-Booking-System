@@ -1,17 +1,15 @@
 import {
   ArrowDownToLine,
-  ArrowUpFromLine,
   BedDouble,
+  CalendarCheck2,
   CalendarDays,
   ChevronRight,
   CircleDollarSign,
   DoorOpen,
-  FileClock,
   Hotel,
-  QrCode,
   RefreshCw,
-  Sparkles,
-  Users,
+  TrendingDown,
+  TrendingUp,
   WalletCards,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -19,13 +17,7 @@ import { Link } from "react-router-dom";
 
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
-import {
-  EmptyState,
-  PageHeader,
-  Panel,
-  StatCard,
-  StatusBadge,
-} from "../../components/ui";
+import { EmptyState, StatusBadge } from "../../components/ui";
 import {
   getCurrentHotelStays,
   getHotelBookings,
@@ -46,7 +38,24 @@ import { normalizeEnum, STATUS_LABELS } from "../../utils/presentation";
 function money(value) {
   if (value === null || value === undefined || value === "") return "—";
   const amount = Number(value);
-  return Number.isFinite(amount) ? `${amount.toLocaleString("vi-VN")} ₫` : "—";
+  return Number.isFinite(amount) ? `${Math.round(amount).toLocaleString("vi-VN", { maximumFractionDigits: 0 })} ₫` : "—";
+}
+
+function compactMoney(value) {
+  const amount = Number(value ?? 0);
+  if (!Number.isFinite(amount)) return "0 ₫";
+  const absolute = Math.abs(amount);
+  const sign = amount < 0 ? "-" : "";
+  if (absolute >= 1_000_000_000) {
+    return `${sign}${(absolute / 1_000_000_000).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} tỷ`;
+  }
+  if (absolute >= 1_000_000) {
+    return `${sign}${(absolute / 1_000_000).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} tr`;
+  }
+  if (absolute >= 1_000) {
+    return `${sign}${Math.round(absolute / 1_000).toLocaleString("vi-VN")}k`;
+  }
+  return `${Math.round(amount).toLocaleString("vi-VN")} ₫`;
 }
 
 function localDateKey(value = new Date()) {
@@ -57,6 +66,18 @@ function localDateKey(value = new Date()) {
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getDate()).padStart(2, "0"),
   ].join("-");
+}
+
+function startOfDay(value = new Date()) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function addDays(value, amount) {
+  const date = new Date(value);
+  date.setDate(date.getDate() + amount);
+  return date;
 }
 
 function parseLocalDate(value) {
@@ -75,6 +96,13 @@ function formatDate(value) {
     month: "2-digit",
     year: "numeric",
   }).format(date);
+}
+
+function formatChartDay(value) {
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+  }).format(value);
 }
 
 function formatTodayLabel(value = new Date()) {
@@ -143,12 +171,14 @@ function revenueEvents(transactions) {
           rows.push({
             amount: Math.max(0, Number(item.amount ?? 0)),
             createdAt: item.createdAt,
+            hotelId: item.hotelId ?? item.hotel?.id ?? null,
           });
         }
       } else if (item.type === "REFUND_DEBIT") {
         rows.push({
           amount: Number(item.amount ?? 0),
           createdAt: item.createdAt,
+          hotelId: item.hotelId ?? item.hotel?.id ?? null,
         });
       }
     });
@@ -156,59 +186,206 @@ function revenueEvents(transactions) {
   return rows;
 }
 
-function RoomStatusDonut({ available, occupied, cleaning, maintenance, inactive }) {
-  const total = available + occupied + cleaning + maintenance + inactive;
-  const safeTotal = Math.max(total, 1);
-  const availablePercent = (available / safeTotal) * 100;
-  const cleaningPercent = (cleaning / safeTotal) * 100;
-  const maintenancePercent = (maintenance / safeTotal) * 100;
-  const occupiedPercent = (occupied / safeTotal) * 100;
-  const inactivePercent = (inactive / safeTotal) * 100;
+function selectHotelTransactions(transactions, hotelId) {
+  const withHotelIdentity = transactions.filter(
+    (item) => item?.hotelId || item?.hotel?.id,
+  );
+  if (withHotelIdentity.length === 0 || !hotelId) {
+    return { rows: transactions, accountLevel: true };
+  }
+  return {
+    rows: transactions.filter(
+      (item) => String(item?.hotelId ?? item?.hotel?.id ?? "") === String(hotelId),
+    ),
+    accountLevel: false,
+  };
+}
 
-  const a1 = availablePercent;
-  const a2 = a1 + cleaningPercent;
-  const a3 = a2 + maintenancePercent;
-  const a4 = a3 + occupiedPercent;
+function calculateTrend(current, previous) {
+  const currentValue = Number(current ?? 0);
+  const previousValue = Number(previous ?? 0);
+  if (!Number.isFinite(currentValue) || !Number.isFinite(previousValue)) return null;
+  if (previousValue === 0) return currentValue > 0 ? { value: 100, up: true } : null;
+  const percentage = ((currentValue - previousValue) / Math.abs(previousValue)) * 100;
+  return {
+    value: Math.abs(percentage),
+    up: percentage >= 0,
+  };
+}
 
-  const background = total === 0
-    ? "#edf3f4"
-    : `conic-gradient(
-        #58bf7a 0% ${a1}%,
-        #5b9cec ${a1}% ${a2}%,
-        #f5a735 ${a2}% ${a3}%,
-        #e85e58 ${a3}% ${a4}%,
-        #a0a9b3 ${a4}% 100%
-      )`;
+function buildRevenueSeries(events, today = new Date()) {
+  const end = startOfDay(today);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(end, index - 6);
+    const key = localDateKey(date);
+    const amount = events
+      .filter((event) => String(event.createdAt ?? "").slice(0, 10) === key)
+      .reduce((total, event) => total + Number(event.amount ?? 0), 0);
+    return {
+      key,
+      date,
+      label: formatChartDay(date),
+      amount,
+    };
+  });
+}
+
+function RevenueLineChart({ series }) {
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+  const width = 760;
+  const height = 260;
+  const padding = { left: 56, right: 18, top: 24, bottom: 42 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const values = series.map((item) => Number(item.amount ?? 0));
+  const minimum = Math.min(0, ...values);
+  const maximum = Math.max(0, ...values);
+  const spread = Math.max(maximum - minimum, 1);
+  const paddedMin = minimum < 0 ? minimum - spread * 0.08 : 0;
+  const paddedMax = maximum > 0 ? maximum + spread * 0.12 : 1;
+  const range = Math.max(paddedMax - paddedMin, 1);
+  const xFor = (index) => padding.left + (series.length <= 1 ? 0 : (index / (series.length - 1)) * chartWidth);
+  const yFor = (value) => padding.top + ((paddedMax - value) / range) * chartHeight;
+  const points = series.map((item, index) => ({
+    ...item,
+    x: xFor(index),
+    y: yFor(Number(item.amount ?? 0)),
+  }));
+  const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+  const baselineY = yFor(0);
+  const areaPath = points.length
+    ? `${linePath} L ${points[points.length - 1].x} ${baselineY} L ${points[0].x} ${baselineY} Z`
+    : "";
+  const gridValues = Array.from({ length: 5 }, (_, index) => paddedMax - (range * index) / 4);
+  const hovered = hoveredIndex === null ? null : points[hoveredIndex];
 
   return (
-    <div className="hotel-overview-room-state-body">
-      <div className="hotel-overview-donut" style={{ background }}>
-        <div className="hotel-overview-donut-center">
-          <strong>{total}</strong>
-          <span>Tổng số phòng</span>
+    <div className="ha-revenue-chart-shell">
+      <svg
+        className="ha-revenue-chart"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="Biểu đồ doanh thu 7 ngày gần nhất"
+      >
+        <defs>
+          <linearGradient id="haRevenueArea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1677ff" stopOpacity="0.24" />
+            <stop offset="100%" stopColor="#1677ff" stopOpacity="0.015" />
+          </linearGradient>
+        </defs>
+
+        {gridValues.map((value, index) => {
+          const y = padding.top + (index / 4) * chartHeight;
+          return (
+            <g key={`${value}-${index}`}>
+              <line
+                x1={padding.left}
+                x2={width - padding.right}
+                y1={y}
+                y2={y}
+                className="ha-revenue-grid-line"
+              />
+              <text x={padding.left - 10} y={y + 4} textAnchor="end" className="ha-revenue-axis-label">
+                {compactMoney(value)}
+              </text>
+            </g>
+          );
+        })}
+
+        <line
+          x1={padding.left}
+          x2={width - padding.right}
+          y1={baselineY}
+          y2={baselineY}
+          className="ha-revenue-zero-line"
+        />
+
+        {areaPath ? <path d={areaPath} fill="url(#haRevenueArea)" /> : null}
+        {linePath ? <path d={linePath} className="ha-revenue-line" /> : null}
+
+        {points.map((point, index) => (
+          <g
+            key={point.key}
+            className="ha-revenue-point-group"
+            onMouseEnter={() => setHoveredIndex(index)}
+            onMouseLeave={() => setHoveredIndex(null)}
+            tabIndex="0"
+            onFocus={() => setHoveredIndex(index)}
+            onBlur={() => setHoveredIndex(null)}
+          >
+            <circle cx={point.x} cy={point.y} r="11" className="ha-revenue-point-hit" />
+            <circle cx={point.x} cy={point.y} r="5" className="ha-revenue-point" />
+            <text x={point.x} y={height - 14} textAnchor="middle" className="ha-revenue-day-label">
+              {point.label}
+            </text>
+          </g>
+        ))}
+      </svg>
+
+      {hovered ? (
+        <div
+          className="ha-revenue-tooltip"
+          style={{
+            left: `${(hovered.x / width) * 100}%`,
+            top: `${Math.max(8, ((hovered.y - 18) / height) * 100)}%`,
+          }}
+        >
+          <span>{hovered.label}</span>
+          <strong>{money(hovered.amount)}</strong>
         </div>
-      </div>
-      <div className="hotel-overview-room-legend">
-        <div><span><i className="ready" />Phòng trống</span><strong>{available} ({Math.round(availablePercent)}%)</strong></div>
-        <div><span><i className="cleaning" />Cần dọn / đang dọn</span><strong>{cleaning} ({Math.round(cleaningPercent)}%)</strong></div>
-        <div><span><i className="maintenance" />Bảo trì</span><strong>{maintenance} ({Math.round(maintenancePercent)}%)</strong></div>
-        <div><span><i className="occupied" />Đang sử dụng</span><strong>{occupied} ({Math.round(occupiedPercent)}%)</strong></div>
-        <div><span><i className="inactive" />Ngừng hoạt động</span><strong>{inactive} ({Math.round(inactivePercent)}%)</strong></div>
-      </div>
+      ) : null}
     </div>
   );
 }
 
-function EventRow({ icon: Icon, tone, title, value, helper, detail }) {
+function RoomStatusDonut({ available, occupied, cleaning, maintenance, inactive }) {
+  const total = available + occupied + cleaning + maintenance + inactive;
+  const safeTotal = Math.max(total, 1);
+  const availablePercent = (available / safeTotal) * 100;
+  const occupiedPercent = (occupied / safeTotal) * 100;
+  const cleaningPercent = (cleaning / safeTotal) * 100;
+  const maintenancePercent = (maintenance / safeTotal) * 100;
+  const inactivePercent = (inactive / safeTotal) * 100;
+
+  const a1 = availablePercent;
+  const a2 = a1 + occupiedPercent;
+  const a3 = a2 + cleaningPercent;
+  const a4 = a3 + maintenancePercent;
+
+  const background = total === 0
+    ? "#edf3f4"
+    : `conic-gradient(
+        #4fc67a 0% ${a1}%,
+        #387ff2 ${a1}% ${a2}%,
+        #f4a033 ${a2}% ${a3}%,
+        #8c62d9 ${a3}% ${a4}%,
+        #ef5c5c ${a4}% 100%
+      )`;
+
+  const legend = [
+    ["ready", "Phòng trống", available, availablePercent],
+    ["occupied", "Đang ở", occupied, occupiedPercent],
+    ["cleaning", "Đang dọn", cleaning, cleaningPercent],
+    ["maintenance", "Bảo trì", maintenance, maintenancePercent],
+    ["inactive", "Ngừng hoạt động", inactive, inactivePercent],
+  ];
+
   return (
-    <div className="hotel-overview-today-row">
-      <div className={`hotel-overview-today-icon ${tone}`}><Icon size={21} /></div>
-      <div className="hotel-overview-today-copy">
-        <strong>{title}</strong>
-        {detail ? <span>{detail}</span> : null}
-        {!detail ? <span>{helper}</span> : null}
+    <div className="ha-room-chart-body">
+      <div className="ha-room-donut" style={{ background }}>
+        <div className="ha-room-donut-center">
+          <strong>{total}</strong>
+          <span>Tổng số phòng</span>
+        </div>
       </div>
-      <b>{value}</b>
+      <div className="ha-room-legend">
+        {legend.map(([tone, label, value, percent]) => (
+          <div key={tone}>
+            <span><i className={tone} />{label}</span>
+            <strong>{value} <small>({Math.round(percent)}%)</small></strong>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -217,6 +394,26 @@ function bookingStatusLabel(status) {
   const normalized = normalizeEnum(status);
   if (normalized === "PENDING") return "Chờ xử lý";
   return STATUS_LABELS[normalized] ?? "Chưa xác định";
+}
+
+function DashboardMetric({ icon: Icon, tone, label, value, helper, trend }) {
+  return (
+    <article className={`ha-dashboard-metric ${tone}`}>
+      <span className="ha-dashboard-metric-icon"><Icon size={22} /></span>
+      <div className="ha-dashboard-metric-copy">
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <small className={trend ? (trend.up ? "positive" : "negative") : "neutral"}>
+          {trend ? (
+            <>
+              {trend.up ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+              {trend.value.toLocaleString("vi-VN", { maximumFractionDigits: 1 })}% so với hôm qua
+            </>
+          ) : helper}
+        </small>
+      </div>
+    </article>
+  );
 }
 
 export default function HotelAdminDashboard() {
@@ -360,6 +557,7 @@ export default function HotelAdminDashboard() {
   );
 
   const today = useMemo(() => new Date(), []);
+  const yesterday = useMemo(() => addDays(today, -1), [today]);
 
   const roomTypeMap = useMemo(
     () => Object.fromEntries(roomTypes.map((type) => [String(type.id), type])),
@@ -388,9 +586,14 @@ export default function HotelAdminDashboard() {
     [bookings, today],
   );
 
-  const todayDepartures = useMemo(
-    () => bookings.filter((booking) => sameDay(booking.checkOut, today) && ["CHECKED_IN", "CHECKED_OUT"].includes(booking.status)),
+  const todayBookings = useMemo(
+    () => bookings.filter((booking) => sameDay(booking.createdAt, today)),
     [bookings, today],
+  );
+
+  const yesterdayBookings = useMemo(
+    () => bookings.filter((booking) => sameDay(booking.createdAt, yesterday)),
+    [bookings, yesterday],
   );
 
   const selectedHotelStays = useMemo(
@@ -413,22 +616,47 @@ export default function HotelAdminDashboard() {
     ? Math.round((roomStats.occupied / roomStats.total) * 100)
     : 0;
 
+  const selectedTransactionState = useMemo(
+    () => selectHotelTransactions(walletTransactions, selectedHotelId),
+    [walletTransactions, selectedHotelId],
+  );
+
+  const selectedRevenueEvents = useMemo(
+    () => revenueEvents(selectedTransactionState.rows),
+    [selectedTransactionState.rows],
+  );
+
   const revenue = useMemo(() => {
-    const events = revenueEvents(walletTransactions);
-    const sum = (predicate) => events
+    const sum = (predicate) => selectedRevenueEvents
       .filter((event) => predicate(event.createdAt))
       .reduce((total, event) => total + Number(event.amount ?? 0), 0);
 
     return {
       today: sum((value) => sameDay(value, today)),
+      yesterday: sum((value) => sameDay(value, yesterday)),
       month: sum((value) => sameMonth(value, today)),
     };
-  }, [walletTransactions, today]);
+  }, [selectedRevenueEvents, today, yesterday]);
+
+  const revenueSeries = useMemo(
+    () => buildRevenueSeries(selectedRevenueEvents, today),
+    [selectedRevenueEvents, today],
+  );
+
+  const revenueTrend = useMemo(
+    () => calculateTrend(revenue.today, revenue.yesterday),
+    [revenue.today, revenue.yesterday],
+  );
+
+  const bookingTrend = useMemo(
+    () => calculateTrend(todayBookings.length, yesterdayBookings.length),
+    [todayBookings.length, yesterdayBookings.length],
+  );
 
   const recentBookings = useMemo(
     () => [...bookings]
       .sort((a, b) => new Date(b.createdAt ?? b.checkIn ?? 0) - new Date(a.createdAt ?? a.checkIn ?? 0))
-      .slice(0, 6),
+      .slice(0, 5),
     [bookings],
   );
 
@@ -439,37 +667,13 @@ export default function HotelAdminDashboard() {
     return type?.name ? `${roomNumber} · ${type.name}` : String(roomNumber);
   }
 
-  function roomStatusDetail(status) {
-    const matchingRooms = rooms.filter((room) => room.status === status);
-    if (matchingRooms.length === 0) return null;
-    const visibleNumbers = matchingRooms
-      .map((room) => room.roomNumber)
-      .filter(Boolean)
-      .slice(0, 4);
-    if (visibleNumbers.length === 0) return `${matchingRooms.length} phòng cần xử lý`;
-    const remainingCount = matchingRooms.length - visibleNumbers.length;
-    return `Phòng ${visibleNumbers.join(", ")}${remainingCount > 0 ? ` và ${remainingCount} phòng khác` : ""}`;
-  }
-
-  function firstArrivalDetail() {
-    const booking = todayArrivals[0];
-    if (!booking) return null;
-    return `${guestName(booking)} · Phòng ${bookingRoomLabel(booking)}`;
-  }
-
-  function firstDepartureDetail() {
-    const booking = todayDepartures[0];
-    if (!booking) return null;
-    return `${guestName(booking)} · Phòng ${bookingRoomLabel(booking)}`;
-  }
-
   if (loading) {
     return <Loading message="Đang tải tổng quan khách sạn..." />;
   }
 
   if (hotels.length === 0) {
     return (
-      <main className="hotel-overview-dashboard">
+      <main className="hotel-overview-dashboard ha-dashboard-redesign">
         <EmptyState
           className="hotel-overview-empty"
           icon={<Hotel size={34} />}
@@ -489,18 +693,45 @@ export default function HotelAdminDashboard() {
     );
   }
 
+  const financialRows = [
+    {
+      label: "Số dư khả dụng",
+      value: sourceAvailable.wallet ? Number(wallet?.availableBalance ?? 0) : null,
+      tone: "blue",
+    },
+    {
+      label: "Doanh thu đang giữ",
+      value: sourceAvailable.wallet ? Number(wallet?.pendingBalance ?? 0) : null,
+      tone: "violet",
+    },
+    {
+      label: "Doanh thu tháng này",
+      value: sourceAvailable.transactions ? Number(revenue.month ?? 0) : null,
+      tone: "green",
+    },
+    {
+      label: "Hoàn tiền cần xử lý",
+      value: sourceAvailable.refunds ? pendingRefunds.length : null,
+      count: true,
+      tone: "orange",
+    },
+  ];
+  const financeScaleMax = Math.max(
+    ...financialRows.filter((row) => !row.count && row.value !== null).map((row) => Math.abs(row.value)),
+    1,
+  );
+
   return (
-    <main className="hotel-overview-dashboard">
-      <PageHeader
-        className="hotel-overview-heading"
-        eyebrow="Vận hành khách sạn"
-        title="Tổng quan hôm nay"
-        description={`Tình hình cần theo dõi tại ${selectedHotel?.name || "khách sạn đã chọn"}.`}
-        icon={<Hotel size={22} />}
-        actions={(
-          <div className="hotel-overview-heading-actions">
+    <main className="hotel-overview-dashboard ha-dashboard-redesign">
+      <section className="ha-dashboard-hero">
+        <div>
+          <span className="ha-dashboard-eyebrow">VẬN HÀNH KHÁCH SẠN</span>
+          <h1>Xin chào, {selectedHotel?.name || "Hotel Admin"}! <span aria-hidden="true">👋</span></h1>
+          <p>Đây là tổng quan hoạt động và doanh thu thực tế của khách sạn hôm nay.</p>
+        </div>
+        <div className="ha-dashboard-hero-actions">
           {hotels.length > 1 ? (
-            <label className="hotel-overview-hotel-select">
+            <label className="ha-dashboard-hotel-picker">
               <span>Khách sạn</span>
               <select value={selectedHotelId} onChange={(event) => void changeHotel(event)} disabled={refreshing}>
                 {hotels.map((hotel) => (
@@ -509,258 +740,204 @@ export default function HotelAdminDashboard() {
               </select>
             </label>
           ) : null}
-          <div className="hotel-overview-date-chip">
+          <div className="ha-dashboard-date-chip">
             <CalendarDays size={18} />
             <span>{formatTodayLabel(today)}</span>
           </div>
-          <button type="button" className="hotel-overview-refresh" onClick={() => void refreshAll()} disabled={refreshing}>
+          <button type="button" className="ha-dashboard-refresh" onClick={() => void refreshAll()} disabled={refreshing}>
             <RefreshCw size={17} className={refreshing ? "spin" : ""} />
-            Làm mới
+            Làm mới dữ liệu
           </button>
-          </div>
-        )}
-      />
+        </div>
+      </section>
 
       <ErrorMessage message={error} onRetry={() => void refreshAll()} />
 
-      <section className="hotel-overview-kpi-grid" aria-label="Chỉ số vận hành cốt lõi">
-        <StatCard
-          label="Khách đến hôm nay"
-          value={sourceAvailable.operations ? todayArrivals.length : "—"}
-          icon={<ArrowDownToLine size={22} />}
-          hint={sourceAvailable.operations
-            ? (todayArrivals.length ? `${todayArrivals.length} đơn cần nhận phòng` : "Không có khách đến")
-            : "Chưa thể tải dữ liệu"}
-          tone="success"
+      <section className="ha-dashboard-metrics" aria-label="Chỉ số tổng quan">
+        <DashboardMetric
+          icon={CircleDollarSign}
+          tone="blue"
+          label="Doanh thu hôm nay"
+          value={sourceAvailable.transactions ? money(revenue.today) : "—"}
+          helper={selectedTransactionState.accountLevel ? "Theo ví tài khoản đối tác" : "Theo khách sạn đang xem"}
+          trend={sourceAvailable.transactions ? revenueTrend : null}
         />
-        <StatCard
-          label="Khách trả hôm nay"
-          value={sourceAvailable.operations ? todayDepartures.length : "—"}
-          icon={<ArrowUpFromLine size={22} />}
-          hint={sourceAvailable.operations
-            ? (todayDepartures.length ? `${todayDepartures.length} đơn cần trả phòng` : "Không có khách trả")
-            : "Chưa thể tải dữ liệu"}
-          tone="info"
+        <DashboardMetric
+          icon={CalendarCheck2}
+          tone="green"
+          label="Đơn đặt phòng hôm nay"
+          value={sourceAvailable.operations ? todayBookings.length : "—"}
+          helper={sourceAvailable.operations ? `${bookings.length} booking trong khách sạn` : "Chưa thể tải dữ liệu"}
+          trend={sourceAvailable.operations ? bookingTrend : null}
         />
-        <StatCard
-          label="Khách đang lưu trú"
-          value={sourceAvailable.stays ? selectedHotelStays.length : "—"}
-          icon={<BedDouble size={22} />}
-          hint={sourceAvailable.stays
-            ? (selectedHotelStays.length ? "Khách/phòng đang ở" : "Hiện chưa có khách lưu trú")
-            : "Chưa thể tải dữ liệu"}
+        <DashboardMetric
+          icon={BedDouble}
           tone="violet"
+          label="Khách nhận phòng"
+          value={sourceAvailable.operations ? todayArrivals.length : "—"}
+          helper={sourceAvailable.stays ? `${selectedHotelStays.length} khách/phòng đang lưu trú` : "Dữ liệu lưu trú chưa sẵn sàng"}
         />
-        <StatCard
-          label="Phòng trống"
-          value={sourceAvailable.operations ? roomStats.available : "—"}
-          icon={<DoorOpen size={22} />}
-          hint={sourceAvailable.operations
-            ? `${roomStats.total} phòng trong hệ thống`
-            : "Chưa thể tải dữ liệu"}
-          tone="warning"
+        <DashboardMetric
+          icon={DoorOpen}
+          tone="orange"
+          label="Tỷ lệ lấp đầy"
+          value={sourceAvailable.operations ? `${occupancyRate}%` : "—"}
+          helper={sourceAvailable.operations ? `${roomStats.occupied}/${roomStats.total} phòng đang sử dụng` : "Chưa thể tải dữ liệu"}
         />
       </section>
 
-      <section className="hotel-overview-operations-grid">
-        <Panel
-          className="hotel-overview-operation-panel"
-          title="Việc cần làm"
-          description="Ưu tiên theo tình hình vận hành hiện tại"
-          icon={<CalendarDays size={20} />}
-          actions={<Link to="/hotel-admin/check-in" className="hotel-overview-muted-link">Mở quầy nhận phòng</Link>}
-        >
-          <div className="hotel-overview-today-list">
-            <EventRow
-              icon={ArrowDownToLine}
-              tone="teal"
-              title="Nhận phòng hôm nay"
-              value={sourceAvailable.operations ? todayArrivals.length : "—"}
-              helper={sourceAvailable.operations ? "Không có nhận phòng" : "Chưa thể tải dữ liệu"}
-              detail={sourceAvailable.operations ? firstArrivalDetail() : null}
-            />
-            <EventRow
-              icon={ArrowUpFromLine}
-              tone="blue"
-              title="Trả phòng hôm nay"
-              value={sourceAvailable.operations ? todayDepartures.length : "—"}
-              helper={sourceAvailable.operations ? "Không có trả phòng" : "Chưa thể tải dữ liệu"}
-              detail={sourceAvailable.operations ? firstDepartureDetail() : null}
-            />
-            <EventRow
-              icon={Sparkles}
-              tone="orange"
-              title="Phòng cần dọn"
-              value={sourceAvailable.operations ? roomStats.cleaning : "—"}
-              helper={sourceAvailable.operations ? "Không có phòng cần dọn" : "Chưa thể tải dữ liệu"}
-              detail={sourceAvailable.operations ? roomStatusDetail("CLEANING") : null}
-            />
-            <EventRow
-              icon={DoorOpen}
-              tone="orange"
-              title="Phòng bảo trì"
-              value={sourceAvailable.operations ? roomStats.maintenance : "—"}
-              helper={sourceAvailable.operations ? "Không có phòng bảo trì" : "Chưa thể tải dữ liệu"}
-              detail={sourceAvailable.operations ? roomStatusDetail("MAINTENANCE") : null}
-            />
-            <EventRow
-              icon={FileClock}
-              tone="blue"
-              title="Hoàn tiền cần xử lý · Toàn tài khoản"
-              value={sourceAvailable.refunds ? pendingRefunds.length : "—"}
-              helper={sourceAvailable.refunds ? "Không có yêu cầu chờ xử lý" : "Chưa thể tải dữ liệu"}
-              detail={sourceAvailable.refunds && pendingRefunds.length > 0
-                ? `${pendingRefunds.length} yêu cầu cần xem xét`
-                : null}
-            />
-          </div>
-        </Panel>
-
-        <Panel
-          className="hotel-overview-operation-panel hotel-overview-room-panel"
-          title="Trạng thái phòng"
-          description={sourceAvailable.operations
-            ? `${roomStats.occupied} / ${roomStats.total} phòng đang sử dụng`
-            : "Chưa thể tải dữ liệu phòng"}
-          icon={<DoorOpen size={20} />}
-          actions={sourceAvailable.operations ? (
-            <StatusBadge
-              status="OCCUPIED"
-              label={`${occupancyRate}% lấp đầy`}
-              tone="info"
-              size="sm"
-            />
-          ) : null}
-        >
-          {sourceAvailable.operations ? (
+      <section className="ha-dashboard-analytics-grid">
+        <article className="ha-dashboard-panel ha-dashboard-revenue-panel">
+          <header className="ha-dashboard-panel-header">
+            <div>
+              <div className="ha-dashboard-panel-title-row">
+                <h2>Doanh thu</h2>
+                <span className="ha-dashboard-info" title="Doanh thu được tổng hợp từ giao dịch ví thực tế.">i</span>
+              </div>
+              <p>{selectedTransactionState.accountLevel
+                ? "Doanh thu thuần 7 ngày gần nhất của tài khoản đối tác"
+                : "Doanh thu thuần 7 ngày gần nhất của khách sạn đang xem"}</p>
+            </div>
+            <div className="ha-dashboard-period">7 ngày qua</div>
+          </header>
+          {sourceAvailable.transactions ? (
             <>
-              <RoomStatusDonut
-                available={roomStats.available}
-                occupied={roomStats.occupied}
-                cleaning={roomStats.cleaning}
-                maintenance={roomStats.maintenance}
-                inactive={roomStats.inactive}
-              />
-              <Link to="/hotel-admin/rooms" className="hotel-overview-outline-link">
-                <DoorOpen size={17} />
-                Xem chi tiết phòng
-                <ChevronRight size={17} />
-              </Link>
+              <div className="ha-dashboard-chart-legend">
+                <span><i />Doanh thu thuần</span>
+                <strong>{money(revenueSeries.reduce((sum, item) => sum + item.amount, 0))}</strong>
+              </div>
+              <RevenueLineChart series={revenueSeries} />
             </>
           ) : (
-            <EmptyState
-              icon={<DoorOpen size={28} />}
-              title="Chưa thể hiển thị trạng thái phòng"
-              description="Hãy thử làm mới khi kết nối ổn định."
-              compact
-            />
+            <div className="ha-dashboard-inline-empty">Chưa thể tải dữ liệu doanh thu.</div>
           )}
-        </Panel>
+        </article>
+
+        <article className="ha-dashboard-panel ha-dashboard-room-panel">
+          <header className="ha-dashboard-panel-header">
+            <div>
+              <div className="ha-dashboard-panel-title-row">
+                <h2>Tình trạng phòng</h2>
+                <span className="ha-dashboard-info" title="Tỷ lệ dựa trên trạng thái phòng thực tế.">i</span>
+              </div>
+              <p>Cập nhật theo trạng thái phòng hiện tại</p>
+            </div>
+            <Link to="/hotel-admin/rooms" className="ha-dashboard-text-link">Xem chi tiết</Link>
+          </header>
+          {sourceAvailable.operations ? (
+            <RoomStatusDonut
+              available={roomStats.available}
+              occupied={roomStats.occupied}
+              cleaning={roomStats.cleaning}
+              maintenance={roomStats.maintenance}
+              inactive={roomStats.inactive}
+            />
+          ) : (
+            <div className="ha-dashboard-inline-empty">Chưa thể tải dữ liệu phòng.</div>
+          )}
+        </article>
       </section>
 
-      <section className="hotel-overview-bottom-grid">
-        <Panel
-          className="hotel-overview-bookings-panel"
-          title="Đơn đặt phòng gần đây"
-          description={sourceAvailable.operations
-            ? `${bookings.length} đơn của khách sạn đang xem`
-            : "Chưa thể tải dữ liệu đơn đặt phòng"}
-          icon={<BedDouble size={20} />}
-          actions={<Link to="/hotel-admin/check-in" className="hotel-overview-muted-link">Mở quầy nhận phòng</Link>}
-          padding="none"
-        >
-          <div className="hotel-overview-table-wrap">
-            <table className="hotel-overview-booking-table">
+      <section className="ha-dashboard-bottom-grid">
+        <article className="ha-dashboard-panel ha-dashboard-bookings-panel">
+          <header className="ha-dashboard-panel-header">
+            <div>
+              <h2>Đơn đặt phòng mới nhất</h2>
+              <p>{sourceAvailable.operations ? `${bookings.length} đơn của ${selectedHotel?.name}` : "Chưa thể tải dữ liệu booking"}</p>
+            </div>
+            <Link to="/hotel-admin/bookings" className="ha-dashboard-text-link">
+              Xem tất cả đơn đặt phòng <ChevronRight size={16} />
+            </Link>
+          </header>
+          <div className="ha-dashboard-table-wrap">
+            <table className="ha-dashboard-booking-table">
               <thead>
                 <tr>
+                  <th>Mã booking</th>
                   <th>Khách hàng</th>
-                  <th>Mã đặt phòng</th>
                   <th>Phòng</th>
                   <th>Nhận phòng</th>
                   <th>Trả phòng</th>
-                  <th>Trạng thái</th>
                   <th>Tổng tiền</th>
+                  <th>Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
                 {!sourceAvailable.operations || recentBookings.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="hotel-overview-table-empty">
-                      {sourceAvailable.operations
-                        ? "Chưa có đơn đặt phòng để hiển thị."
-                        : "Chưa thể tải dữ liệu đơn đặt phòng."}
+                    <td colSpan="7" className="ha-dashboard-table-empty">
+                      {sourceAvailable.operations ? "Chưa có đơn đặt phòng để hiển thị." : "Chưa thể tải dữ liệu đơn đặt phòng."}
                     </td>
                   </tr>
-                ) : (
-                  recentBookings.map((booking) => (
-                    <tr key={booking.id}>
-                      <td data-label="Khách hàng"><strong>{guestName(booking)}</strong></td>
-                      <td data-label="Mã đặt phòng"><span className="booking-code">{booking.bookingCode ?? "Chưa có mã"}</span></td>
-                      <td data-label="Phòng">{bookingRoomLabel(booking)}</td>
-                      <td data-label="Nhận phòng">{formatDate(booking.checkIn)}</td>
-                      <td data-label="Trả phòng">{formatDate(booking.checkOut)}</td>
-                      <td data-label="Trạng thái">
-                        <StatusBadge
-                          className="hotel-overview-booking-status"
-                          status={booking.status}
-                          label={bookingStatusLabel(booking.status)}
-                          size="sm"
-                        />
-                      </td>
-                      <td data-label="Tổng tiền"><strong>{money(booking.totalPrice)}</strong></td>
-                    </tr>
-                  ))
-                )}
+                ) : recentBookings.map((booking) => (
+                  <tr key={booking.id}>
+                    <td><span className="ha-dashboard-booking-code">{booking.bookingCode ?? "Chưa có mã"}</span></td>
+                    <td><strong>{guestName(booking)}</strong></td>
+                    <td>{bookingRoomLabel(booking)}</td>
+                    <td>{formatDate(booking.checkIn)}</td>
+                    <td>{formatDate(booking.checkOut)}</td>
+                    <td><strong>{money(booking.totalPrice)}</strong></td>
+                    <td>
+                      <StatusBadge
+                        status={booking.status}
+                        label={bookingStatusLabel(booking.status)}
+                        size="sm"
+                      />
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        </Panel>
+        </article>
 
-        <aside className="hotel-overview-side-stack">
-          <Panel
-            className="hotel-overview-finance-panel"
-            title="Tài chính tài khoản đối tác"
-            description="Tổng hợp toàn bộ khách sạn thuộc tài khoản"
-            icon={<WalletCards size={20} />}
-          >
-            <div className="hotel-overview-finance-list">
-              <div>
-                <span className="finance-icon teal"><CircleDollarSign size={18} /></span>
-                <div><small>Doanh thu hôm nay</small><strong>{sourceAvailable.transactions ? money(revenue.today) : "—"}</strong></div>
+        <article className="ha-dashboard-panel ha-dashboard-finance-panel">
+          <header className="ha-dashboard-panel-header">
+            <div>
+              <div className="ha-dashboard-panel-title-row">
+                <h2>Tổng quan tài chính</h2>
+                <span className="ha-dashboard-info" title="Số liệu thực tế từ ví đối tác và yêu cầu hoàn tiền.">i</span>
               </div>
-              <div>
-                <span className="finance-icon blue"><CircleDollarSign size={18} /></span>
-                <div><small>Doanh thu tháng này</small><strong>{sourceAvailable.transactions ? money(revenue.month) : "—"}</strong></div>
-              </div>
-              <div>
-                <span className="finance-icon orange"><WalletCards size={18} /></span>
-                <div><small>Số dư khả dụng</small><strong>{sourceAvailable.wallet ? money(wallet?.availableBalance) : "—"}</strong></div>
-              </div>
+              <p>Ví, doanh thu và khoản cần xử lý</p>
             </div>
-          </Panel>
-        </aside>
+            <Link to="/hotel-admin/wallet" className="ha-dashboard-period">Ví & rút tiền</Link>
+          </header>
+
+          <div className="ha-dashboard-finance-rows">
+            {financialRows.map((row) => {
+              const width = row.count || row.value === null
+                ? 0
+                : Math.max(5, Math.min(100, (Math.abs(row.value) / financeScaleMax) * 100));
+              return (
+                <div className="ha-dashboard-finance-row" key={row.label}>
+                  <div className={`ha-dashboard-finance-icon ${row.tone}`}>
+                    {row.count ? <ArrowDownToLine size={17} /> : <WalletCards size={17} />}
+                  </div>
+                  <div className="ha-dashboard-finance-copy">
+                    <div>
+                      <span>{row.label}</span>
+                      <strong>{row.value === null ? "—" : (row.count ? `${row.value} yêu cầu` : money(row.value))}</strong>
+                    </div>
+                    {!row.count ? (
+                      <div className="ha-dashboard-finance-track">
+                        <i className={row.tone} style={{ width: `${width}%` }} />
+                      </div>
+                    ) : (
+                      <small>{row.value > 0 ? "Cần xem xét trên trang ví" : "Không có yêu cầu tồn đọng"}</small>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <Link to="/hotel-admin/wallet" className="ha-dashboard-finance-total">
+            <span>Số dư khả dụng</span>
+            <strong>{sourceAvailable.wallet ? money(wallet?.availableBalance) : "—"}</strong>
+            <ChevronRight size={18} />
+          </Link>
+        </article>
       </section>
-
-      <section className="hotel-overview-quick-grid">
-        <Link to="/hotel-admin/check-in" className="hotel-overview-quick-card">
-          <span className="teal"><QrCode size={23} /></span>
-          <div><strong>Nhận phòng QR</strong><small>Quét mã và check-in khách nhanh chóng</small></div>
-          <ChevronRight size={20} />
-        </Link>
-
-        <Link to="/hotel-admin/current-stays" className="hotel-overview-quick-card">
-          <span className="blue"><Users size={23} /></span>
-          <div><strong>Khách đang lưu trú</strong><small>Xem danh sách khách hiện đang lưu trú</small></div>
-          <ChevronRight size={20} />
-        </Link>
-
-        <Link to="/hotel-admin/wallet" className="hotel-overview-quick-card">
-          <span className="teal"><WalletCards size={23} /></span>
-          <div><strong>Ví & rút tiền</strong><small>Quản lý số dư và rút tiền về tài khoản</small></div>
-          <ChevronRight size={20} />
-        </Link>
-      </section>
-
     </main>
   );
 }

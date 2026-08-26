@@ -173,7 +173,7 @@ public class WalletService {
     @Transactional
     public void ensureCustomerBalance(UUID customerId, BigDecimal amount) {
         Wallet wallet = getOrCreateForUpdate(WalletOwnerType.CUSTOMER, customerId);
-        if (wallet.getAvailableBalance().compareTo(amount.setScale(2, RoundingMode.HALF_UP)) < 0) {
+        if (wallet.getAvailableBalance().compareTo(amount.setScale(0, RoundingMode.HALF_UP)) < 0) {
             throw new IllegalStateException("Số dư Ví Enziu không đủ để thanh toán");
         }
     }
@@ -411,7 +411,7 @@ public class WalletService {
             }
         }
 
-        BigDecimal amount = request.amount().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal amount = request.amount().setScale(0, RoundingMode.HALF_UP);
         wallet.holdForWithdrawal(amount);
         WithdrawalRequest withdrawal = withdrawalRepository.save(new WithdrawalRequest(
                 wallet.getId(), ownerId, ownerType, amount, request.bankName(), request.bankBin(),
@@ -472,7 +472,7 @@ public class WalletService {
             ));
         }
 
-        BigDecimal amount = requestedAmount.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal amount = requestedAmount.setScale(0, RoundingMode.HALF_UP);
         wallet.holdForWithdrawal(amount);
         WithdrawalRequest withdrawal = withdrawalRepository.save(new WithdrawalRequest(
                 wallet.getId(), ownerId, WalletOwnerType.HOTEL_ADMIN, amount, method,
@@ -726,7 +726,7 @@ public class WalletService {
     }
 
     private WalletResponse emptyWallet(UUID ownerId, WalletOwnerType ownerType) {
-        BigDecimal zero = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal zero = BigDecimal.ZERO.setScale(0, RoundingMode.HALF_UP);
         return new WalletResponse(
                 null, ownerType, ownerId,
                 zero, zero, zero, zero, zero, zero,

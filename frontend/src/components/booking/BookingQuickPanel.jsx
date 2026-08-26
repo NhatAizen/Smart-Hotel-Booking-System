@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getMyBookings } from "../../services/bookingService";
 
 function money(value) {
-  return `${Number(value ?? 0).toLocaleString("vi-VN")} ₫`;
+  return `${Math.round(Number(value ?? 0)).toLocaleString("vi-VN", { maximumFractionDigits: 0 })} ₫`;
 }
 
 function statusLabel(value) {

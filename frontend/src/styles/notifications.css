@@ -1,134 +1,214 @@
 /* Extracted from legacy global.css: lines 6313-6781.
    Keep import order in styles/index.css to preserve cascade. */
 
-/* ===== NOTIFICATION CENTER V2 ===== */
-.notification-bell-root {
-  position: relative;
-}
-
-.notification-bell-button {
-  position: relative;
-}
-
+/* ===== NOTIFICATION CENTER V3 ===== */
+.notification-bell-root { position: relative; }
+.notification-bell-button { position: relative; }
 .notification-badge {
   position: absolute;
-  top: -5px;
-  right: -5px;
+  top: -6px;
+  right: -6px;
   display: grid;
-  min-width: 18px;
-  height: 18px;
+  min-width: 20px;
+  height: 20px;
   place-items: center;
   padding: 0 5px;
   border: 2px solid #fff;
   border-radius: 999px;
-  background: #e5484d;
+  background: #ef4444;
   color: #fff;
-  font-size: 9px;
+  box-shadow: 0 3px 8px rgba(239, 68, 68, .24);
+  font-size: 10px;
   font-weight: 900;
   line-height: 1;
 }
 
 .notification-popover {
   position: absolute;
-  z-index: 1000;
-  top: calc(100% + 12px);
-  right: 0;
-  width: min(420px, calc(100vw - 28px));
-  overflow: hidden;
-  border: 1px solid #dfe7ee;
-  border-radius: 18px;
+  z-index: 1300;
+  top: calc(100% + 17px);
+  right: -42px;
+  width: min(620px, calc(100vw - 32px));
+  overflow: visible;
+  border: 1px solid #d8e4ef;
+  border-radius: 24px;
   background: #fff;
-  box-shadow: 0 22px 55px rgba(16, 42, 67, .18);
+  box-shadow: 0 28px 70px rgba(18, 52, 77, .19);
 }
-
 .notification-popover::before {
   position: absolute;
-  top: -7px;
-  right: 20px;
-  width: 14px;
-  height: 14px;
+  z-index: 1;
+  top: -9px;
+  right: 57px;
+  width: 18px;
+  height: 18px;
   transform: rotate(45deg);
-  border-top: 1px solid #dfe7ee;
-  border-left: 1px solid #dfe7ee;
+  border-top: 1px solid #d8e4ef;
+  border-left: 1px solid #d8e4ef;
+  border-radius: 3px 0 0;
   background: #fff;
   content: "";
 }
 
-.notification-popover > header {
+.notification-popover-header {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 18px;
-  border-bottom: 1px solid #edf1f4;
+  gap: 18px;
+  padding: 28px 30px 23px;
+  border-bottom: 1px solid #e7edf3;
+  border-radius: 24px 24px 0 0;
+  background: #fff;
 }
-
-.notification-popover > header > div {
-  display: grid;
-  gap: 2px;
-}
-
-.notification-popover > header strong {
-  color: #12324a;
-  font-size: 15px;
-}
-
-.notification-popover > header span {
-  color: #8b9aa8;
-  font-size: 10px;
-}
-
-.notification-popover > header button {
-  display: inline-flex;
+.notification-popover-heading {
+  display: flex;
+  min-width: 0;
   align-items: center;
-  gap: 5px;
+  gap: 17px;
+}
+.notification-popover-heading-icon {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  flex: 0 0 68px;
+  place-items: center;
+  border-radius: 22px;
+  background: #edf6ff;
+  color: #087de1;
+}
+.notification-popover-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.notification-popover-heading strong {
+  color: #102a43;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -.025em;
+  line-height: 1.1;
+}
+.notification-popover-heading span {
+  color: #8598aa;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.notification-mark-all {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 2px;
   border: 0;
   background: transparent;
-  color: #1478bd;
-  font-size: 10px;
-  font-weight: 800;
+  color: #087de1;
+  font-size: 13px;
+  font-weight: 850;
+  white-space: nowrap;
   cursor: pointer;
+}
+.notification-mark-all:hover:not(:disabled) { color: #0066c7; }
+.notification-mark-all:disabled { color: #a9b9c7; cursor: default; }
+
+.notification-popover-filters {
+  display: flex;
+  gap: 10px;
+  padding: 19px 24px 18px;
+  overflow-x: auto;
+  border-bottom: 1px solid #edf2f6;
+  background: #fff;
+  scrollbar-width: none;
+}
+.notification-popover-filters::-webkit-scrollbar { display: none; }
+.notification-popover-filters button {
+  display: inline-flex;
+  min-height: 43px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px solid #dce6ef;
+  border-radius: 12px;
+  background: #fff;
+  color: #415b72;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease;
+}
+.notification-popover-filters button:hover {
+  border-color: #bcdcff;
+  background: #f8fbff;
+  color: #0a76d5;
+}
+.notification-popover-filters button.active {
+  border-color: #94c9ff;
+  background: #f5faff;
+  color: #087de1;
+  box-shadow: inset 0 0 0 1px rgba(8, 125, 225, .04);
+}
+.notification-filter-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #087de1;
+  box-shadow: 0 0 0 4px #edf6ff;
 }
 
 .notification-popover-list {
-  max-height: 390px;
+  max-height: min(540px, calc(100vh - 285px));
   overflow-y: auto;
+  padding: 0 14px 10px 24px;
+  background: #fff;
+  scrollbar-color: #8b8f94 transparent;
+  scrollbar-width: thin;
 }
+.notification-popover-list::-webkit-scrollbar { width: 7px; }
+.notification-popover-list::-webkit-scrollbar-track { background: transparent; }
+.notification-popover-list::-webkit-scrollbar-thumb { border-radius: 999px; background: #8b8f94; }
+.notification-popover-card-list { padding-top: 6px; }
 
 .notification-preview-item {
+  position: relative;
   display: grid;
   width: 100%;
-  grid-template-columns: auto 1fr auto;
-  gap: 11px;
-  padding: 14px 16px;
-  border: 0;
-  border-bottom: 1px solid #eef2f5;
+  min-height: 142px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 17px;
+  margin: 0 0 10px;
+  padding: 22px 20px;
+  border: 1px solid #e0e8ef;
+  border-radius: 16px;
   background: #fff;
+  color: inherit;
   text-align: left;
   cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease, background .18s ease;
 }
-
-.notification-preview-item:hover,
-.notification-preview-item.unread {
-  background: #f8fbfe;
+.notification-preview-item:hover {
+  transform: translateY(-1px);
+  border-color: #c7dff4;
+  background: #fbfdff;
+  box-shadow: 0 8px 22px rgba(25, 74, 116, .07);
 }
+.notification-preview-item.unread { background: #fff; }
 
 .notification-preview-icon,
 .notification-center-icon {
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 16px;
   background: #eef4f7;
   color: #526c80;
 }
-
-.notification-preview-icon {
-  width: 38px;
-  height: 38px;
-}
-
+.notification-preview-icon { width: 64px; height: 64px; }
 .notification-preview-icon.booking,
-.notification-center-icon.booking { background: #eaf4ff; color: #2174bd; }
+.notification-center-icon.booking { background: #eaf4ff; color: #157bd1; }
 .notification-preview-icon.payment,
 .notification-center-icon.payment { background: #eaf9f2; color: #168259; }
 .notification-preview-icon.hotel,
@@ -141,64 +221,125 @@
 .notification-center-icon.finance { background: #eef9f4; color: #187d5d; }
 .notification-preview-icon.review,
 .notification-center-icon.review { background: #fff0f4; color: #bd4b72; }
+.notification-preview-icon.promotion,
+.notification-center-icon.promotion { background: #eaf9ef; color: #16a461; }
+.notification-preview-icon.warning,
+.notification-center-icon.warning { background: #fff3e8; color: #f07818; }
+.notification-preview-icon.system,
+.notification-center-icon.system { background: #eef6ff; color: #1976c9; }
 
 .notification-preview-copy {
   display: grid;
   min-width: 0;
-  gap: 3px;
+  gap: 6px;
+  padding-top: 2px;
 }
-
 .notification-preview-copy strong {
   overflow: hidden;
-  color: #17344c;
-  font-size: 11px;
+  color: #102a43;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .notification-preview-copy small {
   display: -webkit-box;
   overflow: hidden;
-  color: #6f8293;
-  font-size: 10px;
-  line-height: 1.45;
+  color: #647c91;
+  font-size: 13px;
+  line-height: 1.65;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
-
 .notification-preview-copy em {
-  color: #9aa7b2;
-  font-size: 9px;
+  margin-top: 3px;
+  color: #93a6b8;
+  font-size: 12px;
   font-style: normal;
+  line-height: 1.3;
 }
-
 .notification-preview-item > i {
-  width: 7px;
-  height: 7px;
-  margin-top: 7px;
+  width: 10px;
+  height: 10px;
+  margin-top: 8px;
   border-radius: 50%;
-  background: #1988d0;
+  background: #087de1;
+  box-shadow: 0 0 0 3px #edf6ff;
 }
+.notification-read-check { margin-top: 4px; color: #1aaf67; }
 
 .notification-popover-empty {
   display: grid;
-  min-height: 170px;
+  min-height: 260px;
   place-items: center;
   align-content: center;
   gap: 8px;
-  color: #94a4b1;
-  font-size: 11px;
+  color: #8ba0b3;
+  text-align: center;
 }
+.notification-popover-empty svg { color: #3c8fd4; }
+.notification-popover-empty strong { color: #29465c; font-size: 14px; }
+.notification-popover-empty span { font-size: 12px; }
 
 .notification-popover-footer {
-  display: block;
-  padding: 13px 16px;
-  background: #fbfdfe;
-  color: #1678b9;
-  font-size: 11px;
-  font-weight: 800;
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 14px 20px;
+  border-top: 1px solid #e7edf3;
+  border-radius: 0 0 24px 24px;
+  background: #fff;
+  color: #087de1;
+  font-size: 13px;
+  font-weight: 850;
   text-align: center;
   text-decoration: none;
+  transition: background .18s ease, color .18s ease;
+}
+.notification-popover-footer:hover { background: #f8fbff; color: #0068c8; }
+.notification-popover-footer > span:last-child { font-size: 23px; font-weight: 500; line-height: 1; }
+
+@media (max-width: 760px) {
+  .notification-popover {
+    position: fixed;
+    top: 72px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(100dvh - 84px);
+    border-radius: 20px;
+  }
+  .notification-popover::before { display: none; }
+  .notification-popover-header { padding: 20px 18px 17px; }
+  .notification-popover-heading-icon {
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+    border-radius: 16px;
+  }
+  .notification-popover-heading strong { font-size: 21px; }
+  .notification-mark-all span { display: none; }
+  .notification-popover-filters { padding: 14px 16px; }
+  .notification-popover-list {
+    max-height: calc(100dvh - 300px);
+    padding-right: 10px;
+    padding-left: 16px;
+  }
+  .notification-preview-item {
+    min-height: 118px;
+    gap: 12px;
+    padding: 17px 14px;
+  }
+  .notification-preview-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 14px;
+  }
+  .notification-preview-copy strong { font-size: 14px; }
+  .notification-preview-copy small { font-size: 12px; }
 }
 
 .notification-center {
@@ -470,3 +611,153 @@
   font-size: 11px;
 }
 
+
+/* ===== NOTIFICATION POPOVER COMPACT DESKTOP ===== */
+@media (min-width: 761px) {
+  .notification-popover {
+    right: -30px;
+    width: min(510px, calc(100vw - 28px));
+    border-radius: 20px;
+    box-shadow: 0 22px 55px rgba(18, 52, 77, .17);
+  }
+
+  .notification-popover::before {
+    right: 45px;
+    width: 16px;
+    height: 16px;
+  }
+
+  .notification-popover-header {
+    gap: 12px;
+    padding: 18px 20px 16px;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .notification-popover-heading {
+    gap: 12px;
+  }
+
+  .notification-popover-heading-icon {
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    border-radius: 15px;
+  }
+
+  .notification-popover-heading-icon svg {
+    width: 23px;
+    height: 23px;
+  }
+
+  .notification-popover-heading strong {
+    font-size: 21px;
+  }
+
+  .notification-popover-heading span {
+    font-size: 12px;
+  }
+
+  .notification-mark-all {
+    min-height: 34px;
+    gap: 5px;
+    font-size: 12px;
+  }
+
+  .notification-mark-all svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .notification-popover-filters {
+    gap: 7px;
+    padding: 12px 16px;
+  }
+
+  .notification-popover-filters button {
+    min-height: 36px;
+    gap: 6px;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-size: 11px;
+  }
+
+  .notification-popover-filters button svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .notification-filter-dot {
+    width: 8px;
+    height: 8px;
+    box-shadow: 0 0 0 3px #edf6ff;
+  }
+
+  .notification-popover-list {
+    max-height: min(420px, calc(100vh - 255px));
+    padding: 0 10px 7px 16px;
+  }
+
+  .notification-popover-card-list {
+    padding-top: 5px;
+  }
+
+  .notification-preview-item {
+    min-height: 100px;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    gap: 12px;
+    margin-bottom: 8px;
+    padding: 14px 14px;
+    border-radius: 14px;
+  }
+
+  .notification-preview-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 13px;
+  }
+
+  .notification-preview-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .notification-preview-copy {
+    gap: 4px;
+    padding-top: 0;
+  }
+
+  .notification-preview-copy strong {
+    font-size: 14px;
+    line-height: 1.2;
+  }
+
+  .notification-preview-copy small {
+    font-size: 12px;
+    line-height: 1.45;
+    -webkit-line-clamp: 2;
+  }
+
+  .notification-preview-copy em {
+    margin-top: 1px;
+    font-size: 11px;
+  }
+
+  .notification-preview-item > i {
+    width: 8px;
+    height: 8px;
+    margin-top: 5px;
+    box-shadow: 0 0 0 2px #edf6ff;
+  }
+
+  .notification-popover-footer {
+    min-height: 52px;
+    gap: 7px;
+    padding: 10px 16px;
+    border-radius: 0 0 20px 20px;
+    font-size: 12px;
+  }
+
+  .notification-popover-footer > span:last-child {
+    font-size: 18px;
+  }
+}

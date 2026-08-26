@@ -157,9 +157,18 @@ export default function HotelsPage() {
         checkOut:
           searchParams.get("checkOut")
           ?? tomorrow(1),
+        adults: Number(
+          searchParams.get("adults")
+          ?? searchParams.get("guests")
+          ?? 2,
+        ),
+        children: Number(
+          searchParams.get("children")
+          ?? 0,
+        ),
         guests: Number(
           searchParams.get("guests")
-          ?? 2,
+          ?? ((Number(searchParams.get("adults") ?? 2)) + (Number(searchParams.get("children") ?? 0))),
         ),
         rooms: Number(
           searchParams.get("rooms")
@@ -486,7 +495,13 @@ export default function HotelsPage() {
         checkOut:
           searchValues.checkOut,
         guests: String(
-          searchValues.guests,
+          searchValues.adults + searchValues.children,
+        ),
+        adults: String(
+          searchValues.adults,
+        ),
+        children: String(
+          searchValues.children,
         ),
         rooms: String(
           searchValues.rooms,

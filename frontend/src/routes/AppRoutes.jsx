@@ -59,6 +59,7 @@ const PlatformWalletPage = lazy(() => import("../pages/admin/PlatformWalletPage"
 const SystemNotificationsPage = lazy(() => import("../pages/admin/SystemNotificationsPage"));
 const MarketingPage = lazy(() => import("../pages/admin/MarketingPage"));
 const AdminReviewsPage = lazy(() => import("../pages/admin/AdminReviewsPage"));
+const AdminBookingsPage = lazy(() => import("../pages/admin/AdminBookingsPage"));
 
 const HotelAdminDashboard = lazy(() => import("../pages/hotel-admin/HotelAdminDashboard"));
 const MyHotelsPage = lazy(() => import("../pages/hotel-admin/MyHotelsPage"));
@@ -73,6 +74,7 @@ const HotelAdminProfilePage = lazy(() => import("../pages/hotel-admin/HotelAdmin
 const PromotionsPage = lazy(() => import("../pages/hotel-admin/PromotionsPage"));
 const HotelMessagesPage = lazy(() => import("../pages/hotel-admin/HotelMessagesPage"));
 const HotelReviewsPage = lazy(() => import("../pages/hotel-admin/HotelReviewsPage"));
+const HotelBookingsPage = lazy(() => import("../pages/hotel-admin/HotelBookingsPage"));
 
 function RouteFallback() {
   return (
@@ -142,6 +144,7 @@ export default function AppRoutes() {
                   <Route path="/hotel-admin/wallet" element={<HotelWalletPage />} />
                   <Route path="/hotel-admin/check-in" element={<CheckInPage />} />
                   <Route path="/hotel-admin/current-stays" element={<CurrentStaysPage />} />
+                  <Route path="/hotel-admin/bookings" element={<HotelBookingsPage />} />
                   <Route path="/hotel-admin/promotions" element={<PromotionsPage />} />
                   <Route path="/hotel-admin/messages" element={<HotelMessagesPage />} />
                   <Route path="/hotel-admin/reviews" element={<HotelReviewsPage />} />
@@ -159,6 +162,7 @@ export default function AppRoutes() {
                   <Route path="/admin/notifications" element={<SystemNotificationsPage />} />
                   <Route path="/admin/marketing" element={<MarketingPage />} />
                   <Route path="/admin/reviews" element={<AdminReviewsPage />} />
+                  <Route path="/admin/bookings" element={<AdminBookingsPage />} />
                 </Route>
               </Route>
             </Route>

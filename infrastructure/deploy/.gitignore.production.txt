@@ -1,0 +1,3 @@
+infrastructure/deploy/.env.prod
+infrastructure/deploy/certs/*.pem
+infrastructure/deploy/certs/*.key

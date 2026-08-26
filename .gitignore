@@ -50,3 +50,4 @@ frontend/build/
 # Backup archives
 *.7z
 *.zip
+infrastructure/deploy/.env.prod

@@ -1,0 +1,58 @@
+name: enziurooms-production
+
+services:
+  identity-service:
+    environment:
+      OAUTH_FRONTEND_REDIRECT: ${PUBLIC_WEB_URL}/oauth2/callback
+      FRONTEND_BASE_URL: ${PUBLIC_WEB_URL}
+      PUBLIC_PROFILE_MEDIA_BASE_URL: ${PUBLIC_WEB_URL}/api/users/media
+
+  hotel-service:
+    environment:
+      PUBLIC_MEDIA_BASE_URL: ${PUBLIC_WEB_URL}/api/hotels/media
+
+  booking-service:
+    environment:
+      PUBLIC_REVIEW_MEDIA_BASE_URL: ${PUBLIC_WEB_URL}/api/reviews/media
+
+  payment-service:
+    environment:
+      PAYOS_RETURN_URL: ${PUBLIC_WEB_URL}/payment/payos/success
+      PAYOS_CANCEL_URL: ${PUBLIC_WEB_URL}/payment/payos/cancel
+      PAYOS_WEBHOOK_URL: ${PUBLIC_WEB_URL}/api/payments/payos/webhook
+
+  notification-service:
+    environment:
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_APP_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      MAIL_SMTP_AUTH: "true"
+      MAIL_STARTTLS_ENABLE: "true"
+
+  frontend-prod:
+    build:
+      context: ./frontend
+      dockerfile: ../infrastructure/deploy/frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    container_name: enziurooms-frontend-prod
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
+  reverse-proxy:
+    image: nginx:1.27-alpine
+    container_name: enziurooms-reverse-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./infrastructure/deploy/nginx/enziurooms.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend-prod
+      - api-gateway

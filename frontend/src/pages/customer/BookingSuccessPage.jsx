@@ -19,7 +19,7 @@ import {
 import "./BookingCheckoutPage.css";
 
 function money(value) {
-  return `${Number(value ?? 0).toLocaleString("vi-VN")} ₫`;
+  return `${Math.round(Number(value ?? 0)).toLocaleString("vi-VN", { maximumFractionDigits: 0 })} ₫`;
 }
 
 function BookingQrImage({ booking }) {

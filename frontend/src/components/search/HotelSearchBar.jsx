@@ -1,5 +1,5 @@
 import {
-  BedDouble, Building2, CalendarDays, ChevronRight, Clock3, MapPin, Search, Users, X,
+  Baby, BedDouble, Building2, CalendarDays, ChevronRight, Clock3, MapPin, Search, Users, X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -34,7 +34,8 @@ function buildInitialValues(values) {
     city: values?.city ?? "",
     checkIn,
     checkOut,
-    guests: Number(values?.guests ?? 2),
+    adults: Number(values?.adults ?? values?.guests ?? 2),
+    children: Number(values?.children ?? 0),
     rooms: Number(values?.rooms ?? 1),
   };
 }
@@ -62,7 +63,8 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
   const initialCity = initialValues?.city;
   const initialCheckIn = initialValues?.checkIn;
   const initialCheckOut = initialValues?.checkOut;
-  const initialGuests = initialValues?.guests;
+  const initialAdults = initialValues?.adults ?? initialValues?.guests;
+  const initialChildren = initialValues?.children;
   const initialRooms = initialValues?.rooms;
 
   useEffect(() => {
@@ -70,10 +72,11 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
       city: initialCity,
       checkIn: initialCheckIn,
       checkOut: initialCheckOut,
-      guests: initialGuests,
+      adults: initialAdults,
+      children: initialChildren,
       rooms: initialRooms,
     }));
-  }, [initialCity, initialCheckIn, initialCheckOut, initialGuests, initialRooms]);
+  }, [initialCity, initialCheckIn, initialCheckOut, initialAdults, initialChildren, initialRooms]);
 
   useEffect(() => {
     function handleOutsideClick(event) {
@@ -151,7 +154,9 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
     const params = new URLSearchParams({
       checkIn: form.checkIn,
       checkOut: form.checkOut,
-      guests: String(form.guests),
+      guests: String(form.adults + form.children),
+      adults: String(form.adults),
+      children: String(form.children),
       rooms: String(form.rooms),
     });
     navigate(`/hotels/${hotel.id}?${params.toString()}`);
@@ -210,7 +215,7 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
     }
     setForm((current) => ({
       ...current,
-      [name]: name === "guests" || name === "rooms" ? Number(value) : value,
+      [name]: name === "adults" || name === "children" || name === "rooms" ? Number(value) : value,
     }));
     if (name === "city") {
       setDestinationOpen(true);
@@ -243,7 +248,9 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
     if (city) params.set("city", city);
     if (form.checkIn) params.set("checkIn", form.checkIn);
     if (form.checkOut) params.set("checkOut", form.checkOut);
-    params.set("guests", String(form.guests));
+    params.set("guests", String(form.adults + form.children));
+    params.set("adults", String(form.adults));
+    params.set("children", String(form.children));
     params.set("rooms", String(form.rooms));
     setDestinationOpen(false);
     navigate(`/hotels?${params.toString()}`);
@@ -308,7 +315,7 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
                           onClick={() => selectDestination(item)}
                         >
                           <span className="shared-destination-icon recent"><Clock3 size={21} /></span>
-                          <span className="shared-destination-copy"><strong>{item}</strong><small>{form.guests} khách · {form.rooms} phòng</small></span>
+                          <span className="shared-destination-copy"><strong>{item}</strong><small>{form.adults} người lớn · {form.children} trẻ em · {form.rooms} phòng</small></span>
                         </button>
                         <button
                           type="button"
@@ -391,9 +398,13 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
         <div className="shared-search-control"><CalendarDays size={22} aria-hidden="true" /><input id={`search-check-out-${variant}`} type="date" name="checkOut" value={form.checkOut} min={minimumCheckOut} onChange={handleChange} /></div>
       </div>
       {dateError ? <div className="shared-search-date-error" role="alert">{dateError}</div> : null}
-      <div className="shared-search-field">
-        <label htmlFor={`search-guests-${variant}`}>Số khách</label>
-        <div className="shared-search-control"><Users size={22} aria-hidden="true" /><select id={`search-guests-${variant}`} name="guests" value={form.guests} onChange={handleChange}>{[1, 2, 3, 4, 5, 6].map((count) => <option key={count} value={count}>{count} khách</option>)}</select></div>
+      <div className="shared-search-field shared-search-adults">
+        <label htmlFor={`search-adults-${variant}`}>Người lớn</label>
+        <div className="shared-search-control"><Users size={22} aria-hidden="true" /><select id={`search-adults-${variant}`} name="adults" value={form.adults} onChange={handleChange}>{[1, 2, 3, 4, 5, 6].map((count) => <option key={count} value={count}>{count} người lớn</option>)}</select></div>
+      </div>
+      <div className="shared-search-field shared-search-children">
+        <label htmlFor={`search-children-${variant}`}>Trẻ em</label>
+        <div className="shared-search-control"><Baby size={22} aria-hidden="true" /><select id={`search-children-${variant}`} name="children" value={form.children} onChange={handleChange}>{[0, 1, 2, 3, 4, 5, 6].map((count) => <option key={count} value={count}>{count} trẻ em</option>)}</select></div>
       </div>
       <div className="shared-search-field shared-search-rooms">
         <label htmlFor={`search-rooms-${variant}`}>Số phòng</label>

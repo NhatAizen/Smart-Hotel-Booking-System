@@ -248,8 +248,8 @@ public class Wallet {
         if (balance.compareTo(amount) < 0) throw new IllegalStateException(message);
     }
 
-    private static BigDecimal zero() { return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP); }
-    private static BigDecimal money(BigDecimal value) { return value.setScale(2, RoundingMode.HALF_UP); }
+    private static BigDecimal zero() { return BigDecimal.ZERO.setScale(0, RoundingMode.HALF_UP); }
+    private static BigDecimal money(BigDecimal value) { return value.setScale(0, RoundingMode.HALF_UP); }
 
     public UUID getId() { return id; }
     public WalletOwnerType getOwnerType() { return ownerType; }

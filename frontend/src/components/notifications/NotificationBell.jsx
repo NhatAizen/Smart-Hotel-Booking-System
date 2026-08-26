@@ -1,10 +1,13 @@
 import {
+  AlertTriangle,
   Bell,
   Building2,
   CalendarCheck2,
   CheckCheck,
   CircleDollarSign,
+  Gift,
   Hotel,
+  LayoutGrid,
   Sparkles,
   Star,
   WalletCards,
@@ -30,6 +33,10 @@ const CATEGORY_ICON = {
   PARTNER: Building2,
   FINANCE: WalletCards,
   REVIEW: Star,
+  PROMOTION: Gift,
+  CAMPAIGN: Gift,
+  MEMBERSHIP: Gift,
+  LOYALTY: Gift,
 };
 
 const ROLE_PAGE = {
@@ -37,6 +44,13 @@ const ROLE_PAGE = {
   HOTEL_ADMIN: "/hotel-admin/notifications",
   SYSTEM_ADMIN: "/admin/notifications",
 };
+
+const FILTERS = [
+  { key: "ALL", label: "Tất cả", icon: LayoutGrid },
+  { key: "UNREAD", label: "Chưa đọc", dot: true },
+  { key: "BOOKING", label: "Booking", icon: CalendarCheck2 },
+  { key: "PROMOTION", label: "Khuyến mãi", icon: Gift },
+];
 
 function relativeTime(value) {
   if (!value) return "";
@@ -51,6 +65,87 @@ function relativeTime(value) {
   return new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" }).format(new Date(value));
 }
 
+function itemSearchText(item) {
+  return [item?.category, item?.type, item?.title, item?.content]
+    .filter(Boolean)
+    .join(" ")
+    .toUpperCase();
+}
+
+function isPromotionNotification(item) {
+  const text = itemSearchText(item);
+  return [
+    "PROMOTION",
+    "CAMPAIGN",
+    "MEMBERSHIP",
+    "LOYALTY",
+    "KHUYẾN MÃI",
+    "KHUYEN MAI",
+    "ƯU ĐÃI",
+    "UU DAI",
+    "VOUCHER",
+    "THÀNH VIÊN",
+    "THANH VIEN",
+  ].some((token) => text.includes(token));
+}
+
+function isBookingNotification(item) {
+  const text = itemSearchText(item);
+  return [
+    "BOOKING",
+    "CHECK-IN",
+    "CHECKIN",
+    "CHECK_OUT",
+    "CHECK-OUT",
+    "CHECKOUT",
+    "NHẬN PHÒNG",
+    "NHAN PHONG",
+    "TRẢ PHÒNG",
+    "TRA PHONG",
+    "ĐẶT PHÒNG",
+    "DAT PHONG",
+  ].some((token) => text.includes(token));
+}
+
+function visualForNotification(item) {
+  const text = itemSearchText(item);
+
+  if (
+    text.includes("CHƯA CHECK-IN") ||
+    text.includes("CHUA CHECK-IN") ||
+    text.includes("NO_SHOW") ||
+    text.includes("NO-SHOW") ||
+    text.includes("QUÁ GIỜ") ||
+    text.includes("QUA GIO") ||
+    text.includes("FAILED") ||
+    text.includes("THẤT BẠI") ||
+    text.includes("THAT BAI")
+  ) {
+    return { Icon: AlertTriangle, tone: "warning" };
+  }
+
+  if (isPromotionNotification(item)) {
+    return { Icon: Gift, tone: "promotion" };
+  }
+
+  const normalizedCategory = String(item?.category ?? "").toUpperCase();
+  const Icon = CATEGORY_ICON[normalizedCategory] ?? (isBookingNotification(item) ? CalendarCheck2 : Bell);
+  const tone = normalizedCategory
+    ? normalizedCategory.toLowerCase()
+    : isBookingNotification(item)
+      ? "booking"
+      : "system";
+
+  return { Icon, tone };
+}
+
+function matchesFilter(item, filter) {
+  if (filter === "UNREAD") return !item.read;
+  if (filter === "BOOKING") return isBookingNotification(item) && !isPromotionNotification(item);
+  if (filter === "PROMOTION") return isPromotionNotification(item);
+  return true;
+}
+
 export default function NotificationBell({ admin = false }) {
   const { user } = useAuth();
   const userId = user?.id;
@@ -62,6 +157,7 @@ export default function NotificationBell({ admin = false }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState("ALL");
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -69,13 +165,12 @@ export default function NotificationBell({ admin = false }) {
       const data = await getMyNotifications(userId, userRole);
       setItems(Array.isArray(data) ? data : []);
     } catch {
-      // Bell must never break the surrounding layout.
+      // Notification bell must never break the surrounding navbar.
     }
   }, [userId, userRole]);
 
   useEffect(() => {
     void load();
-    // Fallback nhẹ nếu WebSocket bị chặn bởi proxy/mạng di động.
     const timer = window.setInterval(() => void load(), 60000);
     return () => window.clearInterval(timer);
   }, [load]);
@@ -108,7 +203,10 @@ export default function NotificationBell({ admin = false }) {
   }, [open]);
 
   const unread = useMemo(() => items.filter((item) => !item.read).length, [items]);
-  const preview = items.slice(0, 5);
+  const filteredItems = useMemo(
+    () => items.filter((item) => matchesFilter(item, filter)).slice(0, 8),
+    [items, filter],
+  );
   const normalizedRole = normalizeEnum(userRole);
   const page = ROLE_PAGE[normalizedRole] ?? "/";
 
@@ -121,6 +219,7 @@ export default function NotificationBell({ admin = false }) {
         // Navigation is still more useful than blocking on read status.
       }
     }
+
     setOpen(false);
     const target = resolveNotificationTarget(item, normalizedRole);
     if (target) navigate(target);
@@ -156,31 +255,62 @@ export default function NotificationBell({ admin = false }) {
 
       {open ? (
         <section
-          className="notification-popover"
+          className="notification-popover notification-popover-premium"
           id="notification-popover"
           role="dialog"
           aria-label="Thông báo gần đây"
         >
-          <header>
-            <div>
-              <strong>Thông báo</strong>
-              <span>{unread ? `${unread} chưa đọc` : "Bạn đã xem hết"}</span>
+          <header className="notification-popover-header">
+            <div className="notification-popover-heading">
+              <span className="notification-popover-heading-icon" aria-hidden="true">
+                <Bell size={29} strokeWidth={2} />
+              </span>
+              <div>
+                <strong>Thông báo</strong>
+                <span>{unread ? `${unread} chưa đọc` : "Bạn đã xem hết"}</span>
+              </div>
             </div>
-            {unread > 0 ? (
-              <button type="button" onClick={markAll} disabled={loading}>
-                <CheckCheck size={16} /> Đọc tất cả
-              </button>
-            ) : null}
+
+            <button
+              className="notification-mark-all"
+              type="button"
+              onClick={markAll}
+              disabled={loading || unread === 0}
+            >
+              <CheckCheck size={19} />
+              <span>Đánh dấu đã đọc tất cả</span>
+            </button>
           </header>
 
-          <div className="notification-popover-list">
-            {preview.length === 0 ? (
+          <div className="notification-popover-filters" role="tablist" aria-label="Lọc thông báo">
+            {FILTERS.map((entry) => {
+              const FilterIcon = entry.icon;
+              return (
+                <button
+                  key={entry.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === entry.key}
+                  className={filter === entry.key ? "active" : ""}
+                  onClick={() => setFilter(entry.key)}
+                >
+                  {FilterIcon ? <FilterIcon size={17} /> : null}
+                  {entry.dot ? <span className="notification-filter-dot" /> : null}
+                  <span>{entry.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="notification-popover-list notification-popover-card-list">
+            {filteredItems.length === 0 ? (
               <div className="notification-popover-empty">
-                <Bell size={28} />
-                <span>Chưa có thông báo mới</span>
+                <Bell size={30} />
+                <strong>Không có thông báo phù hợp</strong>
+                <span>Hãy thử chọn bộ lọc khác.</span>
               </div>
-            ) : preview.map((item) => {
-              const Icon = CATEGORY_ICON[item.category] ?? Bell;
+            ) : filteredItems.map((item) => {
+              const { Icon, tone } = visualForNotification(item);
               return (
                 <button
                   type="button"
@@ -188,22 +318,30 @@ export default function NotificationBell({ admin = false }) {
                   className={`notification-preview-item ${item.read ? "read" : "unread"}`}
                   onClick={() => void openItem(item)}
                 >
-                  <span className={`notification-preview-icon ${String(item.category ?? "system").toLowerCase()}`}>
-                    <Icon size={18} />
+                  <span className={`notification-preview-icon ${tone}`}>
+                    <Icon size={24} strokeWidth={2} />
                   </span>
+
                   <span className="notification-preview-copy">
                     <strong>{item.title}</strong>
                     <small>{item.content}</small>
                     <em>{relativeTime(item.createdAt)}</em>
                   </span>
-                  {!item.read ? <i /> : null}
+
+                  {!item.read ? (
+                    <i aria-label="Chưa đọc" />
+                  ) : isPromotionNotification(item) ? (
+                    <CheckCheck className="notification-read-check" size={19} />
+                  ) : null}
                 </button>
               );
             })}
           </div>
 
           <Link className="notification-popover-footer" to={page} onClick={() => setOpen(false)}>
-            Xem tất cả thông báo
+            <CalendarCheck2 size={18} />
+            <span>Xem tất cả thông báo</span>
+            <span aria-hidden="true">›</span>
           </Link>
         </section>
       ) : null}

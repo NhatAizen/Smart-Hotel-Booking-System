@@ -4,6 +4,7 @@ import {
   Bell,
   Building2,
   CheckCircle2,
+  ClipboardList,
   Clock3,
   DoorOpen,
   Hotel,
@@ -62,6 +63,11 @@ const items = [
     icon: BedDouble,
   },
   {
+    to: "/hotel-admin/bookings",
+    label: "Đơn đặt phòng",
+    icon: ClipboardList,
+  },
+  {
     to: "/hotel-admin/check-in",
     label: "Nhận phòng QR",
     icon: ScanLine,
@@ -115,15 +121,15 @@ const desktopNavigation = [
     type: "group",
     label: "Vận hành",
     icon: ScanLine,
-    items: [items[5], items[6], items[11], items[12]],
+    items: [items[5], items[6], items[7], items[12], items[13]],
   },
   {
     type: "group",
     label: "Kinh doanh",
     icon: WalletCards,
-    items: [items[8], items[9]],
+    items: [items[9], items[10]],
   },
-  { type: "link", item: items[10] },
+  { type: "link", item: items[11] },
 ];
 
 const ELIGIBILITY_CHECKS = [

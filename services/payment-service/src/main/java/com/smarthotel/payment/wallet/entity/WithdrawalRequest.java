@@ -94,7 +94,7 @@ public class WithdrawalRequest {
         this.walletId = walletId;
         this.ownerId = ownerId;
         this.ownerType = ownerType;
-        this.amount = amount.setScale(2, RoundingMode.HALF_UP);
+        this.amount = amount.setScale(0, RoundingMode.HALF_UP);
         this.payoutMethod = payoutMethod == null ? WithdrawalPayoutMethod.BANK_ACCOUNT : payoutMethod;
         this.bankName = clean(bankName);
         this.bankBin = clean(bankBin);

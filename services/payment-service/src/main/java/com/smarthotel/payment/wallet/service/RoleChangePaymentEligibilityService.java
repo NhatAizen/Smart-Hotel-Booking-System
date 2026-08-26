@@ -88,6 +88,6 @@ public class RoleChangePaymentEligibilityService {
     }
 
     private BigDecimal zero() {
-        return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        return BigDecimal.ZERO.setScale(0, RoundingMode.HALF_UP);
     }
 }

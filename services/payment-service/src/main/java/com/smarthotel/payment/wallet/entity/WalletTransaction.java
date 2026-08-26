@@ -40,7 +40,7 @@ public class WalletTransaction {
         this.paymentOrderId = null;
         this.withdrawalId = withdrawalId;
         this.type = type;
-        this.amount = amount.setScale(2, RoundingMode.HALF_UP);
+        this.amount = amount.setScale(0, RoundingMode.HALF_UP);
         this.description = description;
         this.createdAt = Instant.now();
     }

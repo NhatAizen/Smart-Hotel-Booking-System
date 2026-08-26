@@ -99,7 +99,7 @@ public class RefundRequestService {
                 manual = manual.add(payment.getAmount());
             }
         }
-        BigDecimal totalPaid = platformHeld.add(hotelDirect).add(manual).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalPaid = platformHeld.add(hotelDirect).add(manual).setScale(0, RoundingMode.HALF_UP);
 
         if (hotelDirect.signum() > 0) {
             requireText(request.bankName(), "Vui lòng nhập ngân hàng nhận hoàn tiền");
@@ -248,7 +248,7 @@ public class RefundRequestService {
         BigDecimal actual = candidates.stream()
                 .map(Payment::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .setScale(2, RoundingMode.HALF_UP);
+                .setScale(0, RoundingMode.HALF_UP);
         if (actual.compareTo(item.getPlatformHeldAmount()) != 0) {
             throw new IllegalStateException("Số tiền EnziuRooms đang giữ đã thay đổi. Hãy kiểm tra đối soát trước khi hoàn.");
         }

@@ -1,8 +1,11 @@
 import {
+  ArrowRightLeft,
+  ArrowUpDown,
   BedDouble,
   Building2,
   CalendarDays,
   ChevronRight,
+  CheckCircle2,
   CircleDollarSign,
   Clock3,
   CreditCard,
@@ -14,6 +17,7 @@ import {
   QrCode,
   ReceiptText,
   RefreshCw,
+  Search,
   ShieldCheck,
   Star,
   Trash2,
@@ -43,15 +47,20 @@ import ReviewFormModal from "../../components/review/ReviewFormModal";
 import CustomerHotelChat from "../../components/chat/CustomerHotelChat";
 import {
   cancelBooking,
+  createRoomChangeRequest,
   getBookingQrBlob,
+  getHotelAvailability,
   getMyBookings,
+  getMyRoomChangeRequests,
   getMyReviews,
   hideBookingFromCustomer,
 } from "../../services/bookingService";
 import {
   getHotelById,
   getRoomById,
+  getRoomsByHotel,
   getRoomTypeById,
+  getRoomTypesByHotel,
 } from "../../services/hotelService";
 import {
   createPayOsCheckout,
@@ -79,7 +88,7 @@ const FILTERS = [
 function money(value) {
   if (value === null || value === undefined || value === "") return "—";
   const amount = Number(value);
-  return Number.isFinite(amount) ? `${amount.toLocaleString("vi-VN")} ₫` : "—";
+  return Number.isFinite(amount) ? `${Math.round(amount).toLocaleString("vi-VN", { maximumFractionDigits: 0 })} ₫` : "—";
 }
 
 function formatDate(value) {
@@ -172,6 +181,44 @@ function hotelCover(hotel) {
     ?? "";
 }
 
+function resolveMediaUrl(image) {
+  if (!image) return "";
+  if (typeof image === "string") return image;
+  return image.imageUrl
+    ?? image.url
+    ?? image.fileUrl
+    ?? image.publicUrl
+    ?? image.path
+    ?? "";
+}
+
+function roomTypeCover(roomType) {
+  if (!roomType) return "";
+  if (roomType.coverImageUrl) return roomType.coverImageUrl;
+  if (roomType.imageUrl) return roomType.imageUrl;
+  const images = Array.isArray(roomType.images) ? roomType.images : [];
+  const preferred = images.find((image) => image?.cover || image?.isCover || image?.primary) ?? images[0];
+  return resolveMediaUrl(preferred);
+}
+
+function roomTypeImageUrls(roomType) {
+  if (!roomType) return [];
+  const images = Array.isArray(roomType.images) ? roomType.images : [];
+  const values = [roomType.coverImageUrl, roomType.imageUrl, ...images.map(resolveMediaUrl)]
+    .map(resolveMediaUrl)
+    .filter(Boolean);
+  return [...new Set(values)];
+}
+
+function bedSummary(roomType) {
+  if (!roomType) return "";
+  const count = Number(roomType.bedCount ?? 0);
+  const type = String(roomType.bedType ?? "").trim();
+  if (!count && !type) return "";
+  if (count && type) return `${count} ${type}`;
+  return count ? `${count} giường` : type;
+}
+
 function bookingMatchesFilter(booking, filter) {
   if (filter === "ALL") return true;
 
@@ -228,6 +275,23 @@ function refundStatusLabel(value) {
   }[normalizeEnum(value)] ?? "Chưa xác định");
 }
 
+function roomChangeStatusLabel(value) {
+  return ({
+    PENDING: "Đang chờ khách sạn",
+    APPROVED: "Đã duyệt đổi phòng",
+    REJECTED: "Khách sạn đã từ chối",
+  })[normalizeEnum(value)] ?? "Chưa xác định";
+}
+
+function canRequestRoomChange(booking) {
+  if (!booking || booking.status !== "CONFIRMED") return false;
+  if (!booking.checkIn) return true;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const checkIn = new Date(`${booking.checkIn}T00:00:00`);
+  return !Number.isNaN(checkIn.getTime()) && checkIn >= today;
+}
+
 function guestSummary(adults, children) {
   const parts = [];
   if (adults != null) parts.push(`${adults} người lớn`);
@@ -257,6 +321,20 @@ export default function BookingsPage() {
   const [refundBooking, setRefundBooking] = useState(null);
   const [refundBusy, setRefundBusy] = useState(false);
   const [refundProofUrl, setRefundProofUrl] = useState("");
+  const [roomChangeByBooking, setRoomChangeByBooking] = useState({});
+  const [roomChangeBooking, setRoomChangeBooking] = useState(null);
+  const [roomChangeReason, setRoomChangeReason] = useState("");
+  const [roomChangeBusy, setRoomChangeBusy] = useState(false);
+  const [roomChangeNewMode, setRoomChangeNewMode] = useState(false);
+  const [roomChangeTargetRoomId, setRoomChangeTargetRoomId] = useState("");
+  const [roomChangeRooms, setRoomChangeRooms] = useState([]);
+  const [roomChangeRoomTypes, setRoomChangeRoomTypes] = useState([]);
+  const [roomChangeAvailableRoomIds, setRoomChangeAvailableRoomIds] = useState(null);
+  const [roomChangeOptionsLoading, setRoomChangeOptionsLoading] = useState(false);
+  const [roomChangeSearch, setRoomChangeSearch] = useState("");
+  const [roomChangeSort, setRoomChangeSort] = useState("PRICE_ASC");
+  const [roomChangeDetailType, setRoomChangeDetailType] = useState(null);
+  const [roomChangeDetailImageIndex, setRoomChangeDetailImageIndex] = useState(0);
   const [page, setPage] = useState(1);
   const [pendingAction, setPendingAction] = useState(null);
   const [refundForm, setRefundForm] = useState({
@@ -320,14 +398,16 @@ export default function BookingsPage() {
     setError("");
 
     try {
-      const [data, reviewData, refundData] = await Promise.all([
+      const [data, reviewData, refundData, roomChangeData] = await Promise.all([
         getMyBookings(customerId),
         getMyReviews().catch(() => []),
         getMyRefundRequests().catch(() => []),
+        getMyRoomChangeRequests().catch(() => []),
       ]);
       const normalized = Array.isArray(data) ? data : [];
       const normalizedReviews = Array.isArray(reviewData) ? reviewData : [];
       const normalizedRefunds = Array.isArray(refundData) ? refundData : [];
+      const normalizedRoomChanges = Array.isArray(roomChangeData) ? roomChangeData : [];
 
       setBookings(normalized);
       setReviewsByBooking(
@@ -340,6 +420,12 @@ export default function BookingsPage() {
           normalizedRefunds.map((item) => [String(item.bookingId), item]),
         ),
       );
+      const latestRoomChangeByBooking = {};
+      normalizedRoomChanges.forEach((item) => {
+        const key = String(item.bookingId);
+        if (!latestRoomChangeByBooking[key]) latestRoomChangeByBooking[key] = item;
+      });
+      setRoomChangeByBooking(latestRoomChangeByBooking);
       await Promise.all([
         loadMetadata(normalized),
         loadChatSummaries(),
@@ -450,6 +536,209 @@ export default function BookingsPage() {
       setError(requestError.response?.data?.message ?? "Không thể tải chứng từ hoàn tiền.");
     } finally {
       setRefundBusy(false);
+    }
+  }
+
+  const roomChangeRoomTypeMap = useMemo(
+    () => Object.fromEntries(
+      roomChangeRoomTypes.map((type) => [String(type.id), type]),
+    ),
+    [roomChangeRoomTypes],
+  );
+
+  const roomChangeRoomMap = useMemo(
+    () => Object.fromEntries(
+      roomChangeRooms.map((room) => [String(room.id), room]),
+    ),
+    [roomChangeRooms],
+  );
+
+  const roomChangeAvailableRooms = useMemo(() => {
+    if (!roomChangeBooking) return [];
+    return roomChangeRooms.filter((room) => {
+      if (String(room.id) === String(roomChangeBooking.roomId)) return false;
+      if (roomChangeAvailableRoomIds && !roomChangeAvailableRoomIds.has(String(room.id))) return false;
+      const status = String(room.status ?? "").toUpperCase();
+      if (["MAINTENANCE", "INACTIVE"].includes(status)) return false;
+      const type = roomChangeRoomTypeMap[String(room.roomTypeId)];
+      if (!type) return false;
+      if (Number(type.maxAdults ?? 0) < Number(roomChangeBooking.adults ?? 0)) return false;
+      if (Number(type.maxChildren ?? 0) < Number(roomChangeBooking.children ?? 0)) return false;
+      return true;
+    });
+  }, [
+    roomChangeAvailableRoomIds,
+    roomChangeBooking,
+    roomChangeRoomTypeMap,
+    roomChangeRooms,
+  ]);
+
+  const roomChangeCurrentRoom = useMemo(() => {
+    if (!roomChangeBooking) return null;
+    return roomChangeRoomMap[String(roomChangeBooking.roomId)]
+      ?? metadata[String(roomChangeBooking.id)]?.room
+      ?? null;
+  }, [metadata, roomChangeBooking, roomChangeRoomMap]);
+
+  const roomChangeCurrentType = useMemo(() => {
+    if (!roomChangeBooking) return null;
+    const roomTypeId = roomChangeCurrentRoom?.roomTypeId ?? roomChangeBooking.roomTypeId;
+    return roomChangeRoomTypeMap[String(roomTypeId)]
+      ?? metadata[String(roomChangeBooking.id)]?.roomType
+      ?? null;
+  }, [metadata, roomChangeBooking, roomChangeCurrentRoom, roomChangeRoomTypeMap]);
+
+  const roomChangeCurrentNightlyPrice = useMemo(() => {
+    const value = roomChangeCurrentRoom?.customPrice ?? roomChangeCurrentType?.basePrice;
+    return Number.isFinite(Number(value)) ? Number(value) : null;
+  }, [roomChangeCurrentRoom, roomChangeCurrentType]);
+
+  const roomChangeVisibleGroups = useMemo(() => {
+    const groups = new Map();
+    for (const room of roomChangeAvailableRooms) {
+      const type = roomChangeRoomTypeMap[String(room.roomTypeId)];
+      if (!type) continue;
+      const key = String(type.id ?? room.roomTypeId);
+      if (!groups.has(key)) groups.set(key, { type, rooms: [] });
+      groups.get(key).rooms.push(room);
+    }
+
+    const query = roomChangeSearch.trim().toLocaleLowerCase("vi");
+    const priceOf = (room, type) => Number(room.customPrice ?? type?.basePrice ?? 0);
+    const result = [...groups.values()]
+      .map((group) => ({
+        ...group,
+        rooms: [...group.rooms].sort((left, right) =>
+          String(left.roomNumber ?? "").localeCompare(String(right.roomNumber ?? ""), "vi", { numeric: true }),
+        ),
+      }))
+      .filter(({ type, rooms }) => {
+        if (!query) return true;
+        return [type?.name, type?.bedType, ...rooms.map((room) => room.roomNumber)]
+          .filter(Boolean)
+          .some((value) => String(value).toLocaleLowerCase("vi").includes(query));
+      });
+
+    return result.sort((left, right) => {
+      const leftPrices = left.rooms.map((room) => priceOf(room, left.type));
+      const rightPrices = right.rooms.map((room) => priceOf(room, right.type));
+      const leftPrice = leftPrices.length ? Math.min(...leftPrices) : 0;
+      const rightPrice = rightPrices.length ? Math.min(...rightPrices) : 0;
+      if (roomChangeSort === "PRICE_DESC") return rightPrice - leftPrice;
+      if (roomChangeSort === "ROOM_ASC") {
+        return String(left.rooms[0]?.roomNumber ?? "").localeCompare(
+          String(right.rooms[0]?.roomNumber ?? ""),
+          "vi",
+          { numeric: true },
+        );
+      }
+      return leftPrice - rightPrice;
+    });
+  }, [roomChangeAvailableRooms, roomChangeRoomTypeMap, roomChangeSearch, roomChangeSort]);
+
+  const roomChangeSelectedRoom = roomChangeTargetRoomId
+    ? roomChangeRoomMap[String(roomChangeTargetRoomId)] ?? null
+    : null;
+  const roomChangeSelectedType = roomChangeSelectedRoom
+    ? roomChangeRoomTypeMap[String(roomChangeSelectedRoom.roomTypeId)] ?? null
+    : null;
+  const roomChangeSelectedNightlyPrice = roomChangeSelectedRoom
+    ? Number(roomChangeSelectedRoom.customPrice ?? roomChangeSelectedType?.basePrice ?? 0)
+    : null;
+  const roomChangeNightlyDifference = roomChangeSelectedNightlyPrice != null
+    && roomChangeCurrentNightlyPrice != null
+    ? roomChangeSelectedNightlyPrice - roomChangeCurrentNightlyPrice
+    : null;
+
+  async function loadRoomChangeOptions(booking) {
+    setRoomChangeOptionsLoading(true);
+    try {
+      const [roomsData, roomTypesData, availability] = await Promise.all([
+        getRoomsByHotel(booking.hotelId),
+        getRoomTypesByHotel(booking.hotelId),
+        getHotelAvailability(booking.hotelId, booking.checkIn, booking.checkOut),
+      ]);
+      const normalizedRooms = Array.isArray(roomsData) ? roomsData : [];
+      setRoomChangeRooms(normalizedRooms);
+      setRoomChangeRoomTypes(Array.isArray(roomTypesData) ? roomTypesData : []);
+      const unavailable = new Set((availability?.unavailableRoomIds ?? []).map(String));
+      setRoomChangeAvailableRoomIds(new Set(
+        normalizedRooms
+          .filter((room) => String(room.id) !== String(booking.roomId))
+          .filter((room) => !unavailable.has(String(room.id)))
+          .map((room) => String(room.id)),
+      ));
+    } catch (requestError) {
+      setRoomChangeRooms([]);
+      setRoomChangeRoomTypes([]);
+      setRoomChangeAvailableRoomIds(new Set());
+      setError(
+        requestError.response?.data?.message
+          ?? "Không thể tải danh sách phòng trống để đổi.",
+      );
+    } finally {
+      setRoomChangeOptionsLoading(false);
+    }
+  }
+
+  function openRoomChangeRequest(booking) {
+    setRoomChangeBooking(booking);
+    setRoomChangeReason("");
+    setRoomChangeSearch("");
+    setRoomChangeSort("PRICE_ASC");
+    const latest = roomChangeByBooking[String(booking.id)];
+    setRoomChangeTargetRoomId(latest?.targetRoomId ? String(latest.targetRoomId) : "");
+    setRoomChangeNewMode(!latest);
+    void loadRoomChangeOptions(booking);
+  }
+
+  function closeRoomChangeRequest() {
+    setRoomChangeBooking(null);
+    setRoomChangeReason("");
+    setRoomChangeTargetRoomId("");
+    setRoomChangeRooms([]);
+    setRoomChangeRoomTypes([]);
+    setRoomChangeAvailableRoomIds(null);
+    setRoomChangeSearch("");
+    setRoomChangeSort("PRICE_ASC");
+    setRoomChangeDetailType(null);
+    setRoomChangeDetailImageIndex(0);
+    setRoomChangeNewMode(false);
+  }
+
+  async function submitRoomChangeRequest(event) {
+    event.preventDefault();
+    if (
+      !roomChangeBooking
+      || roomChangeBusy
+      || !roomChangeTargetRoomId
+      || !roomChangeReason.trim()
+    ) return;
+    setRoomChangeBusy(true);
+    setError("");
+    try {
+      const created = await createRoomChangeRequest(
+        roomChangeBooking.id,
+        roomChangeTargetRoomId,
+        roomChangeReason.trim(),
+      );
+      setRoomChangeByBooking((current) => ({
+        ...current,
+        [String(roomChangeBooking.id)]: created,
+      }));
+      setRoomChangeTargetRoomId(String(created.targetRoomId ?? roomChangeTargetRoomId));
+      setRoomChangeNewMode(false);
+      setRoomChangeReason("");
+      await loadBookings();
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message
+          ?? requestError.response?.data?.error
+          ?? "Không thể gửi yêu cầu đổi phòng.",
+      );
+      await loadRoomChangeOptions(roomChangeBooking);
+    } finally {
+      setRoomChangeBusy(false);
     }
   }
 
@@ -840,6 +1129,25 @@ export default function BookingsPage() {
                         </button>
                       ) : null}
 
+                      {canRequestRoomChange(booking) ? (() => {
+                        const roomChange = roomChangeByBooking[String(booking.id)];
+                        return (
+                          <button
+                            type="button"
+                            className="booking-v2-room-change-action"
+                            disabled={working}
+                            onClick={() => openRoomChangeRequest(booking)}
+                          >
+                            <ArrowRightLeft size={17} />
+                            {roomChange?.status === "PENDING"
+                              ? "Đổi phòng: đang chờ"
+                              : roomChange?.status === "APPROVED"
+                                ? "Xem đổi phòng đã duyệt"
+                                : "Yêu cầu đổi phòng"}
+                          </button>
+                        );
+                      })() : null}
+
                       {canContinuePayment(booking) ? (
                         <button
                           type="button"
@@ -848,7 +1156,11 @@ export default function BookingsPage() {
                           onClick={() => void handlePayAgain(booking)}
                         >
                           <CreditCard size={17} />
-                          Thanh toán tiếp
+                          {roomChangeByBooking[String(booking.id)]?.status === "APPROVED"
+                            && Number(booking.paymentDueAmount ?? 0) > 0
+                            && Number(booking.paymentDueAmount ?? 0) < Number(booking.remainingAmount ?? 0)
+                            ? "Bù cọc đổi phòng"
+                            : "Thanh toán tiếp"}
                         </button>
                       ) : null}
 
@@ -1023,6 +1335,24 @@ export default function BookingsPage() {
                   <div><span>Còn phải thanh toán</span><strong className="remaining">{money(selectedBooking.remainingAmount)}</strong></div>
                 </div>
 
+                {roomChangeByBooking[String(selectedBooking.id)] ? (() => {
+                  const roomChange = roomChangeByBooking[String(selectedBooking.id)];
+                  return (
+                    <div className={`booking-v2-room-change-summary is-${String(roomChange.status ?? "").toLowerCase()}`}>
+                      <div>
+                        <ArrowRightLeft size={18} />
+                        <div>
+                          <strong>{roomChangeStatusLabel(roomChange.status)}</strong>
+                          <span>{roomChange.reason}</span>
+                        </div>
+                      </div>
+                      {roomChange.status === "APPROVED" ? (
+                        <p>Giá sau đổi: <b>{money(roomChange.newTotalPrice)}</b>{Number(roomChange.additionalPaymentDue ?? 0) > 0 ? ` · Khoản bổ sung lúc duyệt: ${money(roomChange.additionalPaymentDue)}` : ""}</p>
+                      ) : roomChange.reviewNote ? <p>Phản hồi khách sạn: {roomChange.reviewNote}</p> : null}
+                    </div>
+                  );
+                })() : null}
+
                 {selectedBooking.specialRequest ? (
                   <div className="booking-v2-special-request">
                     <strong>Yêu cầu đặc biệt</strong>
@@ -1085,6 +1415,466 @@ export default function BookingsPage() {
           </section>
         </div>
       ) : null}
+
+      {roomChangeBooking ? (() => {
+        const latest = roomChangeByBooking[String(roomChangeBooking.id)];
+        const showForm = roomChangeNewMode || !latest;
+        return (
+          <div
+            className="booking-v2-modal-backdrop booking-v2-room-change-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closeRoomChangeRequest();
+            }}
+          >
+            <section className={`booking-v2-room-change-modal${!showForm ? " is-status" : ""}`} role="dialog" aria-modal="true" aria-label="Yêu cầu đổi phòng">
+              <button type="button" className="booking-v2-modal-close" onClick={closeRoomChangeRequest} aria-label="Đóng"><X size={22} /></button>
+              <div className="booking-v2-modal-header">
+                <div>
+                  <span>YÊU CẦU ĐỔI PHÒNG</span>
+                  <h2>{roomChangeBooking.bookingCode}</h2>
+                  <p>Bạn chọn chính xác phòng muốn đổi sang. Khách sạn sẽ kiểm tra lại phòng đó và duyệt hoặc từ chối yêu cầu.</p>
+                </div>
+              </div>
+
+              {!showForm && latest ? (() => {
+                const requestedRoom = latest.targetRoomId
+                  ? roomChangeRoomMap[String(latest.targetRoomId)]
+                  : null;
+                const requestedType = requestedRoom
+                  ? roomChangeRoomTypeMap[String(requestedRoom.roomTypeId)]
+                  : null;
+                const isApproved = latest.status === "APPROVED";
+                const isRejected = latest.status === "REJECTED";
+                const resultTitle = isApproved
+                  ? "Khách sạn đã duyệt đổi phòng"
+                  : isRejected
+                    ? "Yêu cầu đổi phòng chưa được chấp nhận"
+                    : "Yêu cầu đã được gửi đến khách sạn";
+                const resultDescription = isApproved
+                  ? Number(latest.additionalPaymentDue ?? 0) > 0
+                    ? `Booking đã chuyển sang phòng bạn chọn. Bạn cần thanh toán thêm ${money(latest.additionalPaymentDue)} theo phương thức của booking.`
+                    : "Booking đã được cập nhật sang phòng bạn chọn và không phát sinh khoản cần bù tại thời điểm duyệt."
+                  : isRejected
+                    ? "Khách sạn đã phản hồi yêu cầu này. Bạn có thể chọn một phòng khác nếu booking vẫn còn đủ điều kiện đổi phòng."
+                    : "Khách sạn đang kiểm tra tình trạng phòng thực tế. Bạn không cần gửi lại yêu cầu trong lúc đang chờ xử lý.";
+
+                return (
+                  <div className={`booking-v2-room-change-result is-${String(latest.status ?? "pending").toLowerCase()}`}>
+                    <div className="booking-v2-room-change-result-hero">
+                      <span className="booking-v2-room-change-result-icon">
+                        {isApproved ? <CheckCircle2 size={25} /> : isRejected ? <XCircle size={25} /> : <Clock3 size={25} />}
+                      </span>
+                      <div className="booking-v2-room-change-result-copy">
+                        <small>TRẠNG THÁI YÊU CẦU</small>
+                        <h3>{resultTitle}</h3>
+                        <p>{resultDescription}</p>
+                      </div>
+                      <StatusBadge
+                        status={latest.status}
+                        label={roomChangeStatusLabel(latest.status)}
+                        tone={isApproved ? "success" : isRejected ? "danger" : "warning"}
+                      />
+                    </div>
+
+                    {latest.targetRoomId ? (
+                      <div className="booking-v2-room-change-result-room">
+                        <div className="booking-v2-room-change-result-room-icon"><BedDouble size={20} /></div>
+                        <div>
+                          <small>{isApproved ? "Phòng đã được chuyển sang" : "Phòng bạn yêu cầu"}</small>
+                          <strong>
+                            {requestedType?.name ?? "Loại phòng"}
+                            {requestedRoom?.roomNumber ? ` · Phòng ${requestedRoom.roomNumber}` : ""}
+                          </strong>
+                        </div>
+                        {requestedType ? (
+                          <button
+                            type="button"
+                            onClick={() => { setRoomChangeDetailType(requestedType); setRoomChangeDetailImageIndex(0); }}
+                          >
+                            <Eye size={15} /> Xem loại phòng
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {isApproved ? (
+                      <div className="booking-v2-room-change-result-money">
+                        <div><small>Giá booking cũ</small><strong>{money(latest.oldTotalPrice)}</strong></div>
+                        <div><small>Giá sau đổi</small><strong>{money(latest.newTotalPrice)}</strong></div>
+                        <div><small>Chênh lệch</small><strong className={Number(latest.priceDifference ?? 0) > 0 ? "is-up" : Number(latest.priceDifference ?? 0) < 0 ? "is-down" : ""}>{money(latest.priceDifference)}</strong></div>
+                        <div className="is-important"><small>Cần thanh toán thêm</small><strong>{money(latest.additionalPaymentDue)}</strong></div>
+                      </div>
+                    ) : null}
+
+                    <div className="booking-v2-room-change-result-notes">
+                      <div>
+                        <small>Lý do bạn đã gửi</small>
+                        <p>{latest.reason}</p>
+                      </div>
+                      {latest.reviewNote ? (
+                        <div className="hotel-reply">
+                          <small>Phản hồi từ khách sạn</small>
+                          <p>{latest.reviewNote}</p>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="booking-v2-room-change-result-actions">
+                      <button type="button" className="secondary" onClick={closeRoomChangeRequest}>Đóng</button>
+                      {latest.status !== "PENDING" && canRequestRoomChange(roomChangeBooking) ? (
+                        <button type="button" className="primary" onClick={() => { setRoomChangeTargetRoomId(""); setRoomChangeNewMode(true); }}>
+                          <ArrowRightLeft size={17} /> Chọn phòng khác
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })() : (
+                <form className="booking-v2-room-change-form booking-v2-room-change-form-premium" onSubmit={submitRoomChangeRequest}>
+                  <div className="booking-v2-room-change-current-card">
+                    <div className="booking-v2-room-change-current-room">
+                      <div className="booking-v2-room-change-current-thumb">
+                        {roomTypeCover(roomChangeCurrentType) ? (
+                          <img src={roomTypeCover(roomChangeCurrentType)} alt={roomChangeCurrentType?.name ?? "Phòng hiện tại"} />
+                        ) : (
+                          <BedDouble size={22} />
+                        )}
+                      </div>
+                      <div>
+                        <small>Phòng hiện tại</small>
+                        <button
+                          type="button"
+                          className="booking-v2-room-change-current-type-link"
+                          onClick={() => {
+                            if (!roomChangeCurrentType) return;
+                            setRoomChangeDetailType(roomChangeCurrentType);
+                            setRoomChangeDetailImageIndex(0);
+                          }}
+                        >
+                          {roomChangeCurrentType?.name ?? "Loại phòng"}
+                          {roomChangeCurrentType ? <Eye size={14} /> : null}
+                        </button>
+                        <span>Phòng {roomChangeCurrentRoom?.roomNumber ?? "—"}</span>
+                      </div>
+                    </div>
+                    <div className="booking-v2-room-change-current-stat">
+                      <CalendarDays size={18} />
+                      <div>
+                        <small>Thời gian lưu trú</small>
+                        <strong>{formatDate(roomChangeBooking.checkIn)} → {formatDate(roomChangeBooking.checkOut)}</strong>
+                      </div>
+                    </div>
+                    <div className="booking-v2-room-change-current-stat">
+                      <Users size={18} />
+                      <div>
+                        <small>Khách</small>
+                        <strong>{guestSummary(roomChangeBooking.adults, roomChangeBooking.children)}</strong>
+                      </div>
+                    </div>
+                    <div className="booking-v2-room-change-current-stat booking-v2-room-change-current-price">
+                      <CircleDollarSign size={18} />
+                      <div>
+                        <small>Giá phòng hiện tại</small>
+                        <strong>{roomChangeCurrentNightlyPrice == null ? "—" : `${money(roomChangeCurrentNightlyPrice)}/đêm`}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="booking-v2-room-change-policy booking-v2-room-change-policy-premium">
+                    <div className="booking-v2-room-change-policy-icon"><ShieldCheck size={20} /></div>
+                    <div>
+                      <strong>Nguyên tắc xử lý</strong>
+                      <ul>
+                        <li>Chỉ hiển thị các phòng đang trống và phù hợp với toàn bộ kỳ lưu trú của bạn.</li>
+                        <li>Yêu cầu sẽ được Hotel Admin kiểm tra lại tình trạng phòng trước khi duyệt.</li>
+                        <li>Nếu phòng mới đắt hơn, hệ thống sẽ tính khoản cọc/thanh toán cần bù sau khi được duyệt.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="booking-v2-room-change-room-picker booking-v2-room-change-room-picker-premium">
+                    <div className="booking-v2-room-change-picker-head booking-v2-room-change-picker-head-premium">
+                      <div>
+                        <strong>Chọn phòng muốn đổi sang</strong>
+                        <span>Chỉ hiển thị các phòng còn trống, đủ sức chứa và đang được mở bán.</span>
+                      </div>
+                      <div className="booking-v2-room-change-picker-tools">
+                        <label className="booking-v2-room-change-search">
+                          <Search size={16} />
+                          <input
+                            type="search"
+                            value={roomChangeSearch}
+                            onChange={(event) => setRoomChangeSearch(event.target.value)}
+                            placeholder="Tìm loại phòng hoặc số phòng..."
+                          />
+                        </label>
+                        <label className="booking-v2-room-change-sort">
+                          <ArrowUpDown size={15} />
+                          <select value={roomChangeSort} onChange={(event) => setRoomChangeSort(event.target.value)}>
+                            <option value="PRICE_ASC">Giá tăng dần</option>
+                            <option value="PRICE_DESC">Giá giảm dần</option>
+                            <option value="ROOM_ASC">Số phòng</option>
+                          </select>
+                        </label>
+                        <button type="button" onClick={() => void loadRoomChangeOptions(roomChangeBooking)} disabled={roomChangeOptionsLoading}>
+                          <RefreshCw size={15} /> Làm mới
+                        </button>
+                      </div>
+                    </div>
+
+                    {roomChangeOptionsLoading ? (
+                      <div className="booking-v2-room-change-loading"><Clock3 size={17} /> Đang kiểm tra phòng trống...</div>
+                    ) : roomChangeAvailableRooms.length === 0 ? (
+                      <div className="booking-v2-room-change-empty">Hiện không có phòng khác phù hợp và còn trống trong toàn bộ kỳ lưu trú.</div>
+                    ) : roomChangeVisibleGroups.length === 0 ? (
+                      <div className="booking-v2-room-change-empty">Không tìm thấy loại phòng hoặc số phòng phù hợp với từ khóa bạn nhập.</div>
+                    ) : (
+                      <div className="booking-v2-room-change-type-grid">
+                        {roomChangeVisibleGroups.map(({ type, rooms }) => {
+                          const imageUrl = roomTypeCover(type);
+                          const bed = bedSummary(type);
+                          const prices = rooms
+                            .map((room) => Number(room.customPrice ?? type?.basePrice))
+                            .filter(Number.isFinite);
+                          const minPrice = prices.length ? Math.min(...prices) : null;
+                          const maxPrice = prices.length ? Math.max(...prices) : null;
+                          const selectedRoomInGroup = rooms.find(
+                            (room) => String(room.id) === String(roomChangeTargetRoomId),
+                          ) ?? null;
+                          const selectedPrice = selectedRoomInGroup
+                            ? Number(selectedRoomInGroup.customPrice ?? type?.basePrice ?? 0)
+                            : null;
+                          const selectedDifference = selectedPrice != null && roomChangeCurrentNightlyPrice != null
+                            ? selectedPrice - roomChangeCurrentNightlyPrice
+                            : null;
+
+                          return (
+                            <article
+                              key={type?.id ?? rooms[0]?.roomTypeId}
+                              className={`booking-v2-room-change-type-card${selectedRoomInGroup ? " is-selected" : ""}`}
+                            >
+                              <button
+                                type="button"
+                                className="booking-v2-room-change-type-image-button"
+                                onClick={() => {
+                                  setRoomChangeDetailType(type);
+                                  setRoomChangeDetailImageIndex(0);
+                                }}
+                                aria-label={`Xem chi tiết loại phòng ${type?.name ?? ""}`}
+                              >
+                                <div className="booking-v2-room-change-type-image">
+                                  {imageUrl ? (
+                                    <img src={imageUrl} alt={type?.name ?? "Ảnh loại phòng"} />
+                                  ) : (
+                                    <div><ImageOff size={24} /><span>Chưa có ảnh</span></div>
+                                  )}
+                                </div>
+                              </button>
+
+                              <div className="booking-v2-room-change-type-main">
+                                <div className="booking-v2-room-change-type-head">
+                                  <div>
+                                    <button
+                                      type="button"
+                                      className="booking-v2-room-change-type-title"
+                                      onClick={() => {
+                                        setRoomChangeDetailType(type);
+                                        setRoomChangeDetailImageIndex(0);
+                                      }}
+                                    >
+                                      {type?.name ?? "Loại phòng"}
+                                      <Eye size={15} />
+                                    </button>
+                                    <span className="booking-v2-room-change-type-hint">Hover hoặc bấm để xem chi tiết</span>
+                                  </div>
+                                  <span className="booking-v2-room-change-available-count">Còn {rooms.length} phòng</span>
+                                </div>
+
+                                <div className="booking-v2-room-change-type-meta">
+                                  <span><Users size={14} /> {type?.maxAdults ?? 0} người lớn{Number(type?.maxChildren ?? 0) > 0 ? ` · ${type.maxChildren} trẻ em` : ""}</span>
+                                  {bed ? <span><BedDouble size={14} /> {bed}</span> : null}
+                                  {type?.areaSqm ? <span>{type.areaSqm} m²</span> : null}
+                                </div>
+
+                                <div className="booking-v2-room-change-type-price-row">
+                                  <div>
+                                    <small>Giá phòng</small>
+                                    <strong>{minPrice == null ? "—" : maxPrice != null && maxPrice !== minPrice ? `Từ ${money(minPrice)}/đêm` : `${money(minPrice)}/đêm`}</strong>
+                                  </div>
+                                  {selectedDifference != null ? (
+                                    <b className={selectedDifference > 0 ? "is-up" : selectedDifference < 0 ? "is-down" : "is-same"}>
+                                      {selectedDifference === 0 ? "Cùng giá" : `${selectedDifference > 0 ? "+" : ""}${money(selectedDifference)}/đêm`}
+                                    </b>
+                                  ) : null}
+                                </div>
+
+                                <div className="booking-v2-room-change-room-choice">
+                                  <div className="booking-v2-room-change-room-choice-label">
+                                    <strong>Chọn số phòng</strong>
+                                    <span>Bạn chọn chính xác phòng muốn đổi sang</span>
+                                  </div>
+                                  <div className="booking-v2-room-change-room-number-list">
+                                    {rooms.map((room) => {
+                                      const selected = String(room.id) === String(roomChangeTargetRoomId);
+                                      const roomPrice = Number(room.customPrice ?? type?.basePrice);
+                                      return (
+                                        <button
+                                          type="button"
+                                          key={room.id}
+                                          className={selected ? "is-selected" : ""}
+                                          onClick={() => setRoomChangeTargetRoomId(String(room.id))}
+                                          title={Number.isFinite(roomPrice) ? `${money(roomPrice)}/đêm` : `Phòng ${room.roomNumber ?? ""}`}
+                                        >
+                                          <BedDouble size={14} />
+                                          Phòng {room.roomNumber ?? "—"}
+                                          {selected ? <CheckCircle2 size={15} /> : null}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <label className="booking-v2-room-change-reason-field">
+                    <span>Lý do muốn đổi phòng <b>*</b></span>
+                    <textarea
+                      required
+                      rows={3}
+                      maxLength={1000}
+                      value={roomChangeReason}
+                      onChange={(event) => setRoomChangeReason(event.target.value)}
+                      placeholder="Ví dụ: Tôi cần phòng rộng hơn vì có thêm trẻ em đi cùng..."
+                    />
+                    <small>{roomChangeReason.length}/1000 ký tự</small>
+                  </label>
+
+                  <div className="booking-v2-room-change-footer">
+                    <div className="booking-v2-room-change-selected-summary">
+                      <div className="booking-v2-room-change-selected-thumb">
+                        {roomTypeCover(roomChangeSelectedType) ? (
+                          <img src={roomTypeCover(roomChangeSelectedType)} alt={roomChangeSelectedType?.name ?? "Phòng đã chọn"} />
+                        ) : (
+                          <BedDouble size={20} />
+                        )}
+                      </div>
+                      <div>
+                        <small>{roomChangeSelectedRoom ? "Phòng bạn đã chọn" : "Chưa chọn phòng mới"}</small>
+                        <strong>
+                          {roomChangeSelectedRoom
+                            ? `${roomChangeSelectedType?.name ?? "Loại phòng"} · Phòng ${roomChangeSelectedRoom.roomNumber ?? "—"}`
+                            : "Vui lòng chọn một phòng ở trên"}
+                        </strong>
+                      </div>
+                    </div>
+                    <div className="booking-v2-room-change-difference-summary">
+                      <small>Chênh lệch giá/đêm</small>
+                      <strong className={roomChangeNightlyDifference > 0 ? "is-up" : roomChangeNightlyDifference < 0 ? "is-down" : ""}>
+                        {roomChangeNightlyDifference == null
+                          ? "—"
+                          : roomChangeNightlyDifference === 0
+                            ? "0 ₫"
+                            : `${roomChangeNightlyDifference > 0 ? "+" : ""}${money(roomChangeNightlyDifference)}`}
+                      </strong>
+                      <span>Khoản phải bù chính xác sẽ được hệ thống tính khi khách sạn duyệt.</span>
+                    </div>
+                    <div className="booking-v2-room-change-footer-actions">
+                      <button type="button" onClick={closeRoomChangeRequest}>Hủy</button>
+                      <button type="submit" disabled={roomChangeBusy || roomChangeOptionsLoading || !roomChangeTargetRoomId || !roomChangeReason.trim()}>
+                        <ArrowRightLeft size={17} />
+                        {roomChangeBusy ? "Đang gửi..." : "Gửi yêu cầu đổi phòng"}
+                        {!roomChangeBusy ? <ChevronRight size={16} /> : null}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              )}
+            </section>
+          </div>
+        );
+      })() : null}
+
+
+
+      {roomChangeDetailType ? (() => {
+        const images = roomTypeImageUrls(roomChangeDetailType);
+        const safeIndex = Math.min(roomChangeDetailImageIndex, Math.max(images.length - 1, 0));
+        const selectedImage = images[safeIndex] ?? "";
+        const availableRoomsForType = roomChangeAvailableRooms.filter(
+          (room) => String(room.roomTypeId) === String(roomChangeDetailType.id),
+        );
+        const detailPrices = availableRoomsForType
+          .map((room) => Number(room.customPrice ?? roomChangeDetailType.basePrice))
+          .filter(Number.isFinite);
+        const detailMinPrice = detailPrices.length ? Math.min(...detailPrices) : Number(roomChangeDetailType.basePrice ?? 0);
+        const detailBed = bedSummary(roomChangeDetailType);
+        const amenities = Array.isArray(roomChangeDetailType.amenities) ? roomChangeDetailType.amenities.filter(Boolean) : [];
+
+        return (
+          <div className="booking-v2-room-type-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setRoomChangeDetailType(null); }}>
+            <section className="booking-v2-room-type-detail-modal" role="dialog" aria-modal="true" aria-label={`Chi tiết loại phòng ${roomChangeDetailType.name ?? ""}`} onMouseDown={(event) => event.stopPropagation()}>
+              <button type="button" className="booking-v2-room-type-detail-close" onClick={() => setRoomChangeDetailType(null)} aria-label="Đóng chi tiết loại phòng"><X size={21} /></button>
+              <div className="booking-v2-room-type-detail-gallery">
+                <div className="booking-v2-room-type-detail-main-image">
+                  {selectedImage ? <img src={selectedImage} alt={roomChangeDetailType.name ?? "Loại phòng"} /> : <div><ImageOff size={32} /><span>Loại phòng chưa có hình ảnh</span></div>}
+                  {images.length > 1 ? (
+                    <div className="booking-v2-room-type-detail-image-nav">
+                      <button type="button" onClick={() => setRoomChangeDetailImageIndex((current) => current === 0 ? images.length - 1 : current - 1)} aria-label="Ảnh trước">‹</button>
+                      <span>{safeIndex + 1}/{images.length}</span>
+                      <button type="button" onClick={() => setRoomChangeDetailImageIndex((current) => current === images.length - 1 ? 0 : current + 1)} aria-label="Ảnh sau">›</button>
+                    </div>
+                  ) : null}
+                </div>
+                {images.length > 1 ? (
+                  <div className="booking-v2-room-type-detail-thumbs">
+                    {images.slice(0, 6).map((image, index) => (
+                      <button type="button" key={`${image}-${index}`} className={index === safeIndex ? "is-active" : ""} onClick={() => setRoomChangeDetailImageIndex(index)}>
+                        <img src={image} alt={`Ảnh ${index + 1}`} />
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <div className="booking-v2-room-type-detail-copy">
+                <span className="booking-v2-room-type-detail-kicker">CHI TIẾT LOẠI PHÒNG</span>
+                <h2>{roomChangeDetailType.name ?? "Loại phòng"}</h2>
+                <div className="booking-v2-room-type-detail-price-line">
+                  <strong>{Number.isFinite(detailMinPrice) && detailMinPrice > 0 ? `${money(detailMinPrice)}/đêm` : "Liên hệ khách sạn"}</strong>
+                  <span>Còn {availableRoomsForType.length} phòng phù hợp kỳ lưu trú</span>
+                </div>
+                <p className="booking-v2-room-type-detail-description">{roomChangeDetailType.description || "Khách sạn chưa cập nhật mô tả chi tiết cho loại phòng này."}</p>
+                <div className="booking-v2-room-type-detail-facts">
+                  <span><Users size={17} /> Tối đa {roomChangeDetailType.maxAdults ?? 0} người lớn{Number(roomChangeDetailType.maxChildren ?? 0) > 0 ? ` · ${roomChangeDetailType.maxChildren} trẻ em` : ""}</span>
+                  {detailBed ? <span><BedDouble size={17} /> {detailBed}</span> : null}
+                  {roomChangeDetailType.areaSqm ? <span><Building2 size={17} /> {roomChangeDetailType.areaSqm} m²</span> : null}
+                  <span><CircleDollarSign size={17} /> {roomChangeDetailType.refundable ? "Có hoàn tiền theo chính sách" : "Không hoàn tiền"}</span>
+                </div>
+                <div className="booking-v2-room-type-detail-policies">
+                  <span><CheckCircle2 size={16} /> {roomChangeDetailType.breakfastIncluded ? "Bao gồm bữa sáng" : "Không bao gồm bữa sáng"}</span>
+                  <span><CheckCircle2 size={16} /> {roomChangeDetailType.payAtHotelAllowed !== false ? "Có thể thanh toán tại khách sạn" : "Thanh toán online"}</span>
+                  <span><CheckCircle2 size={16} /> {roomChangeDetailType.smokingAllowed ? "Cho phép hút thuốc" : "Phòng không hút thuốc"}</span>
+                </div>
+                <div className="booking-v2-room-type-detail-amenities">
+                  <strong>Tiện nghi trong phòng</strong>
+                  <div>{amenities.length ? amenities.map((amenity) => <span key={String(amenity)}><CheckCircle2 size={14} /> {String(amenity)}</span>) : <small>Khách sạn chưa cập nhật tiện nghi cho loại phòng này.</small>}</div>
+                </div>
+                <div className="booking-v2-room-type-detail-available-rooms">
+                  <strong>Phòng đang trống trong kỳ lưu trú của bạn</strong>
+                  <div>{availableRoomsForType.length ? availableRoomsForType.map((room) => (
+                    <button type="button" key={room.id} onClick={() => { setRoomChangeTargetRoomId(String(room.id)); setRoomChangeDetailType(null); }}>Phòng {room.roomNumber ?? "—"}<ChevronRight size={14} /></button>
+                  )) : <small>Không còn phòng phù hợp ở loại phòng này.</small>}</div>
+                </div>
+              </div>
+            </section>
+          </div>
+        );
+      })() : null}
 
       {refundBooking ? (
         <div

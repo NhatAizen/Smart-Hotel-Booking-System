@@ -200,8 +200,9 @@
     minmax(235px, 1.55fr)
     minmax(180px, 1fr)
     minmax(180px, 1fr)
-    minmax(140px, .72fr)
-    minmax(135px, .66fr)
+    minmax(126px, .68fr)
+    minmax(116px, .58fr)
+    minmax(112px, .56fr)
     174px;
   gap: 18px;
   margin: -93px auto 0;
@@ -1411,8 +1412,9 @@
       minmax(220px, 1.4fr)
       minmax(165px, 1fr)
       minmax(165px, 1fr)
-      minmax(125px, .72fr)
-      minmax(120px, .62fr)
+      minmax(116px, .68fr)
+      minmax(104px, .58fr)
+      minmax(104px, .56fr)
       158px;
     gap: 12px;
   }

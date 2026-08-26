@@ -3,6 +3,7 @@ import {
   Bell,
   Building2,
   ClipboardCheck,
+  ClipboardList,
   Gift,
   LayoutDashboard,
   ShieldCheck,
@@ -25,6 +26,11 @@ const items = [
     to: "/admin/users",
     label: "Tài khoản",
     icon: Users,
+  },
+  {
+    to: "/admin/bookings",
+    label: "Booking hệ thống",
+    icon: ClipboardList,
   },
   {
     to: "/admin/partner-requests",
@@ -66,19 +72,20 @@ const items = [
 const desktopNavigation = [
   { type: "link", item: items[0] },
   { type: "link", item: items[1] },
+  { type: "link", item: items[2] },
   {
     type: "group",
     label: "Kiểm duyệt",
     icon: ShieldCheck,
-    items: [items[2], items[3], items[4], items[5]],
+    items: [items[3], items[4], items[5], items[6]],
   },
   {
     type: "group",
     label: "Kinh doanh",
     icon: WalletCards,
-    items: [items[6], items[7]],
+    items: [items[7], items[8]],
   },
-  { type: "link", item: items[8] },
+  { type: "link", item: items[9] },
 ];
 
 export default function SystemAdminNavbar() {

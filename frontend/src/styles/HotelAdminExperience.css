@@ -1018,3 +1018,732 @@
   background: #fff5f4;
   color: #b64842;
 }
+
+/* =========================================================
+   HOTEL ADMIN DASHBOARD — PREMIUM ANALYTICS REDESIGN
+   Keeps the existing horizontal Hotel Admin navbar intact.
+   ========================================================= */
+.hotel-admin-experience .ha-dashboard-redesign {
+  display: grid;
+  gap: 20px;
+  padding: 0 0 28px;
+  background: transparent;
+  color: #15324b;
+}
+
+.hotel-admin-experience .ha-dashboard-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 4px 2px 2px;
+}
+
+.hotel-admin-experience .ha-dashboard-eyebrow {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: #128d84;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+
+.hotel-admin-experience .ha-dashboard-hero h1 {
+  margin: 0;
+  color: #102943;
+  font-size: clamp(28px, 3vw, 38px);
+  line-height: 1.08;
+  letter-spacing: -.035em;
+}
+
+.hotel-admin-experience .ha-dashboard-hero p {
+  margin: 9px 0 0;
+  color: #76899b;
+  font-size: 14px;
+}
+
+.hotel-admin-experience .ha-dashboard-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hotel-admin-experience .ha-dashboard-hotel-picker {
+  display: grid;
+  min-width: 230px;
+  gap: 2px;
+  padding: 6px 12px;
+  border: 1px solid #dfe7ef;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 7px 20px rgba(35, 65, 91, .04);
+}
+
+.hotel-admin-experience .ha-dashboard-hotel-picker span {
+  color: #8a9aac;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.hotel-admin-experience .ha-dashboard-hotel-picker select {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #18344e;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.hotel-admin-experience .ha-dashboard-date-chip,
+.hotel-admin-experience .ha-dashboard-refresh {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 15px;
+  border: 1px solid #dfe7ef;
+  border-radius: 12px;
+  background: #fff;
+  color: #314c67;
+  font-size: 12px;
+  font-weight: 850;
+  box-shadow: 0 7px 20px rgba(35, 65, 91, .04);
+}
+
+.hotel-admin-experience .ha-dashboard-refresh {
+  border-color: #149b91;
+  background: linear-gradient(135deg, #14a89b, #0d8d85);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(13, 148, 136, .18);
+}
+
+.hotel-admin-experience .ha-dashboard-refresh:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 13px 28px rgba(13, 148, 136, .23);
+}
+
+.hotel-admin-experience .ha-dashboard-refresh:disabled {
+  cursor: wait;
+  opacity: .68;
+}
+
+.hotel-admin-experience .ha-dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.hotel-admin-experience .ha-dashboard-metric {
+  display: grid;
+  min-width: 0;
+  min-height: 122px;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid #e2e9f0;
+  border-radius: 19px;
+  background: rgba(255, 255, 255, .985);
+  box-shadow: 0 10px 28px rgba(25, 54, 80, .055);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.hotel-admin-experience .ha-dashboard-metric:hover {
+  transform: translateY(-2px);
+  border-color: #d3e2ec;
+  box-shadow: 0 15px 34px rgba(25, 54, 80, .085);
+}
+
+.hotel-admin-experience .ha-dashboard-metric-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: 15px;
+}
+
+.hotel-admin-experience .ha-dashboard-metric.blue .ha-dashboard-metric-icon {
+  background: #eaf3ff;
+  color: #2374df;
+}
+
+.hotel-admin-experience .ha-dashboard-metric.green .ha-dashboard-metric-icon {
+  background: #e9f8ef;
+  color: #22a460;
+}
+
+.hotel-admin-experience .ha-dashboard-metric.violet .ha-dashboard-metric-icon {
+  background: #f1eafe;
+  color: #7a49d8;
+}
+
+.hotel-admin-experience .ha-dashboard-metric.orange .ha-dashboard-metric-icon {
+  background: #fff1df;
+  color: #e7871b;
+}
+
+.hotel-admin-experience .ha-dashboard-metric-copy {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.hotel-admin-experience .ha-dashboard-metric-copy > span {
+  overflow: hidden;
+  color: #71859a;
+  font-size: 12px;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hotel-admin-experience .ha-dashboard-metric-copy > strong {
+  overflow: hidden;
+  color: #0f2942;
+  font-size: clamp(23px, 2vw, 29px);
+  line-height: 1.12;
+  letter-spacing: -.025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hotel-admin-experience .ha-dashboard-metric-copy > small {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  color: #8b9aaa;
+  font-size: 10.5px;
+  font-weight: 720;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hotel-admin-experience .ha-dashboard-metric-copy > small.positive { color: #159658; }
+.hotel-admin-experience .ha-dashboard-metric-copy > small.negative { color: #cf5353; }
+
+.hotel-admin-experience .ha-dashboard-analytics-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(330px, .82fr);
+  gap: 18px;
+}
+
+.hotel-admin-experience .ha-dashboard-bottom-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.48fr) minmax(340px, .82fr);
+  gap: 18px;
+}
+
+.hotel-admin-experience .ha-dashboard-panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e0e8ef;
+  border-radius: 21px;
+  background: rgba(255, 255, 255, .985);
+  box-shadow: 0 12px 32px rgba(27, 57, 82, .06);
+}
+
+.hotel-admin-experience .ha-dashboard-panel-header {
+  display: flex;
+  min-height: 76px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 22px 13px;
+}
+
+.hotel-admin-experience .ha-dashboard-panel-header h2 {
+  margin: 0;
+  color: #112c46;
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: -.015em;
+}
+
+.hotel-admin-experience .ha-dashboard-panel-header p {
+  margin: 5px 0 0;
+  color: #8393a4;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.hotel-admin-experience .ha-dashboard-panel-title-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hotel-admin-experience .ha-dashboard-info {
+  display: inline-grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 1px solid #9aabba;
+  border-radius: 999px;
+  color: #708399;
+  font-size: 9px;
+  font-weight: 900;
+  cursor: help;
+}
+
+.hotel-admin-experience .ha-dashboard-period,
+.hotel-admin-experience .ha-dashboard-text-link {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 11px;
+  border: 1px solid #dfe7ef;
+  border-radius: 10px;
+  background: #fff;
+  color: #405a73;
+  font-size: 11px;
+  font-weight: 850;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.hotel-admin-experience .ha-dashboard-text-link {
+  border-color: transparent;
+  color: #0877d5;
+}
+
+.hotel-admin-experience .ha-dashboard-text-link:hover {
+  background: #f1f8ff;
+}
+
+.hotel-admin-experience .ha-dashboard-chart-legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 23px 2px;
+  color: #657a90;
+  font-size: 10.5px;
+}
+
+.hotel-admin-experience .ha-dashboard-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hotel-admin-experience .ha-dashboard-chart-legend i {
+  width: 20px;
+  height: 3px;
+  border-radius: 999px;
+  background: #1677ff;
+}
+
+.hotel-admin-experience .ha-dashboard-chart-legend strong {
+  color: #14344f;
+  font-size: 12px;
+}
+
+.hotel-admin-experience .ha-revenue-chart-shell {
+  position: relative;
+  min-height: 288px;
+  padding: 0 12px 10px 4px;
+}
+
+.hotel-admin-experience .ha-revenue-chart {
+  display: block;
+  width: 100%;
+  height: 278px;
+  overflow: visible;
+}
+
+.hotel-admin-experience .ha-revenue-grid-line {
+  stroke: #e7edf3;
+  stroke-width: 1;
+  stroke-dasharray: 4 5;
+}
+
+.hotel-admin-experience .ha-revenue-zero-line {
+  stroke: #d2dde7;
+  stroke-width: 1.1;
+}
+
+.hotel-admin-experience .ha-revenue-axis-label,
+.hotel-admin-experience .ha-revenue-day-label {
+  fill: #7d8ea0;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.hotel-admin-experience .ha-revenue-line {
+  fill: none;
+  stroke: #1677ff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hotel-admin-experience .ha-revenue-point-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.hotel-admin-experience .ha-revenue-point {
+  fill: #1677ff;
+  stroke: #fff;
+  stroke-width: 3;
+  pointer-events: none;
+  transition: r .15s ease;
+}
+
+.hotel-admin-experience .ha-revenue-point-group:hover .ha-revenue-point,
+.hotel-admin-experience .ha-revenue-point-group:focus .ha-revenue-point {
+  r: 7;
+}
+
+.hotel-admin-experience .ha-revenue-point-group:focus { outline: none; }
+
+.hotel-admin-experience .ha-revenue-tooltip {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  min-width: 132px;
+  gap: 4px;
+  padding: 9px 11px;
+  transform: translate(-50%, -100%);
+  border: 1px solid #dce7f1;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 12px 28px rgba(25, 54, 80, .14);
+  pointer-events: none;
+}
+
+.hotel-admin-experience .ha-revenue-tooltip span {
+  color: #8a99a9;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.hotel-admin-experience .ha-revenue-tooltip strong {
+  color: #126bd2;
+  font-size: 12px;
+}
+
+.hotel-admin-experience .ha-room-chart-body {
+  display: grid;
+  min-height: 320px;
+  grid-template-columns: minmax(170px, .82fr) minmax(200px, 1fr);
+  align-items: center;
+  gap: 28px;
+  padding: 14px 27px 28px;
+}
+
+.hotel-admin-experience .ha-room-donut {
+  position: relative;
+  width: min(210px, 100%);
+  aspect-ratio: 1;
+  justify-self: center;
+  border-radius: 50%;
+  box-shadow: 0 12px 30px rgba(39, 72, 101, .08);
+}
+
+.hotel-admin-experience .ha-room-donut::after {
+  position: absolute;
+  inset: 25%;
+  content: "";
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #edf1f5;
+}
+
+.hotel-admin-experience .ha-room-donut-center {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
+}
+
+.hotel-admin-experience .ha-room-donut-center strong {
+  color: #122e49;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.hotel-admin-experience .ha-room-donut-center span {
+  color: #8091a1;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.hotel-admin-experience .ha-room-legend {
+  display: grid;
+  gap: 13px;
+}
+
+.hotel-admin-experience .ha-room-legend > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #60758a;
+  font-size: 11px;
+}
+
+.hotel-admin-experience .ha-room-legend span {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.hotel-admin-experience .ha-room-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 50%;
+}
+
+.hotel-admin-experience .ha-room-legend i.ready { background: #4fc67a; }
+.hotel-admin-experience .ha-room-legend i.occupied { background: #387ff2; }
+.hotel-admin-experience .ha-room-legend i.cleaning { background: #f4a033; }
+.hotel-admin-experience .ha-room-legend i.maintenance { background: #8c62d9; }
+.hotel-admin-experience .ha-room-legend i.inactive { background: #ef5c5c; }
+
+.hotel-admin-experience .ha-room-legend strong {
+  color: #18344e;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.hotel-admin-experience .ha-room-legend strong small {
+  color: #8596a6;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.hotel-admin-experience .ha-dashboard-table-wrap {
+  overflow-x: auto;
+  border-top: 1px solid #edf1f5;
+}
+
+.hotel-admin-experience .ha-dashboard-booking-table {
+  width: 100%;
+  min-width: 850px;
+  border-collapse: collapse;
+}
+
+.hotel-admin-experience .ha-dashboard-booking-table th,
+.hotel-admin-experience .ha-dashboard-booking-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #edf1f5;
+  color: #567087;
+  font-size: 10.5px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.hotel-admin-experience .ha-dashboard-booking-table th {
+  background: #f9fbfd;
+  color: #71859a;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.hotel-admin-experience .ha-dashboard-booking-table tbody tr:hover {
+  background: #fbfdff;
+}
+
+.hotel-admin-experience .ha-dashboard-booking-table td strong {
+  color: #18344d;
+}
+
+.hotel-admin-experience .ha-dashboard-booking-code {
+  color: #0878df;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.hotel-admin-experience .ha-dashboard-table-empty {
+  padding-block: 32px !important;
+  color: #8798a7 !important;
+  text-align: center !important;
+}
+
+.hotel-admin-experience .ha-dashboard-finance-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.hotel-admin-experience .ha-dashboard-finance-rows {
+  display: grid;
+  gap: 4px;
+  padding: 2px 20px 18px;
+}
+
+.hotel-admin-experience .ha-dashboard-finance-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  padding: 12px 2px;
+  border-bottom: 1px solid #edf1f5;
+}
+
+.hotel-admin-experience .ha-dashboard-finance-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 12px;
+}
+
+.hotel-admin-experience .ha-dashboard-finance-icon.blue { background: #eaf3ff; color: #2578df; }
+.hotel-admin-experience .ha-dashboard-finance-icon.violet { background: #f1eafe; color: #7650d4; }
+.hotel-admin-experience .ha-dashboard-finance-icon.green { background: #eaf8ef; color: #1d9b5b; }
+.hotel-admin-experience .ha-dashboard-finance-icon.orange { background: #fff1df; color: #db821d; }
+
+.hotel-admin-experience .ha-dashboard-finance-copy {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.hotel-admin-experience .ha-dashboard-finance-copy > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hotel-admin-experience .ha-dashboard-finance-copy span {
+  color: #60758b;
+  font-size: 10.5px;
+  font-weight: 760;
+}
+
+.hotel-admin-experience .ha-dashboard-finance-copy strong {
+  color: #18344f;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.hotel-admin-experience .ha-dashboard-finance-copy small {
+  color: #8798a8;
+  font-size: 9px;
+}
+
+.hotel-admin-experience .ha-dashboard-finance-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf2f6;
+}
+
+.hotel-admin-experience .ha-dashboard-finance-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.hotel-admin-experience .ha-dashboard-finance-track i.blue { background: #2578df; }
+.hotel-admin-experience .ha-dashboard-finance-track i.violet { background: #7650d4; }
+.hotel-admin-experience .ha-dashboard-finance-track i.green { background: #1d9b5b; }
+.hotel-admin-experience .ha-dashboard-finance-track i.orange { background: #db821d; }
+
+.hotel-admin-experience .ha-dashboard-finance-total {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding: 15px 20px;
+  border-top: 1px solid #e8eef3;
+  background: #f8fbff;
+  color: #2d4963;
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.hotel-admin-experience .ha-dashboard-finance-total strong {
+  color: #0877df;
+  font-size: 16px;
+}
+
+.hotel-admin-experience .ha-dashboard-inline-empty {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  color: #8697a7;
+  font-size: 12px;
+}
+
+@media (max-width: 1260px) {
+  .hotel-admin-experience .ha-dashboard-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hotel-admin-experience .ha-dashboard-analytics-grid,
+  .hotel-admin-experience .ha-dashboard-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hotel-admin-experience .ha-dashboard-finance-panel {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .hotel-admin-experience .ha-dashboard-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hotel-admin-experience .ha-dashboard-hero-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .hotel-admin-experience .ha-dashboard-room-panel .ha-room-chart-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .hotel-admin-experience .hotel-admin-content {
+    padding-inline: 14px;
+  }
+
+  .hotel-admin-experience .ha-dashboard-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .hotel-admin-experience .ha-dashboard-date-chip,
+  .hotel-admin-experience .ha-dashboard-refresh,
+  .hotel-admin-experience .ha-dashboard-hotel-picker {
+    width: 100%;
+  }
+
+  .hotel-admin-experience .ha-dashboard-panel-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hotel-admin-experience .ha-dashboard-text-link,
+  .hotel-admin-experience .ha-dashboard-period {
+    align-self: flex-start;
+  }
+}

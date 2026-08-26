@@ -63,7 +63,7 @@ import "./PlatformWalletPage.css";
 function money(value) {
   if (value === null || value === undefined || value === "") return "—";
   const amount = Number(value);
-  return Number.isFinite(amount) ? `${amount.toLocaleString("vi-VN")} ₫` : "—";
+  return Number.isFinite(amount) ? `${Math.round(amount).toLocaleString("vi-VN", { maximumFractionDigits: 0 })} ₫` : "—";
 }
 
 function dateTime(value) {
