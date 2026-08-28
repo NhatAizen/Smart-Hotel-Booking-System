@@ -16,6 +16,9 @@ spring:
               - "http://127.0.0.1:5173"
               - "http://localhost:5300"
               - "http://127.0.0.1:5300"
+              - "http://localhost:3000"
+              - "https://*.trycloudflare.com"
+              - "https://enziurooms.xyz"
             allowed-methods:
               - GET
               - POST

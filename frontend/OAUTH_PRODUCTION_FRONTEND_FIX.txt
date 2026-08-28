@@ -1,0 +1,21 @@
+ENZIUROOMS - FRONTEND OAUTH PRODUCTION FIX
+
+Da sua loi frontend production chuyen nguoi dung den:
+  http://localhost:8081/oauth2/authorization/google
+  http://localhost:8081/oauth2/authorization/facebook
+
+Production bay gio luon dung same-origin:
+  /oauth2/authorization/google
+  /oauth2/authorization/facebook
+
+Tren domain that, trinh duyet se mo:
+  https://enziurooms.xyz/oauth2/authorization/google
+  https://enziurooms.xyz/oauth2/authorization/facebook
+
+File da sua:
+  src/pages/auth/LoginPage.jsx
+File da them:
+  .env.production
+
+Sau khi copy frontend nay vao repo, deploy lai bang:
+  powershell -ExecutionPolicy Bypass -File .\infrastructure\deploy\deploy.ps1

@@ -24,6 +24,7 @@ const HotelsPage = lazy(() => import("../pages/shared/HotelsPage"));
 const HotelDetailPage = lazy(() => import("../pages/shared/HotelDetailPage"));
 const UnauthorizedPage = lazy(() => import("../pages/shared/UnauthorizedPage"));
 const NotFoundPage = lazy(() => import("../pages/shared/NotFoundPage"));
+const LegalInfoPage = lazy(() => import("../pages/shared/LegalInfoPage"));
 
 const LoginPage = lazy(() => import("../pages/auth/LoginPage"));
 const EnziuLoginPage = lazy(() => import("../pages/auth/EnziuLoginPage"));
@@ -94,6 +95,13 @@ export default function AppRoutes() {
               <Route path="/" element={<HomePage />} />
               <Route path="/hotels" element={<HotelsPage />} />
               <Route path="/hotels/:hotelId" element={<HotelDetailPage />} />
+              <Route path="/about" element={<LegalInfoPage />} />
+              <Route path="/help" element={<LegalInfoPage />} />
+              <Route path="/terms" element={<LegalInfoPage />} />
+              <Route path="/privacy" element={<LegalInfoPage />} />
+              <Route path="/cancellation-policy" element={<LegalInfoPage />} />
+              <Route path="/refund-policy" element={<LegalInfoPage />} />
+              <Route path="/payment-policy" element={<LegalInfoPage />} />
             </Route>
 
             <Route path="/login" element={<LoginPage />} />

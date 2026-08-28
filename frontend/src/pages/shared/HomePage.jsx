@@ -3,22 +3,17 @@ import {
   BadgePercent,
   Bookmark,
   Check,
-  CheckCircle2,
   ChevronRight,
   CreditCard,
   Headphones,
-  Globe2,
-  Camera,
-  CirclePlay,
-  MessageCircle,
-  Music2,
+  LogIn,
   MapPin,
   Quote,
   RefreshCcw,
   ShieldCheck,
   Sparkles,
   Star,
-  Tag,
+  UserPlus,
   Zap,
 } from "lucide-react";
 import {
@@ -36,6 +31,8 @@ import {
 import homeHeroImage from "../../assets/home-hero-hotel.jpg";
 import homeWhyHotelImage from "../../assets/home-why-hotel.svg";
 import { useAuth } from "../../auth/AuthContext";
+import EnziuHomeFooter from "../../components/home/EnziuHomeFooter";
+import HomeFutureSections from "../../components/home/HomeFutureSections";
 import HotelSearchBar from "../../components/search/HotelSearchBar";
 import { EmptyState, LoadingState, StatusBadge } from "../../components/ui";
 import {
@@ -489,7 +486,7 @@ export default function HomePage() {
           right.hotelCount - left.hotelCount
           || left.name.localeCompare(right.name, "vi"),
       )
-      .slice(0, 4);
+      .slice(0, 6);
   }, [hotels]);
 
   function searchDestination(destination) {
@@ -607,6 +604,8 @@ export default function HomePage() {
                         String(activeCampaign.promotionId),
                       ) ? (
                         <Check size={15} />
+                      ) : !isAuthenticated ? (
+                        <LogIn size={15} />
                       ) : (
                         <Bookmark size={15} />
                       )}
@@ -614,7 +613,9 @@ export default function HomePage() {
                         String(activeCampaign.promotionId),
                       )
                         ? "Đã lưu"
-                        : "Lưu mã"}
+                        : !isAuthenticated
+                          ? "Đăng nhập để lưu mã"
+                          : "Lưu mã"}
                     </button>
                   ) : null}
                 </div>
@@ -658,6 +659,70 @@ export default function HomePage() {
             </article>
           </div>
         </section>
+
+        {!isAuthenticated ? (
+          <section className="home-section home-guest-cta-section">
+            <div className="container">
+              <div className="home-guest-cta-card">
+                <div className="home-guest-cta-copy">
+                  <span className="home-section-kicker">DÀNH CHO KHÁCH CHƯA ĐĂNG NHẬP</span>
+                  <h2>Đăng nhập hoặc đăng ký để mở khóa ưu đãi Enziu</h2>
+                  <p>
+                    Tạo tài khoản để lưu khách sạn yêu thích, lưu mã giảm giá,
+                    quản lý đơn đặt phòng và nhận thêm ưu đãi từ chương trình
+                    thành viên EnziuRooms.
+                  </p>
+
+                  <div className="home-guest-cta-actions">
+                    <Link to="/login" className="home-primary-link">
+                      <LogIn size={17} />
+                      Đăng nhập ngay
+                    </Link>
+
+                    <Link to="/register" className="home-secondary-link">
+                      <UserPlus size={17} />
+                      Tạo tài khoản mới
+                    </Link>
+                  </div>
+
+                  <small>
+                    Một số chức năng như Yêu thích, Đơn đặt phòng, Ưu đãi &amp; Hạng
+                    và lưu mã khuyến mãi sẽ yêu cầu bạn đăng nhập trước khi sử dụng.
+                  </small>
+                </div>
+
+                <div className="home-guest-cta-features" aria-label="Quyền lợi khi đăng nhập">
+                  <article>
+                    <span><Bookmark size={20} /></span>
+                    <div>
+                      <h3>Lưu khách sạn yêu thích</h3>
+                      <p>Đăng nhập để lưu lại nơi nghỉ bạn quan tâm và xem lại nhanh hơn.</p>
+                    </div>
+                    <Link to="/login">Đăng nhập</Link>
+                  </article>
+
+                  <article>
+                    <span><BadgePercent size={20} /></span>
+                    <div>
+                      <h3>Lưu mã & nhận ưu đãi</h3>
+                      <p>Mở khóa mã giảm giá EnziuRooms và theo dõi quyền lợi thành viên.</p>
+                    </div>
+                    <Link to="/login">Đăng nhập</Link>
+                  </article>
+
+                  <article>
+                    <span><CreditCard size={20} /></span>
+                    <div>
+                      <h3>Quản lý đơn đặt phòng</h3>
+                      <p>Xem trạng thái booking, thanh toán và lịch sử lưu trú trong tài khoản.</p>
+                    </div>
+                    <Link to="/login">Đăng nhập</Link>
+                  </article>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section className="home-section home-featured-section">
           <div className="container">
@@ -1037,84 +1102,10 @@ export default function HomePage() {
             )}
           </div>
         </section>
+        <HomeFutureSections />
       </main>
 
-      <footer className="home-footer">
-        <div className="container home-footer-grid">
-          <div className="home-footer-brand">
-            <strong className="home-footer-logo"><em>Enziu</em><b>Rooms</b></strong>
-            <p>Stay Comfort, Live Easy</p>
-            <small>Đặt phòng dễ dàng · Trải nghiệm trọn vẹn</small>
-
-            <div className="home-footer-social" aria-label="EnziuRooms">
-              <span aria-hidden="true"><MessageCircle size={15} /></span>
-              <span aria-hidden="true"><Camera size={15} /></span>
-              <span aria-hidden="true"><CirclePlay size={15} /></span>
-              <span aria-hidden="true"><Music2 size={15} /></span>
-            </div>
-          </div>
-
-          <div>
-            <h3>Khám phá</h3>
-            <Link to="/hotels">Khách sạn nổi bật</Link>
-            <Link to="/hotels">Điểm đến</Link>
-            {isCustomer ? <Link to="/customer/rewards">Ưu đãi & Hạng</Link> : null}
-            {isCustomer ? <Link to="/customer/favorites">Yêu thích</Link> : null}
-          </div>
-
-          <div>
-            <h3>Đối tác</h3>
-            {isCustomer ? (
-              <Link to="/customer/partner">Đăng ký làm đối tác</Link>
-            ) : (
-              <Link to="/login">Đăng nhập để đăng ký đối tác</Link>
-            )}
-            <span>EnziuRooms Partner</span>
-          </div>
-
-          <div>
-            <h3>Hỗ trợ</h3>
-            <span>Hỏi Enziu AI ngay trên trang</span>
-            {isCustomer ? <Link to="/customer/notifications">Thông báo</Link> : null}
-            {isCustomer ? <Link to="/customer/payments">Thanh toán của tôi</Link> : null}
-          </div>
-
-          <div>
-            <h3>Tài khoản</h3>
-            {isCustomer ? (
-              <>
-                <Link to="/customer/bookings">Đơn đặt phòng</Link>
-                <Link to="/customer/favorites">Yêu thích</Link>
-                <Link to="/customer/reviews">Đánh giá của tôi</Link>
-              </>
-            ) : (
-              <>
-                <Link to="/login">Đăng nhập</Link>
-                <Link to="/register">Đăng ký</Link>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="container home-footer-bottom">
-          <span className="home-footer-copy">© 2026 EnziuRooms. All rights reserved.</span>
-
-          <span className="home-footer-security">
-            <ShieldCheck size={14} />
-            Thanh toán an toàn & bảo mật
-            <b>PayOS</b>
-            <b>VietQR</b>
-            <b>Ví Enziu</b>
-          </span>
-
-          <span className="home-footer-locale">
-            <Globe2 size={14} />
-            Tiếng Việt
-            <i />
-            VND
-          </span>
-        </div>
-      </footer>
+      <EnziuHomeFooter />
     </>
   );
 }

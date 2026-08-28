@@ -1,10 +1,9 @@
-name: enziurooms-production
-
 services:
   identity-service:
     environment:
       OAUTH_FRONTEND_REDIRECT: ${PUBLIC_WEB_URL}/oauth2/callback
       FRONTEND_BASE_URL: ${PUBLIC_WEB_URL}
+      PUBLIC_BASE_URL: ${PUBLIC_WEB_URL}
       PUBLIC_PROFILE_MEDIA_BASE_URL: ${PUBLIC_WEB_URL}/api/users/media
 
   hotel-service:

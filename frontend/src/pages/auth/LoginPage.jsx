@@ -52,8 +52,23 @@ export default function LoginPage() {
   });
 
   function handleSocialLogin(provider, label) {
-    const envName = provider === "google" ? "VITE_GOOGLE_OAUTH_URL" : "VITE_FACEBOOK_OAUTH_URL";
-    const oauthUrl = import.meta.env[envName];
+    /*
+     * Production luôn khởi tạo OAuth qua cùng domain EnziuRooms.
+     * Nginx sẽ chuyển /oauth2/** sang identity-service.
+     *
+     * Không dùng URL localhost từ .env khi build production, vì trên
+     * điện thoại/máy người dùng "localhost" chính là thiết bị của họ.
+     */
+    if (import.meta.env.PROD) {
+      window.location.assign(`/oauth2/authorization/${provider}`);
+      return;
+    }
+
+    const envName =
+      provider === "google"
+        ? "VITE_GOOGLE_OAUTH_URL"
+        : "VITE_FACEBOOK_OAUTH_URL";
+    const oauthUrl = String(import.meta.env[envName] ?? "").trim();
 
     if (oauthUrl) {
       window.location.assign(oauthUrl);

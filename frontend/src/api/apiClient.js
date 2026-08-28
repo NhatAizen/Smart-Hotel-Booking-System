@@ -31,6 +31,23 @@ function isAuthScreen() {
     || pathname === "/reset-password";
 }
 
+function isPublicScreen() {
+  const pathname = window.location.pathname;
+
+  return pathname === "/"
+    || pathname === "/hotels"
+    || pathname.startsWith("/hotels/")
+    || pathname === "/about"
+    || pathname === "/help"
+    || pathname === "/terms"
+    || pathname === "/privacy"
+    || pathname === "/cancellation-policy"
+    || pathname === "/refund-policy"
+    || pathname === "/payment-policy"
+    || pathname === "/oauth2/callback"
+    || pathname === "/unauthorized";
+}
+
 apiClient.interceptors.request.use(
   (config) => {
     const accessToken = localStorage.getItem("accessToken");
@@ -61,14 +78,26 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       const failedLoginOrPublicAuth = isPublicAuthRequest(error.config);
+      const hadAccessToken = Boolean(localStorage.getItem("accessToken"));
 
-      // Sai username/mật khẩu là lỗi nghiệp vụ của form đăng nhập.
-      // Giữ nguyên /login/enziurooms để EnziuLoginPage hiển thị lỗi ngay dưới form,
-      // không đá người dùng ngược về màn hình chọn Google/Facebook/EnziuRooms.
-      if (!failedLoginOrPublicAuth && !isAuthScreen()) {
+      // Guest được phép ở lại các trang PUBLIC kể cả khi một API phụ trả 401.
+      // Trước đây mọi 401 đều window.location.replace("/login"), nên homepage
+      // có thể bị đá sang màn hình chọn phương thức đăng nhập dù route "/" là public.
+      if (hadAccessToken && !failedLoginOrPublicAuth) {
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("user");
+      }
+
+      // Chỉ ép về login khi người dùng đang ở route cần đăng nhập và trước đó
+      // thực sự có session/token. Guest trên /, /hotels và các trang chính sách
+      // phải tiếp tục xem web bình thường.
+      if (
+        hadAccessToken
+        && !failedLoginOrPublicAuth
+        && !isAuthScreen()
+        && !isPublicScreen()
+      ) {
         window.location.replace("/login");
       }
     }
