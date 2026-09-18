@@ -28,6 +28,20 @@ Thumbs.db
 frontend/node_modules/
 frontend/dist/
 frontend/build/
+/node_modules/
+
+# Python runtime caches
+**/__pycache__/
+*.py[cod]
+**/.pytest_cache/
+
+# Local mobile backups and release artifacts
+/frontend/android_backup/
+/frontend/android/app/release/
+
+# Local demo execution results
+/scripts/enziu-demo*-result.json
+/scripts/enziu-demo*-verify-result.json
 
 # Test reports
 **/surefire-reports/
@@ -40,6 +54,7 @@ frontend/build/
 .env
 .env.*
 !.env.example
+!infrastructure/deploy/.env.prod.example
 
 # Local backups
 .backup/
@@ -50,4 +65,5 @@ frontend/build/
 # Backup archives
 *.7z
 *.zip
+backups/
 infrastructure/deploy/.env.prod
