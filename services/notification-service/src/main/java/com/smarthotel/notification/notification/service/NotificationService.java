@@ -12,6 +12,7 @@ import com.smarthotel.notification.notification.repository.NotificationReadRecei
 import com.smarthotel.notification.notification.repository.NotificationRepository;
 import com.smarthotel.notification.realtime.RealtimeEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -68,8 +69,9 @@ public class NotificationService {
     }
 
     @Transactional(readOnly = true)
-    public NotificationResponse getById(UUID notificationId, UUID viewerUserId) {
+    public NotificationResponse getById(UUID notificationId, UUID viewerUserId, String viewerRole) {
         Notification notification = findNotification(notificationId);
+        ensureCanView(notification, viewerUserId, viewerRole);
         return toViewerResponse(notification, viewerUserId);
     }
 
@@ -79,9 +81,9 @@ public class NotificationService {
         notificationRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
                 .forEach(item -> unique.put(item.getId(), item));
 
-        String normalizedRole = normalizeNullable(role);
+        String normalizedRole = normalizeRole(role);
         if (normalizedRole != null) {
-            notificationRepository.findAllByRecipientRoleOrderByCreatedAtDesc(normalizedRole.toUpperCase())
+            notificationRepository.findAllByRecipientRoleOrderByCreatedAtDesc(normalizedRole)
                     .forEach(item -> unique.put(item.getId(), item));
         }
 
@@ -99,12 +101,10 @@ public class NotificationService {
     }
 
     @Transactional
-    public NotificationResponse markRead(UUID notificationId, UUID viewerUserId) {
+    public NotificationResponse markRead(UUID notificationId, UUID viewerUserId, String viewerRole) {
         Notification notification = findNotification(notificationId);
+        ensureCanView(notification, viewerUserId, viewerRole);
         if (notification.getUserId() != null) {
-            if (!notification.getUserId().equals(viewerUserId)) {
-                throw new IllegalArgumentException("Bạn không phải người nhận thông báo này");
-            }
             notification.markRead();
             return NotificationResponse.from(notification);
         }
@@ -119,7 +119,7 @@ public class NotificationService {
     public int markAllRead(UUID userId, String role) {
         List<NotificationResponse> inbox = getInbox(userId, role, true);
         for (NotificationResponse item : inbox) {
-            markRead(item.id(), userId);
+            markRead(item.id(), userId, role);
         }
         return inbox.size();
     }
@@ -141,6 +141,19 @@ public class NotificationService {
         return receiptRepository.findByNotificationIdAndUserId(notification.getId(), viewerUserId)
                 .map(receipt -> NotificationResponse.from(notification, true, receipt.getReadAt()))
                 .orElseGet(() -> NotificationResponse.from(notification, false, null));
+    }
+
+    private void ensureCanView(Notification notification, UUID viewerUserId, String viewerRole) {
+        if ("SYSTEM_ADMIN".equals(normalizeRole(viewerRole))) return;
+        if (notification.getUserId() != null) {
+            if (notification.getUserId().equals(viewerUserId)) return;
+            throw new AccessDeniedException("Bạn không phải người nhận thông báo này");
+        }
+
+        String recipientRole = normalizeNullable(notification.getRecipientRole());
+        String normalizedViewerRole = normalizeRole(viewerRole);
+        if (recipientRole != null && recipientRole.equalsIgnoreCase(normalizedViewerRole)) return;
+        throw new AccessDeniedException("Thông báo không dành cho vai trò hiện tại");
     }
 
     private void sendEmail(Notification notification) {
@@ -179,5 +192,11 @@ public class NotificationService {
     private String normalizeNullable(String value) {
         if (value == null || value.isBlank()) return null;
         return value.trim();
+    }
+
+    private String normalizeRole(String value) {
+        String normalized = normalizeNullable(value);
+        if (normalized == null) return null;
+        return normalized.replaceFirst("(?i)^ROLE_", "").toUpperCase();
     }
 }

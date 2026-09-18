@@ -13,8 +13,14 @@ public class NotificationClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(NotificationClient.class);
     private final RestClient restClient;
 
-    public NotificationClient(@Value("${clients.notification.base-url}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+    public NotificationClient(
+            @Value("${clients.notification.base-url}") String baseUrl,
+            @Value("${clients.notification.api-key}") String apiKey
+    ) {
+        this.restClient = RestClient.builder()
+                .baseUrl(baseUrl)
+                .defaultHeader("X-Internal-Api-Key", apiKey)
+                .build();
     }
 
     public void sendUser(UUID userId, String title, String content, String type, String category, String actionUrl) {

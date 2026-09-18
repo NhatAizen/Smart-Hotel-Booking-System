@@ -41,6 +41,7 @@ clients:
     base-url: ${HOTEL_SERVICE_URL:http://hotel-service:8082}
   notification:
     base-url: ${NOTIFICATION_SERVICE_URL:http://notification-service:8085}
+    api-key: ${NOTIFICATION_INTERNAL_API_KEY:dev-notification-internal-key-change-me}
   ai:
     base-url: ${AI_SERVICE_URL:http://ai-service:8086}
 

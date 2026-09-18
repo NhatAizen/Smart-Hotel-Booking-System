@@ -137,6 +137,7 @@ profiles:
 clients:
   notification:
     base-url: ${NOTIFICATION_SERVICE_URL:http://notification-service:8085}
+    api-key: ${NOTIFICATION_INTERNAL_API_KEY:dev-notification-internal-key-change-me}
 partner-documents:
   upload-dir: ${PARTNER_DOCUMENT_UPLOAD_DIR:./uploads/partner-documents}
   max-file-size-bytes: ${PARTNER_DOCUMENT_MAX_FILE_SIZE_BYTES:8388608}

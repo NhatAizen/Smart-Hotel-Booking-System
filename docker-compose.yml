@@ -266,6 +266,7 @@ services:
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5300}
       PUBLIC_BASE_URL: http://localhost:8081
       NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:-dev-notification-internal-key-change-me}
 
       JWT_SECRET: ${JWT_SECRET}
       JPA_SHOW_SQL: "false"
@@ -328,6 +329,7 @@ services:
       MEDIA_MAX_FILE_SIZE_BYTES: 10485760
 
       NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:-dev-notification-internal-key-change-me}
 
       DB_URL: jdbc:postgresql://hotel-postgres:5432/hotel_db
       DB_USERNAME: hotel_user
@@ -380,6 +382,7 @@ services:
 
       HOTEL_SERVICE_URL: http://hotel-service:8082
       NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:-dev-notification-internal-key-change-me}
       IDENTITY_SERVICE_URL: http://identity-service:8081
       JWT_SECRET: ${JWT_SECRET}
 
@@ -441,6 +444,7 @@ services:
       BOOKING_SERVICE_URL: http://booking-service:8083
       HOTEL_SERVICE_URL: http://hotel-service:8082
       NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:-dev-notification-internal-key-change-me}
       IDENTITY_SERVICE_URL: http://identity-service:8081
 
       JWT_SECRET: ${JWT_SECRET}
@@ -506,6 +510,9 @@ services:
       MAIL_FROM: no-reply@smarthotel.local
 
       JPA_SHOW_SQL: "false"
+
+      JWT_SECRET: ${JWT_SECRET}
+      NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:-dev-notification-internal-key-change-me}
 
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
@@ -670,6 +677,7 @@ services:
       BOOKING_SERVICE_URL: http://booking-service:8083
       HOTEL_SERVICE_URL: http://hotel-service:8082
       NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:-dev-notification-internal-key-change-me}
       AI_SERVICE_URL: http://ai-service:8086
 
       RABBITMQ_HOST: rabbitmq

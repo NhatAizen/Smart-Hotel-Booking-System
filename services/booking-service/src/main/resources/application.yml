@@ -50,6 +50,7 @@ clients:
     base-url: ${IDENTITY_SERVICE_URL:http://identity-service:8081}
   notification:
     base-url: ${NOTIFICATION_SERVICE_URL:http://notification-service:8085}
+    api-key: ${NOTIFICATION_INTERNAL_API_KEY:dev-notification-internal-key-change-me}
   payment:
     base-url: ${PAYMENT_SERVICE_URL:http://payment-service:8084}
 

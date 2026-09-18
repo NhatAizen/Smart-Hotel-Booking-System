@@ -35,6 +35,7 @@ security:
 clients:
   notification:
     base-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+    api-key: ${NOTIFICATION_INTERNAL_API_KEY:dev-notification-internal-key-change-me}
 
   # Public Nominatim is used only for low-volume hotel-address geocoding.
   # Coordinates are persisted, so map views do not repeatedly geocode the same hotel.

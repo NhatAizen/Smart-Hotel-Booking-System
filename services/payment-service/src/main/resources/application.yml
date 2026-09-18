@@ -50,6 +50,7 @@ clients:
     base-url: ${HOTEL_SERVICE_URL:http://localhost:8082}
   notification:
     base-url: ${NOTIFICATION_SERVICE_URL:http://notification-service:8085}
+    api-key: ${NOTIFICATION_INTERNAL_API_KEY:dev-notification-internal-key-change-me}
 
 payos:
   enabled: ${PAYOS_ENABLED:true}

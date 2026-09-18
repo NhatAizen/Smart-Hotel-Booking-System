@@ -17,13 +17,20 @@ public class NotificationClient {
     private final RestClient restClient;
     private final RestClient invoiceRestClient;
 
-    public NotificationClient(@Value("${clients.notification.base-url}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+    public NotificationClient(
+            @Value("${clients.notification.base-url}") String baseUrl,
+            @Value("${clients.notification.api-key}") String apiKey
+    ) {
+        this.restClient = RestClient.builder()
+                .baseUrl(baseUrl)
+                .defaultHeader("X-Internal-Api-Key", apiKey)
+                .build();
         var requestFactory = new JdkClientHttpRequestFactory(
                 HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());
         requestFactory.setReadTimeout(Duration.ofSeconds(40));
         this.invoiceRestClient = RestClient.builder()
                 .baseUrl(baseUrl)
+                .defaultHeader("X-Internal-Api-Key", apiKey)
                 .requestFactory(requestFactory)
                 .build();
     }
