@@ -101,6 +101,10 @@ public class SecurityConfig {
                         ).hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.POST, "/api/reviews")
                         .hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.GET, "/api/complaints/*/evidence/*/content")
+                        .hasAnyRole("CUSTOMER", "HOTEL_ADMIN", "SYSTEM_ADMIN")
+                        .requestMatchers("/api/complaints/**")
+                        .hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.POST, "/api/availability/holds")
                         .hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/reviews/me")
@@ -126,14 +130,16 @@ public class SecurityConfig {
                         .hasRole("CUSTOMER")
                         .requestMatchers(
                                 "/api/hotel-admin/promotions/**",
-                                "/api/hotel-admin/reviews/**"
+                                "/api/hotel-admin/reviews/**",
+                                "/api/hotel-admin/complaints/**"
                         )
                         .hasRole("HOTEL_ADMIN")
                         .requestMatchers(
                                 "/api/admin/promotions/**",
                                 "/api/admin/campaigns/**",
                                 "/api/admin/membership-tiers/**",
-                                "/api/admin/reviews/**"
+                                "/api/admin/reviews/**",
+                                "/api/admin/complaints/**"
                         )
                         .hasRole("SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/admin/platform-policies")
