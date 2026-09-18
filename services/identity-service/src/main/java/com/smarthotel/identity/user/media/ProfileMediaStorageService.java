@@ -20,6 +20,8 @@ import java.util.UUID;
 @Service
 public class ProfileMediaStorageService {
 
+    private static final String SAME_ORIGIN_MEDIA_PATH = "/api/users/media";
+
     private static final Set<String> ALLOWED_TYPES = Set.of(
             MediaType.IMAGE_JPEG_VALUE,
             MediaType.IMAGE_PNG_VALUE,
@@ -67,7 +69,7 @@ public class ProfileMediaStorageService {
             throw new IllegalStateException("Không thể lưu ảnh đại diện", exception);
         }
 
-        return publicBaseUrl + "/" + filename;
+        return SAME_ORIGIN_MEDIA_PATH + "/" + filename;
     }
 
     public void deleteByPublicUrl(String publicUrl) {
@@ -75,12 +77,7 @@ public class ProfileMediaStorageService {
             return;
         }
 
-        String prefix = publicBaseUrl + "/";
-        if (!publicUrl.startsWith(prefix)) {
-            return;
-        }
-
-        String filename = publicUrl.substring(prefix.length());
+        String filename = filenameFromPublicUrl(publicUrl);
         if (!safeFilename(filename)) {
             return;
         }
@@ -148,5 +145,22 @@ public class ProfileMediaStorageService {
                 && !filename.contains("..")
                 && !filename.contains("/")
                 && !filename.contains("\\");
+    }
+
+    private String filenameFromPublicUrl(String publicUrl) {
+        String normalized = publicUrl.replace('\\', '/');
+        String mediaPrefix = SAME_ORIGIN_MEDIA_PATH + "/";
+        int mediaIndex = normalized.indexOf(mediaPrefix);
+
+        if (mediaIndex >= 0) {
+            return normalized.substring(mediaIndex + mediaPrefix.length());
+        }
+
+        String configuredPrefix = publicBaseUrl + "/";
+        if (normalized.startsWith(configuredPrefix)) {
+            return normalized.substring(configuredPrefix.length());
+        }
+
+        return null;
     }
 }

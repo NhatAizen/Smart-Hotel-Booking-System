@@ -131,7 +131,7 @@ springdoc:
 profiles:
   media:
     upload-dir: ${PROFILE_MEDIA_UPLOAD_DIR:./uploads/profiles}
-    public-base-url: ${PUBLIC_PROFILE_MEDIA_BASE_URL:http://localhost:8080/api/users/media}
+    public-base-url: ${PUBLIC_PROFILE_MEDIA_BASE_URL:/api/users/media}
     max-file-size-bytes: ${PROFILE_MEDIA_MAX_FILE_SIZE_BYTES:5242880}
 
 clients:
