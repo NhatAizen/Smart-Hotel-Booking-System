@@ -96,9 +96,12 @@ public class PromotionController {
         return promotions.setActive(id, active, uid(jwt), true);
     }
 
-    /** Public list used on hotel detail. It only returns promotions that are active now. */
+    /**
+     * Public active promotions. With a hotelId it returns applicable platform/hotel offers;
+     * without one it returns platform offers only for public discovery surfaces.
+     */
     @GetMapping("/promotions/available")
-    public List<PromotionResponse> available(@RequestParam UUID hotelId) {
+    public List<PromotionResponse> available(@RequestParam(required = false) UUID hotelId) {
         return promotions.publicApplicable(hotelId);
     }
 
