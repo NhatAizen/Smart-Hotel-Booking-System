@@ -170,7 +170,6 @@ services:
       - "8025:8025"
 
 
-
   redis:
     image: redis:7-alpine
     container_name: smart-hotel-redis
@@ -209,7 +208,7 @@ services:
 
     ports:
       - "5672:5672"
-      - "15672:15672"
+      - "15972:15672"
 
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
@@ -272,7 +271,7 @@ services:
       JPA_SHOW_SQL: "false"
 
       PROFILE_MEDIA_UPLOAD_DIR: /app/uploads/profiles
-      PUBLIC_PROFILE_MEDIA_BASE_URL: http://localhost:8080/api/users/media
+      PUBLIC_PROFILE_MEDIA_BASE_URL: /api/users/media
       PROFILE_MEDIA_MAX_FILE_SIZE_BYTES: 5242880
 
       PARTNER_DOCUMENT_UPLOAD_DIR: /app/uploads/partner-documents
@@ -383,6 +382,7 @@ services:
       HOTEL_SERVICE_URL: http://hotel-service:8082
       NOTIFICATION_SERVICE_URL: http://notification-service:8085
       NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:-dev-notification-internal-key-change-me}
+      PAYMENT_SERVICE_URL: http://payment-service:8084
       IDENTITY_SERVICE_URL: http://identity-service:8081
       JWT_SECRET: ${JWT_SECRET}
 
@@ -396,6 +396,7 @@ services:
 
       REVIEW_MEDIA_UPLOAD_DIR: /app/uploads/reviews
       PUBLIC_REVIEW_MEDIA_BASE_URL: http://localhost:8080/api/reviews/media
+      COMPLAINT_MEDIA_UPLOAD_DIR: /app/uploads/reviews/complaints
       REVIEW_MEDIA_MAX_FILE_SIZE_BYTES: 5242880
 
       JPA_SHOW_SQL: "false"
