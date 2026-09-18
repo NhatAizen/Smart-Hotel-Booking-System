@@ -19,15 +19,18 @@ Hệ thống đặt phòng khách sạn thông minh được xây dựng theo ki
 
 ## Microservices
 
-| Service | Port | Chức năng |
-|---|---:|---|
-| API Gateway | 8080 | Điểm truy cập chung |
-| Identity Service | 8081 | Người dùng, đăng nhập, JWT |
-| Hotel Service | 8082 | Khách sạn và phòng |
-| Booking Service | 8083 | Đặt phòng và Booking Hold |
-| Payment Service | 8084 | Thanh toán và VNPay |
-| Notification Service | 8085 | Email và thông báo |
-| AI Service | 8086 | Gemini AI |
+| Service | Port |
+|---|---:|
+| API Gateway | 8080 |
+| Identity Service | 8081 |
+| Hotel Service | 8082 |
+| Booking Service | 8083 |
+| Payment Service | 8084 |
+| Notification Service | 8085 |
+| AI Service | 8086 |
+| Realtime Service | 8087 |
+| Chat Service | 8088 |
+| eKYC Service | 8090 |
 
 ## Khởi động
 
