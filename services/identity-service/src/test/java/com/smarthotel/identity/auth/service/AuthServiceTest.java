@@ -87,7 +87,7 @@ class AuthServiceTest {
         );
 
         when(
-                userRepository.findByEmailIgnoreCase(
+                userRepository.findByEmailIgnoreCaseForUpdate(
                         "nhat@gmail.com"
                 )
         ).thenReturn(Optional.of(user));
@@ -156,7 +156,7 @@ class AuthServiceTest {
         );
 
         when(
-                userRepository.findByEmailIgnoreCase(
+                userRepository.findByEmailIgnoreCaseForUpdate(
                         "nhat@gmail.com"
                 )
         ).thenReturn(Optional.of(user));
@@ -197,17 +197,10 @@ class AuthServiceTest {
         );
 
         when(
-                userRepository.findByEmailIgnoreCase(
+                userRepository.findByEmailIgnoreCaseForUpdate(
                         "locked@gmail.com"
                 )
         ).thenReturn(Optional.of(user));
-
-        when(
-                passwordEncoder.matches(
-                        "Nhat12345",
-                        user.getPasswordHash()
-                )
-        ).thenReturn(true);
 
         assertThrows(
                 AccountLockedException.class,
@@ -223,7 +216,7 @@ class AuthServiceTest {
         );
 
         when(
-                userRepository.findByEmailIgnoreCase(
+                userRepository.findByEmailIgnoreCaseForUpdate(
                         "missing@gmail.com"
                 )
         ).thenReturn(Optional.empty());
