@@ -1,10 +1,11 @@
 .review-form-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 1600;
   display: grid;
   place-items: center;
-  padding: 28px;
+  overflow: hidden;
+  padding: clamp(12px, 2.5vw, 28px);
   background: rgba(12, 27, 48, 0.58);
   backdrop-filter: blur(5px);
 }
@@ -12,18 +13,20 @@
 .review-form-modal {
   position: relative;
   width: min(940px, 100%);
-  max-height: calc(100vh - 56px);
-  overflow-y: auto;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border-radius: 24px;
   background: #fff;
   box-shadow: 0 30px 80px rgba(14, 37, 64, 0.24);
 }
 
 .review-form-close {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 2;
+  position: static;
+  flex: 0 0 auto;
+  margin-left: auto;
   width: 44px;
   height: 44px;
   display: grid;
@@ -36,11 +39,17 @@
 }
 
 .review-form-header {
+  position: relative;
+  flex: 0 0 auto;
   display: flex;
   gap: 18px;
-  padding: 34px 34px 24px;
-  padding-right: 86px;
+  align-items: flex-start;
+  padding: 24px 28px 18px;
   border-bottom: 1px solid #edf1f5;
+}
+
+.review-form-header > div:nth-child(2) {
+  min-width: 0;
 }
 
 .review-form-hotel-mark {
@@ -64,7 +73,7 @@
 .review-form-header h2 {
   margin: 5px 0 8px;
   color: #17283e;
-  font-size: 30px;
+  font-size: 27px;
 }
 
 .review-form-header p {
@@ -77,7 +86,7 @@
   display: grid;
   grid-template-columns: 1.4fr 1fr 1fr;
   gap: 12px;
-  margin: 22px 34px 0;
+  margin: 0;
   padding: 16px;
   border-radius: 16px;
   background: #f7faff;
@@ -105,13 +114,27 @@
 }
 
 .review-form-modal form {
-  padding: 24px 34px 34px;
+  min-height: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.review-form-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 28px 8px;
+  scrollbar-gutter: stable;
 }
 
 .review-score-section,
 .review-writing-section,
 .review-image-section {
-  padding: 22px 0;
+  padding: 18px 0;
   border-bottom: 1px solid #edf1f5;
 }
 
@@ -138,8 +161,8 @@
   grid-template-columns: 170px 1fr;
   gap: 24px;
   align-items: center;
-  margin-top: 20px;
-  padding: 20px;
+  margin-top: 16px;
+  padding: 16px;
   border-radius: 18px;
   background: linear-gradient(135deg, #0d66bd, #1488dd);
   color: #fff;
@@ -188,8 +211,8 @@
 .review-category-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 24px;
-  margin-top: 22px;
+  gap: 13px 22px;
+  margin-top: 18px;
 }
 
 .review-category-grid label > span {
@@ -212,7 +235,7 @@
 
 .review-writing-section {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .review-writing-section .review-form-section-title {
@@ -244,7 +267,7 @@
   box-sizing: border-box;
   border: 1px solid #dce5ef;
   border-radius: 13px;
-  padding: 13px 14px;
+  padding: 11px 13px;
   color: #20354f;
   font: inherit;
   outline: none;
@@ -274,7 +297,7 @@
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 .review-image-preview,
@@ -330,7 +353,7 @@
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  margin: 22px 0 16px;
+  margin: 18px 0 14px;
   color: #596b80;
   line-height: 1.5;
 }
@@ -341,10 +364,15 @@
 }
 
 .review-form-footer {
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 18px;
+  margin: 0;
+  padding: 14px 28px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid #e7edf3;
+  background: #fff;
+  box-shadow: 0 -10px 24px rgba(20, 45, 72, 0.06);
 }
 
 .review-form-footer button {
@@ -377,23 +405,28 @@
 
 @media (max-width: 760px) {
   .review-form-backdrop {
-    padding: 0;
+    padding: 8px;
   }
 
   .review-form-modal {
-    max-height: 100vh;
-    border-radius: 0;
+    height: calc(100vh - 16px);
+    height: calc(100dvh - 16px);
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 18px;
   }
 
-  .review-form-header,
-  .review-form-modal form {
-    padding-left: 20px;
-    padding-right: 20px;
+  .review-form-header {
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .review-form-body {
+    padding: 14px 16px 6px;
+    scrollbar-gutter: auto;
   }
 
   .review-form-stay-summary {
-    margin-left: 20px;
-    margin-right: 20px;
     grid-template-columns: 1fr;
   }
 
@@ -411,5 +444,51 @@
 
   .review-image-picker {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .review-form-footer {
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 480px) {
+  .review-form-hotel-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+  }
+
+  .review-form-header h2 {
+    margin-bottom: 0;
+    font-size: 21px;
+    line-height: 1.2;
+  }
+
+  .review-form-header p {
+    display: none;
+  }
+
+  .review-form-close {
+    width: 40px;
+    height: 40px;
+  }
+
+  .review-score-section,
+  .review-writing-section,
+  .review-image-section {
+    padding: 15px 0;
+  }
+
+  .review-form-section-title h3 {
+    font-size: 18px;
+  }
+
+  .review-form-section-title p {
+    font-size: 13px;
+  }
+
+  .review-form-footer button {
+    flex: 1 1 0;
+    justify-content: center;
   }
 }

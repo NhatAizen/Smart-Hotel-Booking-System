@@ -23,13 +23,14 @@
 
 .enziu-fai-launcher {
   position: relative;
-  min-width: 154px;
-  height: 58px;
+  width: 52px;
+  min-width: 52px;
+  height: 52px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  padding: 7px 18px 7px 9px;
+  gap: 0;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, .78);
   border-radius: 999px;
   background: linear-gradient(135deg, #16b6df 0%, #168ee7 48%, #1768dc 100%);
@@ -59,6 +60,10 @@
   height: 52px;
   padding: 0;
   border-color: rgba(255, 255, 255, .65);
+}
+
+.enziu-fai-launcher > span {
+  display: none;
 }
 
 .enziu-fai-launcher:not(.open) > svg {
@@ -91,8 +96,12 @@
   position: absolute;
   right: 0;
   bottom: 70px;
-  width: min(430px, calc(100vw - 32px));
-  height: min(720px, calc(100vh - 112px));
+  width: min(410px, calc(100vw - 32px));
+  height: min(72vh, 720px);
+  height: min(72dvh, 720px);
+  max-height: calc(100vh - 112px);
+  max-height: calc(100dvh - 112px);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -115,6 +124,7 @@
 }
 
 .enziu-fai-header {
+  flex: 0 0 auto;
   min-height: 64px;
   display: flex;
   align-items: center;
@@ -203,6 +213,7 @@
 }
 
 .enziu-fai-hotel-context {
+  flex: 0 0 auto;
   min-height: 39px;
   display: flex;
   align-items: center;
@@ -227,6 +238,7 @@
 }
 
 .enziu-fai-trip {
+  flex: 0 0 auto;
   border-bottom: 1px solid #e7eef3;
   background: #fff;
 }
@@ -765,6 +777,7 @@
 }
 
 .enziu-fai-suggestions {
+  flex: 0 0 auto;
   display: flex;
   gap: 6px;
   overflow-x: auto;
@@ -799,6 +812,7 @@
 }
 
 .enziu-fai-composer {
+  flex: 0 0 auto;
   display: flex;
   align-items: flex-end;
   gap: 7px;
@@ -808,6 +822,7 @@
 
 .enziu-fai-composer textarea {
   flex: 1;
+  min-width: 0;
   min-height: 40px;
   max-height: 92px;
   resize: none;
@@ -842,6 +857,7 @@
 }
 
 .enziu-fai-disclaimer {
+  flex: 0 0 auto;
   margin: 0;
   padding: 0 11px 8px;
   background: #fff;
@@ -861,20 +877,19 @@
     position: absolute;
     right: 0;
     bottom: 66px;
-    width: min(420px, calc(100vw - 24px));
+    width: min(410px, calc(100vw - 24px));
+    height: min(72vh, 640px);
     height: min(72dvh, 640px);
+    max-height: calc(100vh - 92px);
     max-height: calc(100dvh - 92px);
     border-radius: 18px;
   }
 
   .enziu-fai-launcher {
-    height: 54px;
-    min-width: 54px;
-    padding: 0 15px;
-  }
-
-  .enziu-fai-launcher span {
-    display: none;
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+    padding: 0;
   }
 
   .enziu-fai-trip-fields {
@@ -890,8 +905,15 @@
 
   .enziu-fai-panel {
     width: calc(100vw - 16px);
-    height: min(70dvh, 600px);
+    height: min(72vh, 600px);
+    height: min(72dvh, 600px);
+    max-height: calc(100vh - 84px);
+    max-height: calc(100dvh - 84px);
   }
+}
+
+.enziu-fai-grounding {
+  flex: 0 0 auto;
 }
 
 @media (prefers-reduced-motion: reduce) {

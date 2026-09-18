@@ -16,6 +16,7 @@ import {
 } from "react";
 
 import ErrorMessage from "../common/ErrorMessage";
+import { useAiAssistant } from "../../ai/AiAssistantContext";
 import { createHotelReview } from "../../services/bookingService";
 import "./ReviewFormModal.css";
 
@@ -49,6 +50,7 @@ export default function ReviewFormModal({
   onClose,
   onSubmitted,
 }) {
+  const { closeAssistant } = useAiAssistant();
   const [scores, setScores] = useState(createInitialScores);
   const [overallRating, setOverallRating] = useState(8);
   const [title, setTitle] = useState("");
@@ -81,16 +83,25 @@ export default function ReviewFormModal({
   }, [scores]);
 
   useEffect(() => {
+    closeAssistant();
+  }, [closeAssistant]);
+
+  useEffect(() => {
     function onEscape(event) {
       if (event.key === "Escape" && !submitting) onClose();
     }
 
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
     document.addEventListener("keydown", onEscape);
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
 
     return () => {
       document.removeEventListener("keydown", onEscape);
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
     };
   }, [onClose, submitting]);
 
@@ -190,49 +201,49 @@ export default function ReviewFormModal({
         className="review-form-modal"
         role="dialog"
         aria-modal="true"
-        aria-label="Đánh giá khách sạn"
+        aria-labelledby="review-form-title"
       >
-        <button
-          type="button"
-          className="review-form-close"
-          onClick={onClose}
-          disabled={submitting}
-          aria-label="Đóng"
-        >
-          <X size={24} />
-        </button>
-
         <header className="review-form-header">
           <div className="review-form-hotel-mark">
             <Sparkles size={24} />
           </div>
           <div>
             <span>CHUYẾN ĐI ĐÃ HOÀN TẤT</span>
-            <h2>Đánh giá kỳ nghỉ của bạn</h2>
+            <h2 id="review-form-title">Đánh giá kỳ nghỉ của bạn</h2>
             <p>
               Chia sẻ trải nghiệm tại <strong>{hotel?.name ?? "khách sạn"}</strong>.
               Đánh giá của bạn sẽ giúp những khách khác lựa chọn tốt hơn.
             </p>
           </div>
+          <button
+            type="button"
+            className="review-form-close"
+            onClick={onClose}
+            disabled={submitting}
+            aria-label="Đóng"
+          >
+            <X size={24} />
+          </button>
         </header>
 
-        <div className="review-form-stay-summary">
-          <div>
-            <small>Khách sạn</small>
-            <strong>{hotel?.name ?? "EnziuRooms Hotel"}</strong>
-          </div>
-          <div>
-            <small>Loại phòng</small>
-            <strong>{roomType?.name ?? "Phòng đã lưu trú"}</strong>
-          </div>
-          <div>
-            <small>Kỳ nghỉ</small>
-            <strong>{booking.checkIn} → {booking.checkOut}</strong>
-          </div>
-        </div>
-
         <form onSubmit={submit}>
-          <section className="review-score-section">
+          <div className="review-form-body">
+            <div className="review-form-stay-summary">
+              <div>
+                <small>Khách sạn</small>
+                <strong>{hotel?.name ?? "EnziuRooms Hotel"}</strong>
+              </div>
+              <div>
+                <small>Loại phòng</small>
+                <strong>{roomType?.name ?? "Phòng đã lưu trú"}</strong>
+              </div>
+              <div>
+                <small>Kỳ nghỉ</small>
+                <strong>{booking.checkIn} → {booking.checkOut}</strong>
+              </div>
+            </div>
+
+            <section className="review-score-section">
             <div className="review-form-section-title">
               <Star size={21} />
               <div>
@@ -287,9 +298,9 @@ export default function ReviewFormModal({
                 </label>
               ))}
             </div>
-          </section>
+            </section>
 
-          <section className="review-writing-section">
+            <section className="review-writing-section">
             <div className="review-form-section-title">
               <MessageCircleMore size={21} />
               <div>
@@ -339,9 +350,9 @@ export default function ReviewFormModal({
               />
               <small>{negativeComment.length}/3000</small>
             </label>
-          </section>
+            </section>
 
-          <section className="review-image-section">
+            <section className="review-image-section">
             <div className="review-form-section-title">
               <Camera size={21} />
               <div>
@@ -378,21 +389,22 @@ export default function ReviewFormModal({
                 </label>
               ) : null}
             </div>
-          </section>
+            </section>
 
-          <label className="review-consent">
-            <input
-              type="checkbox"
-              checked={consent}
-              onChange={(event) => setConsent(event.target.checked)}
-            />
-            <span>
-              Tôi xác nhận đánh giá này dựa trên kỳ nghỉ thực tế của mình và không
-              chứa thông tin sai lệch.
-            </span>
-          </label>
+            <label className="review-consent">
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(event) => setConsent(event.target.checked)}
+              />
+              <span>
+                Tôi xác nhận đánh giá này dựa trên kỳ nghỉ thực tế của mình và không
+                chứa thông tin sai lệch.
+              </span>
+            </label>
 
-          <ErrorMessage message={error} />
+            <ErrorMessage message={error} />
+          </div>
 
           <footer className="review-form-footer">
             <button
