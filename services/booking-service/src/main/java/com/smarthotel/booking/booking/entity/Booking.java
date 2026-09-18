@@ -203,6 +203,12 @@ public class Booking {
     @Column(name = "invoice_email", length = 255)
     private String invoiceEmail;
 
+    @Column(name = "invoice_email_sent_at")
+    private Instant invoiceEmailSentAt;
+
+    @Column(name = "invoice_email_requested_at")
+    private Instant invoiceEmailRequestedAt;
+
     @Column(name = "terms_accepted", nullable = false)
     private boolean termsAccepted;
 
@@ -336,6 +342,7 @@ public class Booking {
         this.guestPhone = bookerIsGuest ? this.bookerPhone : normalize(guestPhone);
         this.specialRequest = normalizeNullable(specialRequest);
         this.invoiceRequested = invoiceRequested;
+        this.invoiceEmailRequestedAt = invoiceRequested ? now : null;
         this.invoiceCompanyName = invoiceRequested ? normalize(invoiceCompanyName) : null;
         this.invoiceTaxCode = invoiceRequested ? normalize(invoiceTaxCode) : null;
         this.invoiceAddress = invoiceRequested ? normalize(invoiceAddress) : null;

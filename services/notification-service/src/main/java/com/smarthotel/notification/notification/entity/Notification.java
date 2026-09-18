@@ -114,6 +114,12 @@ public class Notification {
         this.updatedAt = Instant.now();
     }
 
+    public Notification(UUID deliveryId, UUID userId, String email, String title, String content,
+                        NotificationType type, String category, String actionUrl) {
+        this(userId, (String) null, email, title, content, type, category, actionUrl);
+        this.id = deliveryId;
+    }
+
     public void markFailed() {
         this.status = NotificationStatus.FAILED;
         this.updatedAt = Instant.now();

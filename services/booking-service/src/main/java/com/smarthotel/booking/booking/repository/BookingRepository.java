@@ -3,6 +3,8 @@ package com.smarthotel.booking.booking.repository;
 import com.smarthotel.booking.booking.entity.Booking;
 import com.smarthotel.booking.booking.entity.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,6 +16,21 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
+
+    @Query(value = """
+            SELECT * FROM bookings
+            WHERE invoice_requested = true AND invoice_email_sent_at IS NULL
+              AND invoice_email_requested_at IS NOT NULL
+              AND invoice_email IS NOT NULL AND TRIM(invoice_email) <> ''
+              AND status IN ('CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT')
+            ORDER BY created_at, id LIMIT 50
+            """, nativeQuery = true)
+    List<Booking> findPendingInvoiceEmails();
+
+    @Transactional
+    @Modifying
+    @Query("UPDATE Booking b SET b.invoiceEmailSentAt = :sentAt WHERE b.id = :id AND b.invoiceEmailSentAt IS NULL")
+    int markInvoiceEmailSent(@Param("id") UUID id, @Param("sentAt") Instant sentAt);
 
     List<Booking> findAllByCustomerIdAndCustomerHiddenFalseOrderByCreatedAtDesc(
             UUID customerId
