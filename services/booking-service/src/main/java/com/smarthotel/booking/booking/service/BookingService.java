@@ -35,6 +35,7 @@ import com.smarthotel.booking.policy.service.PlatformPolicyService;
 import com.smarthotel.booking.promotion.service.PromotionService;
 import com.smarthotel.booking.rolechange.fence.OwnerDemotionFenceService;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -451,7 +452,18 @@ public class BookingService {
     }
 
     @Transactional(readOnly = true)
-    public List<BookingResponse> getByHotel(UUID hotelId) {
+    public List<BookingResponse> getByHotel(
+            UUID hotelId,
+            UUID actorId,
+            String actorRole
+    ) {
+        HotelClient.HotelDetails hotel = hotelClient.getHotel(hotelId);
+        if (!"SYSTEM_ADMIN".equalsIgnoreCase(actorRole)
+                && !hotel.ownerId().equals(actorId)) {
+            throw new AccessDeniedException(
+                    "Không được đọc booking của khách sạn khác"
+            );
+        }
         return bookingRepository.findAllByHotelIdOrderByCreatedAtDesc(hotelId)
                 .stream().map(BookingResponse::from).toList();
     }

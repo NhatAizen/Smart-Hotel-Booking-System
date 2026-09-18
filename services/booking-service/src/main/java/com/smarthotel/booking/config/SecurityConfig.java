@@ -75,6 +75,8 @@ public class SecurityConfig {
                         .hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/bookings/me")
                         .hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.GET, "/api/hotels/*/bookings")
+                        .hasAnyRole("HOTEL_ADMIN", "SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/bookings/*/cancel")
                         .hasRole("CUSTOMER")
                         .requestMatchers(HttpMethod.GET, "/api/bookings/*/qr")

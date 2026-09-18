@@ -213,9 +213,14 @@ public class BookingController {
     @Operation(summary = "Danh sách booking của khách sạn")
     @GetMapping("/hotels/{hotelId}/bookings")
     public ResponseEntity<List<BookingResponse>> getByHotel(
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID hotelId
     ) {
-        return ResponseEntity.ok(bookingService.getByHotel(hotelId));
+        return ResponseEntity.ok(bookingService.getByHotel(
+                hotelId,
+                currentUserId(jwt),
+                currentRole(jwt)
+        ));
     }
 
     @Operation(summary = "Lọc booking theo trạng thái")
@@ -344,5 +349,13 @@ public class BookingController {
             throw new IllegalStateException("Không xác định được người dùng hiện tại");
         }
         return UUID.fromString(jwt.getSubject());
+    }
+
+    private String currentRole(Jwt jwt) {
+        String role = jwt == null ? null : jwt.getClaimAsString("role");
+        if (role == null || role.isBlank()) {
+            throw new IllegalStateException("Không xác định được vai trò hiện tại");
+        }
+        return role.trim().replaceFirst("(?i)^ROLE_", "").toUpperCase();
     }
 }
