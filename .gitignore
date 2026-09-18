@@ -34,6 +34,7 @@ frontend/build/
 **/__pycache__/
 *.py[cod]
 **/.pytest_cache/
+**/.venv/
 
 # Local mobile backups and release artifacts
 /frontend/android_backup/
@@ -50,6 +51,25 @@ frontend/build/
 # Temporary files
 *.tmp
 *.temp
+
+# Local working artifacts (not part of the product baseline)
+/README1.md
+/demo-assets/
+/docs/design-mockups/
+/docs/platform-stability-audit.md
+/docs/report-chapter-4/
+/frontend/src/assets/APP.png
+/frontend/src/assets/APP HAHA.png
+/package.json
+/package-lock.json
+/scripts/localize-enziu-room-types.ps1
+/scripts/prepare-enziu-demo-images.ps1
+/scripts/prepare-enziu-demo-images-7-10.ps1
+/scripts/qa-complaint-flow.mjs
+/scripts/seed-enziu-demo.ps1
+/scripts/seed-enziu-demo-7-10.ps1
+/scripts/verify-enziu-demo.ps1
+/scripts/verify-enziu-demo-7-10.ps1
 # Local secrets
 .env
 .env.*
