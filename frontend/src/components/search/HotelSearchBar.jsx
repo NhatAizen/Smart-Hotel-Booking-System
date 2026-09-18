@@ -1,7 +1,8 @@
 import {
   Baby, BedDouble, Building2, CalendarDays, ChevronRight, Clock3, MapPin, Search, Users, X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import "./HotelSearchBar.css";
 
@@ -50,13 +51,20 @@ function readRecentSearches() {
   }
 }
 
-export default function HotelSearchBar({ hotels = [], initialValues, variant = "home" }) {
+export default function HotelSearchBar({
+  hotels = [],
+  initialValues,
+  variant = "home",
+  resultsPath = "/hotels",
+}) {
   const navigate = useNavigate();
   const destinationRef = useRef(null);
+  const destinationDropdownRef = useRef(null);
   const today = localDateValue();
   const listboxId = `destination-results-${variant}`;
   const [form, setForm] = useState(() => buildInitialValues(initialValues));
   const [destinationOpen, setDestinationOpen] = useState(false);
+  const [destinationDropdownLayout, setDestinationDropdownLayout] = useState(null);
   const [recentSearches, setRecentSearches] = useState(readRecentSearches);
   const [activeOptionIndex, setActiveOptionIndex] = useState(-1);
   const [dateError, setDateError] = useState("");
@@ -80,9 +88,9 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
 
   useEffect(() => {
     function handleOutsideClick(event) {
-      if (destinationRef.current && !destinationRef.current.contains(event.target)) {
-        setDestinationOpen(false);
-      }
+      const insideAnchor = destinationRef.current?.contains(event.target);
+      const insideDropdown = destinationDropdownRef.current?.contains(event.target);
+      if (!insideAnchor && !insideDropdown) setDestinationOpen(false);
     }
     function handleEscape(event) {
       if (event.key === "Escape") setDestinationOpen(false);
@@ -94,6 +102,113 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
       document.removeEventListener("keydown", handleEscape);
     };
   }, []);
+
+  useLayoutEffect(() => {
+    if (!destinationOpen) {
+      setDestinationDropdownLayout(null);
+      return undefined;
+    }
+
+    let positionFrame = 0;
+
+    function updateDropdownPosition() {
+      const anchor = destinationRef.current;
+      const dropdown = destinationDropdownRef.current;
+      if (!anchor || !dropdown) return;
+
+      const rect = anchor.getBoundingClientRect();
+      const visualViewport = window.visualViewport;
+      const viewportTop = visualViewport?.offsetTop ?? 0;
+      const viewportHeight = visualViewport?.height ?? window.innerHeight;
+      const viewportBottom = viewportTop + viewportHeight;
+      const viewportWidth = document.documentElement.clientWidth;
+      const safeGutter = 12;
+      const gap = 10;
+      const mobile = window.matchMedia("(max-width: 560px)").matches;
+
+      if (mobile) {
+        const mobileMaxHeight = Math.min(420, Math.max(320, Math.floor(viewportHeight * 0.62)));
+        setDestinationDropdownLayout({
+          mobile: true,
+          placement: "sheet",
+          spaceAbove: Math.round(rect.top - viewportTop),
+          spaceBelow: Math.round(viewportBottom - rect.bottom),
+          style: {
+            position: "fixed",
+            top: "auto",
+            right: safeGutter,
+            bottom: Math.max(safeGutter, Math.round(window.innerHeight - viewportBottom + safeGutter)),
+            left: safeGutter,
+            width: "auto",
+            maxHeight: mobileMaxHeight,
+            visibility: "visible",
+          },
+        });
+        return;
+      }
+
+      const heightCap = Math.min(420, Math.max(320, Math.round(viewportHeight * 0.48)));
+      const naturalHeight = Math.min(dropdown.scrollHeight || heightCap, heightCap);
+      const spaceBelow = Math.max(0, viewportBottom - rect.bottom - gap - safeGutter);
+      const spaceAbove = Math.max(0, rect.top - viewportTop - gap - safeGutter);
+      const placement = spaceBelow >= naturalHeight || spaceBelow >= spaceAbove ? "down" : "up";
+      const availableSpace = placement === "down" ? spaceBelow : spaceAbove;
+      const maxHeight = Math.max(0, Math.min(heightCap, availableSpace));
+      const renderedHeight = Math.min(naturalHeight, maxHeight);
+      const width = Math.min(Math.max(rect.width, 420), 470, viewportWidth - safeGutter * 2);
+      const left = Math.max(safeGutter, Math.min(rect.left, viewportWidth - width - safeGutter));
+      const preferredTop = placement === "down"
+        ? rect.bottom + gap
+        : rect.top - gap - renderedHeight;
+      const top = Math.max(
+        viewportTop + safeGutter,
+        Math.min(preferredTop, viewportBottom - safeGutter - renderedHeight),
+      );
+
+      setDestinationDropdownLayout({
+        mobile: false,
+        placement,
+        spaceAbove: Math.round(spaceAbove),
+        spaceBelow: Math.round(spaceBelow),
+        style: {
+          position: "fixed",
+          top: Math.round(top),
+          right: "auto",
+          bottom: "auto",
+          left: Math.round(left),
+          width: Math.round(width),
+          maxHeight: Math.round(maxHeight),
+          visibility: "visible",
+        },
+      });
+    }
+
+    function schedulePositionUpdate() {
+      window.cancelAnimationFrame(positionFrame);
+      positionFrame = window.requestAnimationFrame(updateDropdownPosition);
+    }
+
+    updateDropdownPosition();
+    window.addEventListener("resize", schedulePositionUpdate);
+    window.addEventListener("scroll", schedulePositionUpdate, true);
+    window.visualViewport?.addEventListener("resize", schedulePositionUpdate);
+    window.visualViewport?.addEventListener("scroll", schedulePositionUpdate);
+
+    return () => {
+      window.cancelAnimationFrame(positionFrame);
+      window.removeEventListener("resize", schedulePositionUpdate);
+      window.removeEventListener("scroll", schedulePositionUpdate, true);
+      window.visualViewport?.removeEventListener("resize", schedulePositionUpdate);
+      window.visualViewport?.removeEventListener("scroll", schedulePositionUpdate);
+    };
+  }, [destinationOpen, form.city, hotels.length, recentSearches.length]);
+
+  useEffect(() => {
+    if (!destinationOpen || !destinationDropdownLayout?.mobile) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [destinationDropdownLayout?.mobile, destinationOpen]);
 
   const citySuggestions = useMemo(() => {
     const cities = new Map();
@@ -159,7 +274,7 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
       children: String(form.children),
       rooms: String(form.rooms),
     });
-    navigate(`/hotels/${hotel.id}?${params.toString()}`);
+    navigate(`${resultsPath}/${hotel.id}?${params.toString()}`);
   }
 
   function activateOption(option) {
@@ -253,7 +368,7 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
     params.set("children", String(form.children));
     params.set("rooms", String(form.rooms));
     setDestinationOpen(false);
-    navigate(`/hotels?${params.toString()}`);
+    navigate(`${resultsPath}?${params.toString()}`);
   }
 
   const minimumCheckOut = form.checkIn ? addDays(form.checkIn, 1) : addDays(today, 1);
@@ -289,8 +404,34 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
           ) : null}
         </div>
 
-        {destinationOpen ? (
-          <div id={listboxId} className="shared-destination-dropdown" role="listbox" aria-label="Gợi ý điểm đến">
+        {destinationOpen && typeof document !== "undefined" ? createPortal(
+          <>
+            {destinationDropdownLayout?.mobile ? (
+              <button
+                type="button"
+                className="shared-destination-backdrop"
+                aria-label="Đóng bảng chọn điểm đến"
+                onPointerDown={() => setDestinationOpen(false)}
+              />
+            ) : null}
+            <div
+              ref={destinationDropdownRef}
+              id={listboxId}
+              className={`shared-destination-dropdown shared-destination-dropdown-portal${destinationDropdownLayout?.mobile ? " is-mobile-sheet" : ""}`}
+              role="listbox"
+              aria-label="Gợi ý điểm đến"
+              data-placement={destinationDropdownLayout?.placement ?? "measuring"}
+              data-space-above={destinationDropdownLayout?.spaceAbove}
+              data-space-below={destinationDropdownLayout?.spaceBelow}
+              style={destinationDropdownLayout?.style ?? {
+                position: "fixed",
+                top: 12,
+                left: 12,
+                maxHeight: 320,
+                visibility: "hidden",
+              }}
+            >
+              {destinationDropdownLayout?.mobile ? <span className="shared-destination-sheet-handle" aria-hidden="true" /> : null}
             {!hasKeyword && recentSearches.length ? (
               <section className="shared-destination-section" aria-label="Tìm kiếm gần đây">
                 <div className="shared-destination-heading">
@@ -385,7 +526,9 @@ export default function HotelSearchBar({ hotels = [], initialValues, variant = "
                 </div>
               )}
             </section>
-          </div>
+            </div>
+          </>,
+          document.body,
         ) : null}
       </div>
 

@@ -1,15 +1,16 @@
 import {
+  ArrowRight,
   Award,
   Bot,
   Building2,
-  CheckCircle2,
+  Check,
   ChevronDown,
   CreditCard,
   Headphones,
   LockKeyhole,
   QrCode,
   RefreshCcw,
-  ShieldCheck,
+  Search,
   Sparkles,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -18,362 +19,156 @@ import { Link } from "react-router-dom";
 import { useAiAssistant } from "../../ai/AiAssistantContext";
 import { useAuth } from "../../auth/AuthContext";
 import { getMembershipLevels } from "../../services/promotionService";
+import { EnziuConstellation, EnziuJourneyLine, EnziuOrbitMark } from "./EnziuSignatureVisuals";
 import "./HomeFutureSections.css";
 
+const JOURNEY_STEPS = [
+  { icon: Search, index: "01", title: "Tìm đúng nhịp", text: "Khám phá khách sạn và loại phòng phù hợp với kế hoạch của bạn." },
+  { icon: CreditCard, index: "02", title: "Đặt phòng gọn gàng", text: "Xem giá, chọn cách thanh toán và theo dõi đơn đặt phòng dễ dàng." },
+  { icon: QrCode, index: "03", title: "Chạm để check-in", text: "Dùng mã QR để việc nhận phòng tại khách sạn nhanh gọn hơn." },
+  { icon: RefreshCcw, index: "04", title: "An tâm sau chuyến", text: "Theo dõi yêu cầu hoàn tiền và tiến trình xử lý ngay trong tài khoản." },
+];
+
 const FAQ_ITEMS = [
-  {
-    id: "booking",
-    question: "Làm thế nào để đặt phòng trên EnziuRooms?",
-    answer:
-      "Chọn điểm đến, ngày nhận/trả phòng và số khách, sau đó mở khách sạn phù hợp, chọn loại phòng còn khả dụng và tiếp tục tới bước xác nhận đặt phòng. Giá và tình trạng phòng được lấy từ dữ liệu hệ thống tại thời điểm bạn thao tác.",
-  },
-  {
-    id: "payment",
-    question: "Thanh toán trên EnziuRooms được xử lý như thế nào?",
-    answer:
-      "Các khoản cần thanh toán được hiển thị rõ trong booking. Giao dịch trực tuyến được chuyển qua luồng thanh toán của hệ thống và trạng thái thanh toán được đồng bộ về EnziuRooms để bạn theo dõi trong tài khoản.",
-  },
-  {
-    id: "cancel",
-    question: "Tôi có thể hủy phòng và yêu cầu hoàn tiền không?",
-    answer:
-      "Khả năng hủy và hoàn tiền phụ thuộc trạng thái booking cùng điều kiện áp dụng tại thời điểm yêu cầu. Khi đủ điều kiện, EnziuRooms cho phép theo dõi tiến trình yêu cầu hoàn tiền ngay trong hệ thống.",
-  },
-  {
-    id: "checkin",
-    question: "QR check-in dùng để làm gì?",
-    answer:
-      "Sau khi booking đáp ứng điều kiện nhận phòng, mã QR giúp Hotel Admin tra cứu đúng booking tại quầy, đối chiếu thông tin cần thiết và thực hiện bước nhận phòng nhanh hơn.",
-  },
-  {
-    id: "age",
-    question: "Vì sao người đại diện nhận phòng cần đủ tuổi?",
-    answer:
-      "EnziuRooms kiểm tra điều kiện tuổi của người đại diện booking trước các bước quan trọng và hỗ trợ Hotel Admin xác minh giấy tờ tại quầy để giảm sai sót trong quá trình nhận phòng.",
-  },
-  {
-    id: "ai",
-    question: "Enziu AI có tự tạo giá hoặc phòng trống không?",
-    answer:
-      "Không. Enziu AI dùng dữ liệu khách sạn, loại phòng, giá, phòng trống, ưu đãi và booking mà hệ thống cung cấp để hỗ trợ tìm kiếm và so sánh. Khi chưa có dữ liệu cần thiết, AI không nên khẳng định thay cho hệ thống.",
-  },
+  { id: "booking", question: "Làm thế nào để đặt phòng trên EnziuRooms?", answer: "Chọn điểm đến, ngày nhận và trả phòng, số khách, sau đó xem khách sạn phù hợp và chọn phòng còn trống. Giá và tình trạng phòng được cập nhật khi bạn tìm kiếm." },
+  { id: "payment", question: "Thanh toán được xử lý như thế nào?", answer: "Số tiền cần thanh toán được hiển thị rõ trước khi bạn xác nhận. Sau khi thanh toán, bạn có thể xem lại trạng thái và chi tiết giao dịch trong đơn đặt phòng." },
+  { id: "cancel", question: "Tôi có thể hủy phòng và yêu cầu hoàn tiền không?", answer: "Khả năng hủy và hoàn tiền phụ thuộc vào điều kiện của đơn đặt phòng. Nếu đủ điều kiện, bạn có thể gửi yêu cầu và theo dõi tiến trình xử lý trong tài khoản." },
+  { id: "checkin", question: "QR check-in dùng để làm gì?", answer: "Khi đến khách sạn, mã QR giúp nhân viên nhanh chóng tìm đơn đặt phòng của bạn và tiếp tục các bước nhận phòng." },
+  { id: "ai", question: "Enziu AI có thể giúp tôi những gì?", answer: "Enziu AI giúp bạn tìm nơi ở theo nhu cầu, ngân sách và sở thích, đồng thời hỗ trợ so sánh các lựa chọn. Thông tin về giá và phòng trống vẫn được hiển thị tại bước tìm kiếm và đặt phòng." },
 ];
 
 function tierCondition(tier) {
   const level = Number(tier?.level);
   const threshold = Number(tier?.minCompletedBookings);
-
-  if (level === 1 && (!Number.isFinite(threshold) || threshold <= 0)) {
-    return "Quyền lợi bắt đầu từ cấp thành viên đầu tiên.";
-  }
-
-  if (Number.isFinite(threshold)) {
-    return `Mở khóa từ ${threshold} booking đã hoàn tất.`;
-  }
-
-  return "Điều kiện mở khóa được quản trị trên hệ thống.";
+  if (level === 1 && (!Number.isFinite(threshold) || threshold <= 0)) return "Quyền lợi bắt đầu từ cấp thành viên đầu tiên.";
+  if (Number.isFinite(threshold)) return `Mở khóa từ ${threshold} đơn đặt phòng đã hoàn tất.`;
+  return "Xem chi tiết điều kiện của hạng thành viên.";
 }
 
 function tierDiscount(tier) {
   const value = Number(tier?.discountPercent);
-  return Number.isFinite(value)
-    ? `Giảm ${value}% khi đặt phòng`
-    : "Mức giảm được cấu hình trên hệ thống";
+  return Number.isFinite(value) ? `Giảm ${value}% khi đặt phòng` : "Ưu đãi theo hạng thành viên";
 }
 
 export default function HomeFutureSections() {
   const { user, isAuthenticated } = useAuth();
   const { openAssistant } = useAiAssistant();
-
   const [tiers, setTiers] = useState([]);
   const [tiersLoading, setTiersLoading] = useState(true);
   const [openFaq, setOpenFaq] = useState(FAQ_ITEMS[0].id);
 
+  const normalizedRole = String(user?.role ?? "").replace(/^ROLE_/i, "").toUpperCase();
+  const isCustomer = isAuthenticated && normalizedRole === "CUSTOMER";
+
   useEffect(() => {
     let active = true;
-
-    // /membership/tiers là API dành cho phiên đã đăng nhập.
-    // Trang chủ là public, vì vậy tuyệt đối không gọi endpoint này khi Guest
-    // chưa đăng nhập; nếu gọi sẽ nhận 401 và apiClient sẽ đưa người dùng
-    // sang /login.
+    // Membership là endpoint private: guest không được gọi để tránh lỗi 401 và redirect login.
     if (!isAuthenticated) {
       setTiers([]);
       setTiersLoading(false);
-      return () => {
-        active = false;
-      };
+      return () => { active = false; };
     }
-
     setTiersLoading(true);
-
     getMembershipLevels()
       .then((items) => {
         if (!active) return;
-        const normalized = Array.isArray(items) ? items : [];
-        setTiers(
-          [...normalized].sort(
-            (left, right) => Number(left?.level ?? 0) - Number(right?.level ?? 0),
-          ),
-        );
+        setTiers([...(Array.isArray(items) ? items : [])]
+          .sort((left, right) => Number(left?.level ?? 0) - Number(right?.level ?? 0)));
       })
-      .catch(() => {
-        if (active) setTiers([]);
-      })
-      .finally(() => {
-        if (active) setTiersLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
+      .catch(() => { if (active) setTiers([]); })
+      .finally(() => { if (active) setTiersLoading(false); });
+    return () => { active = false; };
   }, [isAuthenticated]);
 
-  const normalizedRole = String(user?.role ?? "")
-    .replace(/^ROLE_/i, "")
-    .toUpperCase();
-
   const partnerAction = useMemo(() => {
-    if (!isAuthenticated) {
-      return {
-        to: "/login",
-        label: "Đăng nhập để trở thành đối tác",
-        hint: "Đăng nhập trước, sau đó gửi hồ sơ đối tác trực tiếp trên EnziuRooms.",
-      };
-    }
-
-    if (normalizedRole === "CUSTOMER") {
-      return {
-        to: "/customer/partner",
-        label: "Đăng ký đối tác ngay",
-        hint: "Gửi hồ sơ xác minh và theo dõi trạng thái xét duyệt trên tài khoản của bạn.",
-      };
-    }
-
-    if (normalizedRole === "HOTEL_ADMIN") {
-      return {
-        to: "/hotel-admin/hotels",
-        label: "Quản lý khách sạn",
-        hint: "Tài khoản của bạn đã có quyền quản trị khách sạn trên EnziuRooms.",
-      };
-    }
-
-    return {
-      to: "/admin",
-      label: "Mở khu vực quản trị",
-      hint: "Theo dõi hoạt động đối tác và vận hành hệ thống.",
-    };
+    if (!isAuthenticated) return { to: "/login", label: "Đăng nhập để bắt đầu", hint: "Đăng nhập trước, sau đó gửi hồ sơ đối tác trên EnziuRooms." };
+    if (normalizedRole === "CUSTOMER") return { to: "/customer/partner", label: "Trở thành đối tác", hint: "Gửi hồ sơ xác minh và theo dõi trạng thái xét duyệt." };
+    if (normalizedRole === "HOTEL_ADMIN") return { to: "/hotel-admin/hotels", label: "Quản lý khách sạn", hint: "Đi đến khu vực quản lý nơi ở của bạn." };
+    return { to: "/admin", label: "Mở khu vực quản trị", hint: "Theo dõi hoạt động và các yêu cầu đối tác." };
   }, [isAuthenticated, normalizedRole]);
 
-  const rewardsPath = normalizedRole === "CUSTOMER" ? "/customer/rewards" : "/login";
-  const rewardsLabel = isAuthenticated ? "Xem hạng & ưu đãi" : "Đăng nhập để xem hạng & ưu đãi";
+  const rewardsPath = isCustomer ? "/customer/rewards" : "/login";
+  const aiAction = isCustomer
+    ? { type: "button", label: "Bắt đầu trò chuyện" }
+    : { type: "link", to: isAuthenticated ? (normalizedRole === "HOTEL_ADMIN" ? "/hotel-admin" : "/admin") : "/login", label: isAuthenticated ? "Về khu vực của bạn" : "Đăng nhập để hỏi Enziu AI" };
 
   return (
     <>
-      <section className="home-section home-journey-section">
-        <div className="container">
-          <div className="home-section-heading home-future-heading">
-            <div>
-              <span className="home-section-kicker">TỪ ĐẶT PHÒNG ĐẾN NHẬN PHÒNG</span>
-              <h2>Một hành trình rõ ràng trên cùng một hệ thống</h2>
-              <p>
-                EnziuRooms kết nối tìm kiếm, thanh toán, nhận phòng và hỗ trợ sau booking thay vì tách người dùng qua nhiều luồng rời rạc.
-              </p>
-            </div>
+      <section className="enziu-section enziu-journey-section">
+        <div className="enziu-fullbleed-inner">
+          <div className="enziu-section-heading">
+            <div><span className="enziu-eyebrow"><i /> Hành trình cùng EnziuRooms</span><h2>Một hành trình, không đứt nhịp.</h2></div>
+            <p>Từ lúc bắt đầu tìm kiếm đến khi kết thúc chuyến đi, EnziuRooms giúp bạn theo dõi mọi bước thuận tiện hơn.</p>
           </div>
-
-          <div className="home-journey-grid">
-            <article>
-              <span><ShieldCheck size={22} /></span>
-              <div>
-                <h3>Thông tin minh bạch</h3>
-                <p>Khách sạn, phòng, sức chứa và trạng thái được lấy từ dữ liệu thật của hệ thống.</p>
-              </div>
-            </article>
-
-            <article>
-              <span><CreditCard size={22} /></span>
-              <div>
-                <h3>Thanh toán có trạng thái</h3>
-                <p>Theo dõi giao dịch và số tiền cần xử lý trực tiếp trong booking của bạn.</p>
-              </div>
-            </article>
-
-            <article>
-              <span><QrCode size={22} /></span>
-              <div>
-                <h3>QR Check-in</h3>
-                <p>Tra cứu booking nhanh tại quầy và tiếp tục quy trình xác minh nhận phòng.</p>
-              </div>
-            </article>
-
-            <article>
-              <span><RefreshCcw size={22} /></span>
-              <div>
-                <h3>Theo dõi hoàn tiền</h3>
-                <p>Yêu cầu hợp lệ được ghi nhận và hiển thị trạng thái xử lý trên EnziuRooms.</p>
-              </div>
-            </article>
+          <div className="enziu-journey-map">
+            <EnziuJourneyLine className="enziu-journey-svg" />
+            {JOURNEY_STEPS.map(({ icon: Icon, index, title, text }) => (
+              <article className="enziu-journey-step" key={index}>
+                <span className="enziu-journey-node"><Icon size={21} /></span>
+                <small>{index}</small><h3>{title}</h3><p>{text}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="home-section home-membership-section">
-        <div className="container home-membership-shell">
-          <div className="home-membership-intro">
-            <span className="home-section-kicker">THÀNH VIÊN ENZIUROOMS</span>
-            <h2>Đi nhiều hơn, mở khóa nhiều quyền lợi hơn</h2>
-            <p>
-              Các cấp thành viên bên cạnh được tải trực tiếp từ cấu hình membership hiện tại của EnziuRooms.
-            </p>
-            <Link to={rewardsPath} className="home-primary-link">
-              <Award size={17} />
-              {rewardsLabel}
-            </Link>
+      <section className="enziu-section enziu-membership-section">
+        <div className="enziu-fullbleed-inner enziu-membership-layout">
+          <div className="enziu-membership-intro">
+            <EnziuOrbitMark className="enziu-membership-mark" />
+            <span className="enziu-eyebrow"><i /> Quyền lợi thành viên</span>
+            <h2>Mỗi chuyến đi, thêm một quyền lợi.</h2>
+            <p>Tích lũy qua những chuyến đi và mở khóa thêm ưu đãi dành riêng cho thành viên.</p>
+            <Link to={rewardsPath} className="enziu-button enziu-button-dark"><Award size={17} /> {isCustomer ? "Xem hạng của tôi" : "Đăng nhập để xem hạng"}</Link>
           </div>
-
-          <div className="home-tier-grid">
+          <div className="enziu-tier-stack">
             {tiersLoading ? (
-              <article className="home-tier-loading">
-                <span className="home-tier-spinner" />
-                <strong>Đang tải quyền lợi thành viên...</strong>
+              <div className="enziu-tier-status" role="status"><span /> Đang tải quyền lợi...</div>
+            ) : tiers.length ? tiers.map((tier, index) => (
+              <article className="enziu-tier-card" key={tier.level ?? tier.name} style={{ "--tier-index": index }}>
+                <div className="enziu-tier-top"><span className="enziu-tier-number">{String(tier.level ?? index + 1).padStart(2, "0")}</span><div><small>Cấp thành viên</small><h3>{tier.name || `Cấp ${tier.level}`}</h3></div></div>
+                <strong>{tierDiscount(tier)}</strong><p>{tierCondition(tier)}</p>
+                <span className="enziu-tier-rule"><Check size={15} /> Tự động áp dụng khi đủ điều kiện</span>
               </article>
-            ) : tiers.length ? (
-              tiers.map((tier) => (
-                <article className="home-tier-card" key={tier.level ?? tier.name}>
-                  <div className="home-tier-title-row">
-                    <span className="home-tier-level">{tier.level ?? "•"}</span>
-                    <div>
-                      <small>Cấp thành viên</small>
-                      <h3>{tier.name || `Cấp ${tier.level}`}</h3>
-                    </div>
-                  </div>
-                  <strong>{tierDiscount(tier)}</strong>
-                  <p>{tierCondition(tier)}</p>
-                  <span className="home-tier-rule">
-                    <CheckCircle2 size={16} />
-                    Tự động áp dụng khi booking đủ điều kiện
-                  </span>
-                </article>
-              ))
-            ) : (
-              <article className="home-tier-empty">
-                <LockKeyhole size={24} />
-                <div>
-                  <strong>
-                    {isAuthenticated
-                      ? "Quyền lợi thành viên đang được cập nhật"
-                      : "Đăng nhập để xem quyền lợi thành viên"}
-                  </strong>
-                  <p>
-                    {isAuthenticated
-                      ? "Không hiển thị mức giảm giả khi API chưa trả dữ liệu."
-                      : "Khách chưa đăng nhập vẫn có thể xem trang chủ, tìm kiếm và khám phá khách sạn bình thường."}
-                  </p>
-                </div>
-              </article>
+            )) : (
+              <div className="enziu-tier-empty"><LockKeyhole size={24} /><div><strong>{isAuthenticated ? "Quyền lợi đang được cập nhật" : "Quyền lợi dành cho tài khoản thành viên"}</strong><p>{isAuthenticated ? "Quyền lợi của bạn sẽ xuất hiện tại đây khi được cập nhật." : "Đăng nhập để xem hạng thành viên và những quyền lợi dành cho bạn."}</p></div></div>
             )}
           </div>
         </div>
       </section>
 
-      <section className="home-section home-ai-showcase-section">
-        <div className="container">
-          <div className="home-ai-showcase">
-            <div className="home-ai-copy">
-              <span className="home-ai-eyebrow"><Sparkles size={16} /> ENZIU AI BOOKING AGENT</span>
-              <h2>Không biết nên chọn khách sạn nào?</h2>
-              <p>
-                Nói nhu cầu theo cách tự nhiên. Enziu AI có thể hỗ trợ đối chiếu khách sạn, loại phòng, giá, phòng trống và ưu đãi từ dữ liệu hệ thống.
-              </p>
-              <ul>
-                <li><CheckCircle2 size={16} /> Tìm theo nhu cầu và ngân sách</li>
-                <li><CheckCircle2 size={16} /> So sánh lựa chọn dễ hiểu</li>
-                <li><CheckCircle2 size={16} /> Giữ trang khách sạn ở phía sau khi chat</li>
-              </ul>
-              <button
-                type="button"
-                className="home-ai-button"
-                onClick={() => openAssistant({ clearHotelContext: true })}
-              >
-                <Bot size={18} />
-                Hỏi Enziu AI
-              </button>
-            </div>
-
-            <div className="home-ai-visual" aria-hidden="true">
-              <span className="home-ai-orbit home-ai-orbit-one" />
-              <span className="home-ai-orbit home-ai-orbit-two" />
-              <div className="home-ai-bubble home-ai-bubble-top">Bạn muốn đi đâu kỳ này?</div>
-              <div className="home-ai-bot">
-                <span className="home-ai-bot-ear left" />
-                <span className="home-ai-bot-ear right" />
-                <span className="home-ai-bot-face"><i /><i /></span>
-                <Bot size={68} />
-              </div>
-              <div className="home-ai-bubble home-ai-bubble-bottom">Mình sẽ đối chiếu dữ liệu thật cho bạn.</div>
-            </div>
+      <section className="enziu-section enziu-ai-section">
+        <div className="enziu-fullbleed-inner"><div className="enziu-ai-card">
+          <div className="enziu-ai-copy">
+            <span className="enziu-eyebrow"><i /> Trợ lý Enziu AI</span>
+            <h2>Một người bạn biết lắng nghe cách bạn muốn đi.</h2>
+            <p>Chỉ cần nói bạn muốn đi đâu, thích không gian thế nào hoặc có ngân sách bao nhiêu — Enziu AI sẽ giúp bạn thu hẹp lựa chọn nhanh hơn.</p>
+            <ul><li><Check size={16} /> Tìm theo nhu cầu và ngân sách</li><li><Check size={16} /> So sánh lựa chọn dễ hiểu</li><li><Check size={16} /> Giữ hành trình tìm kiếm liền mạch</li></ul>
+            {aiAction.type === "button" ? (
+              <button type="button" className="enziu-button enziu-button-ai" onClick={() => openAssistant({ clearHotelContext: true })}><Bot size={18} /> {aiAction.label}</button>
+            ) : (
+              <Link to={aiAction.to} className="enziu-button enziu-button-ai"><Bot size={18} /> {aiAction.label}</Link>
+            )}
           </div>
-        </div>
+          <div className="enziu-ai-visual" aria-hidden="true"><EnziuConstellation className="enziu-ai-constellation" /><span className="enziu-ai-core"><Sparkles size={35} /></span><span className="enziu-ai-message enziu-ai-message-one">Đi biển hay lên núi?</span><span className="enziu-ai-message enziu-ai-message-two">Để Enziu gợi ý cho bạn.</span></div>
+        </div></div>
       </section>
 
-      <section className="home-section home-partner-section">
-        <div className="container">
-          <div className="home-partner-card">
-            <div className="home-partner-visual" aria-hidden="true">
-              <Building2 size={62} />
-              <span>HOTEL</span>
-            </div>
-
-            <div className="home-partner-copy">
-              <span className="home-section-kicker">DÀNH CHO ĐỐI TÁC LƯU TRÚ</span>
-              <h2>Đưa khách sạn của bạn lên EnziuRooms</h2>
-              <p>
-                Quản lý khách sạn, loại phòng, booking, khuyến mãi, đánh giá và vận hành nhận phòng trên cùng một hệ thống.
-              </p>
-              <div className="home-partner-points">
-                <span><CheckCircle2 size={16} /> Hồ sơ đối tác có xác minh</span>
-                <span><CheckCircle2 size={16} /> Quản lý booking tập trung</span>
-                <span><CheckCircle2 size={16} /> Theo dõi doanh thu & rút tiền</span>
-              </div>
-              <div className="home-partner-actions">
-                <Link to={partnerAction.to} className="home-primary-link">
-                  <Building2 size={17} />
-                  {partnerAction.label}
-                </Link>
-                <small>{partnerAction.hint}</small>
-              </div>
-            </div>
-          </div>
-        </div>
+      <section className="enziu-section enziu-partner-section">
+        <div className="enziu-fullbleed-inner"><div className="enziu-partner-card">
+          <div className="enziu-partner-symbol"><Building2 size={46} /><span>ENZ / PARTNER</span></div>
+          <div className="enziu-partner-copy"><span className="enziu-eyebrow"><i /> Dành cho đối tác lưu trú</span><h2>Để nơi ở của bạn trở thành một phần của bản đồ Enziu.</h2><p>Quản lý nơi ở, phòng, đơn đặt, khuyến mãi, đánh giá và hoạt động nhận phòng ở một nơi.</p></div>
+          <div className="enziu-partner-action"><Link to={partnerAction.to} className="enziu-button enziu-button-primary">{partnerAction.label} <ArrowRight size={17} /></Link><small>{partnerAction.hint}</small></div>
+        </div></div>
       </section>
 
-      <section id="faq" className="home-section home-faq-section">
-        <div className="container">
-          <div className="home-section-heading home-future-heading">
-            <div>
-              <span className="home-section-kicker">TRỢ GIÚP NHANH</span>
-              <h2>Câu hỏi thường gặp</h2>
-              <p>Những câu hỏi người dùng thường gặp trong quá trình tìm, đặt và nhận phòng.</p>
-            </div>
-            <span className="home-faq-support"><Headphones size={18} /> Hỗ trợ ngay trên EnziuRooms</span>
-          </div>
-
-          <div className="home-faq-grid">
-            {FAQ_ITEMS.map((item) => {
+      <section id="faq" className="enziu-section enziu-faq-section">
+        <div className="enziu-fullbleed-inner enziu-faq-layout">
+          <div className="enziu-faq-intro"><span className="enziu-eyebrow"><i /> Trợ giúp nhanh</span><h2>Rõ ràng trước khi bạn lên đường.</h2><p>Thông tin cơ bản về tìm kiếm, thanh toán, check-in và Enziu AI.</p><span className="enziu-faq-support"><Headphones size={17} /> Hỗ trợ trên EnziuRooms</span></div>
+          <div className="enziu-faq-list">
+            {FAQ_ITEMS.map((item, index) => {
               const expanded = openFaq === item.id;
-              return (
-                <article className={`home-faq-item ${expanded ? "open" : ""}`} key={item.id}>
-                  <button
-                    type="button"
-                    aria-expanded={expanded}
-                    onClick={() => setOpenFaq(expanded ? "" : item.id)}
-                  >
-                    <span>{item.question}</span>
-                    <ChevronDown size={19} />
-                  </button>
-                  {expanded ? <p>{item.answer}</p> : null}
-                </article>
-              );
+              return <article className={`enziu-faq-item ${expanded ? "is-open" : ""}`} key={item.id}><button type="button" aria-expanded={expanded} onClick={() => setOpenFaq(expanded ? "" : item.id)}><small>0{index + 1}</small><span>{item.question}</span><ChevronDown size={19} /></button>{expanded ? <p>{item.answer}</p> : null}</article>;
             })}
           </div>
         </div>
