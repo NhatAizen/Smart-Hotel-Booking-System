@@ -20,10 +20,14 @@ public class CorsConfig {
                 List.of(
                         "http://localhost:*",
                         "http://127.0.0.1:*",
+                        "http://localhost",
+                        "https://localhost",
+                        "capacitor://localhost",
+                        "ionic://localhost",
                         "https://*.trycloudflare.com",
                         "https://enziurooms.xyz"
                 )
-        );
+                );
 
         configuration.setAllowedMethods(
                 List.of(

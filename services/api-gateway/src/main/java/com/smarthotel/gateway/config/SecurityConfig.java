@@ -113,7 +113,8 @@ public class SecurityConfig {
                                 "/api/admin/wallet/**",
                                 "/api/admin/withdrawals/**",
                                 "/api/admin/payments/**",
-                                "/api/admin/refunds/**"
+                                "/api/admin/refunds/**",
+                                "/api/admin/platform-policies"
                         )
                         .hasRole("SYSTEM_ADMIN")
 
@@ -209,7 +210,8 @@ public class SecurityConfig {
 
                         .pathMatchers(
                                 HttpMethod.GET,
-                                "/api/partner-requests/me/cccd/**"
+                                "/api/partner-requests/me/cccd/**",
+                                "/api/partner-requests/me/documents/**"
                         )
                         .hasAnyRole(
                                 "CUSTOMER",
@@ -311,6 +313,7 @@ public class SecurityConfig {
                          */
                         .pathMatchers(
                                 HttpMethod.GET,
+                                "/api/platform-policies",
                                 "/api/hotels/**",
                                 "/api/room-types/**",
                                 "/api/rooms/**",
