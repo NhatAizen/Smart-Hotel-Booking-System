@@ -1,6 +1,7 @@
 package com.smarthotel.chat.reminder.service;
 
 import com.smarthotel.chat.conversation.entity.ChatConversation;
+import com.smarthotel.chat.integration.booking.BookingClient;
 import com.smarthotel.chat.reminder.entity.ReminderType;
 import com.smarthotel.chat.reminder.entity.ScheduledReminder;
 import com.smarthotel.chat.reminder.repository.ScheduledReminderRepository;
@@ -20,51 +21,62 @@ public class ReminderPlanService {
         this.reminderRepository = reminderRepository;
     }
 
-    public void ensurePlan(ChatConversation conversation) {
+    public void ensurePlan(
+            ChatConversation conversation,
+            BookingClient.BookingSnapshot booking,
+            LocalTime checkInTime,
+            LocalTime checkOutTime
+    ) {
         ZonedDateTime checkInAt = ZonedDateTime.of(
-                conversation.getCheckIn(),
-                conversation.getCheckInTime(),
+                booking.checkIn(),
+                checkInTime,
                 HOTEL_ZONE
         );
         ZonedDateTime checkOutAt = ZonedDateTime.of(
-                conversation.getCheckOut(),
-                conversation.getCheckOutTime(),
+                booking.checkOut(),
+                checkOutTime,
                 HOTEL_ZONE
         );
 
         createIfMissing(
                 conversation,
+                booking.id(),
                 ReminderType.CHECKIN_24H,
                 checkInAt.minusHours(24).toInstant()
         );
         createIfMissing(
                 conversation,
+                booking.id(),
                 ReminderType.CHECKIN_2H,
                 checkInAt.minusHours(2).toInstant()
         );
         createIfMissing(
                 conversation,
+                booking.id(),
                 ReminderType.CHECKIN_OVERDUE,
                 checkInAt.plusHours(1).toInstant()
         );
 
         ZonedDateTime previousEvening = ZonedDateTime.of(
-                conversation.getCheckOut().minusDays(1),
+                booking.checkOut().minusDays(1),
                 LocalTime.of(19, 0),
                 HOTEL_ZONE
         );
         createIfMissing(
                 conversation,
+                booking.id(),
                 ReminderType.CHECKOUT_PREVIOUS_EVENING,
                 previousEvening.toInstant()
         );
         createIfMissing(
                 conversation,
+                booking.id(),
                 ReminderType.CHECKOUT_2H,
                 checkOutAt.minusHours(2).toInstant()
         );
         createIfMissing(
                 conversation,
+                booking.id(),
                 ReminderType.CHECKOUT_OVERDUE,
                 checkOutAt.plusMinutes(15).toInstant()
         );
@@ -72,10 +84,11 @@ public class ReminderPlanService {
 
     private void createIfMissing(
             ChatConversation conversation,
+            UUID bookingId,
             ReminderType type,
             Instant scheduledAt
     ) {
-        String dedupeKey = conversation.getBookingId() + ":" + type.name();
+        String dedupeKey = bookingId + ":" + type.name();
         if (reminderRepository.findByDedupeKey(dedupeKey).isPresent()) {
             return;
         }
@@ -95,7 +108,7 @@ public class ReminderPlanService {
         reminderRepository.save(
                 new ScheduledReminder(
                         conversation.getId(),
-                        conversation.getBookingId(),
+                        bookingId,
                         type,
                         scheduledAt,
                         dedupeKey

@@ -17,6 +17,7 @@ import com.smarthotel.chat.message.repository.ChatMessageRepository;
 import com.smarthotel.chat.realtime.ChatRealtimePublisher;
 import com.smarthotel.chat.reminder.service.ReminderPlanService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -57,45 +58,34 @@ public class ChatService {
         this.reminderPlanService = reminderPlanService;
     }
 
+    @Transactional
     public ConversationResponse ensureCustomerConversation(UUID customerId, UUID bookingId) {
         BookingClient.BookingSnapshot booking = bookingClient.getBooking(bookingId);
         if (!customerId.equals(booking.customerId())) {
             throw new IllegalArgumentException("Booking không thuộc tài khoản hiện tại");
         }
 
-        ChatConversation conversation = ensureConversation(booking);
+        ChatConversation conversation = ensureConversation(booking, true);
         return toResponse(conversation, ChatSenderType.CUSTOMER);
     }
 
+    @Transactional
     public ConversationResponse ensureHotelConversation(UUID customerId, UUID hotelId) {
-        LocalDate today = LocalDate.now();
-
-        ChatConversation activeBookingConversation = conversationRepository
-                .findAllByCustomerIdOrderByLastMessageAtDesc(customerId)
-                .stream()
-                .filter(item -> hotelId.equals(item.getHotelId()))
-                .filter(item -> item.getStatus() == ConversationStatus.OPEN)
-                .filter(item -> item.getBookingId() != null)
-                .filter(item -> item.getCheckOut() == null || !item.getCheckOut().isBefore(today))
-                .findFirst()
-                .orElse(null);
-
-        ChatConversation conversation = activeBookingConversation != null
-                ? activeBookingConversation
-                : conversationRepository
-                .findByCustomerIdAndHotelIdAndBookingIdIsNullAndStatus(
-                        customerId,
-                        hotelId,
-                        ConversationStatus.OPEN
-                )
+        ChatConversation conversation = conversationRepository
+                .findByCustomerIdAndHotelId(customerId, hotelId)
                 .orElseGet(() -> createGeneralConversation(customerId, hotelId));
 
+        if (conversation.getStatus() == ConversationStatus.CLOSED) {
+            conversation.reopen();
+            conversationRepository.save(conversation);
+        }
+
         return toResponse(conversation, ChatSenderType.CUSTOMER);
     }
 
+    @Transactional
     public ChatConversation ensureConversation(BookingClient.BookingSnapshot booking) {
-        return conversationRepository.findByBookingId(booking.id())
-                .orElseGet(() -> createConversation(booking));
+        return ensureConversation(booking, false);
     }
 
     public List<ConversationResponse> getCustomerConversations(UUID customerId) {
@@ -374,19 +364,70 @@ public class ChatService {
         return conversation;
     }
 
-    private ChatConversation createConversation(BookingClient.BookingSnapshot booking) {
-        String status = safe(booking.status()).toUpperCase(Locale.ROOT);
-        if (!List.of("CONFIRMED", "CHECKED_IN", "CHECKED_OUT").contains(status)) {
-            throw new IllegalStateException(
-                    "Chat với khách sạn chỉ mở sau khi booking đã được xác nhận"
-            );
-        }
-
+    private ChatConversation ensureConversation(
+            BookingClient.BookingSnapshot booking,
+            boolean makeCurrentContext
+    ) {
+        validateBookingForChat(booking);
         HotelClient.HotelSnapshot hotel = hotelClient.getHotel(booking.hotelId());
         if (hotel.ownerId() == null) {
             throw new IllegalStateException("Khách sạn chưa có Hotel Admin");
         }
 
+        LocalTime checkInTime = hotel.checkInTime() == null ? LocalTime.of(14, 0) : hotel.checkInTime();
+        LocalTime checkOutTime = hotel.checkOutTime() == null ? LocalTime.NOON : hotel.checkOutTime();
+
+        ChatConversation conversation = conversationRepository
+                .findByCustomerIdAndHotelId(booking.customerId(), booking.hotelId())
+                .orElse(null);
+
+        if (conversation == null) {
+            conversation = createConversation(booking, hotel, checkInTime, checkOutTime);
+        } else {
+            UUID previousBookingId = conversation.getBookingId();
+            boolean contextChanged = previousBookingId == null || !previousBookingId.equals(booking.id());
+            if (makeCurrentContext || shouldPromoteBookingContext(conversation, booking)) {
+                conversation.updateBookingContext(
+                        booking.id(),
+                        booking.bookingCode(),
+                        hotel.ownerId(),
+                        hotel.name(),
+                        booking.checkIn(),
+                        booking.checkOut(),
+                        checkInTime,
+                        checkOutTime
+                );
+                conversationRepository.save(conversation);
+
+                if (contextChanged) {
+                    saveMessage(
+                            conversation,
+                            ChatSenderType.SYSTEM,
+                            null,
+                            ChatMessageType.SYSTEM,
+                            "Cuộc trò chuyện đang liên kết với đơn " + safe(booking.bookingCode()) + ".",
+                            "{\"event\":\"BOOKING_CONTEXT_CHANGED\",\"bookingId\":\""
+                                    + booking.id() + "\"}"
+                    );
+                }
+            } else if (conversation.getStatus() == ConversationStatus.CLOSED) {
+                conversation.reopen();
+                conversationRepository.save(conversation);
+            }
+        }
+
+        if (booking.checkIn() != null && booking.checkOut() != null) {
+            reminderPlanService.ensurePlan(conversation, booking, checkInTime, checkOutTime);
+        }
+        return conversation;
+    }
+
+    private ChatConversation createConversation(
+            BookingClient.BookingSnapshot booking,
+            HotelClient.HotelSnapshot hotel,
+            LocalTime checkInTime,
+            LocalTime checkOutTime
+    ) {
         ChatConversation conversation = new ChatConversation(
                 booking.id(),
                 booking.bookingCode(),
@@ -396,8 +437,8 @@ public class ChatService {
                 hotel.name(),
                 booking.checkIn(),
                 booking.checkOut(),
-                hotel.checkInTime() == null ? LocalTime.of(14, 0) : hotel.checkInTime(),
-                hotel.checkOutTime() == null ? LocalTime.NOON : hotel.checkOutTime()
+                checkInTime,
+                checkOutTime
         );
 
         conversationRepository.save(conversation);
@@ -416,8 +457,58 @@ public class ChatService {
                 "{\"event\":\"CONVERSATION_OPENED\"}"
         );
 
-        reminderPlanService.ensurePlan(conversation);
         return conversation;
+    }
+
+    private void validateBookingForChat(BookingClient.BookingSnapshot booking) {
+        String status = safe(booking.status()).toUpperCase(Locale.ROOT);
+        if (!List.of("CONFIRMED", "CHECKED_IN", "CHECKED_OUT").contains(status)) {
+            throw new IllegalStateException(
+                    "Chat với khách sạn chỉ mở sau khi booking đã được xác nhận"
+            );
+        }
+    }
+
+    private boolean shouldPromoteBookingContext(
+            ChatConversation conversation,
+            BookingClient.BookingSnapshot candidate
+    ) {
+        if (conversation.getBookingId() == null
+                || conversation.getBookingId().equals(candidate.id())) {
+            return true;
+        }
+
+        String candidateStatus = safe(candidate.status()).toUpperCase(Locale.ROOT);
+        if ("CHECKED_IN".equals(candidateStatus)) {
+            return true;
+        }
+
+        LocalDate today = LocalDate.now();
+        boolean currentStay = conversation.getCheckIn() != null
+                && conversation.getCheckOut() != null
+                && !today.isBefore(conversation.getCheckIn())
+                && !today.isAfter(conversation.getCheckOut());
+        if (currentStay) {
+            return false;
+        }
+
+        boolean candidateStay = candidate.checkIn() != null
+                && candidate.checkOut() != null
+                && !today.isBefore(candidate.checkIn())
+                && !today.isAfter(candidate.checkOut());
+        if (candidateStay) {
+            return true;
+        }
+
+        if (conversation.getCheckOut() != null && conversation.getCheckOut().isBefore(today)) {
+            return true;
+        }
+
+        return candidate.checkIn() != null
+                && !candidate.checkIn().isBefore(today)
+                && (conversation.getCheckIn() == null
+                || conversation.getCheckIn().isBefore(today)
+                || candidate.checkIn().isBefore(conversation.getCheckIn()));
     }
 
     private void createHotelBotReply(

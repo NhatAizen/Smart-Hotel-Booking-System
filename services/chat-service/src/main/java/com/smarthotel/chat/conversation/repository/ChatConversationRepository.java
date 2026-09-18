@@ -10,19 +10,7 @@ import java.util.UUID;
 
 public interface ChatConversationRepository extends JpaRepository<ChatConversation, UUID> {
 
-    Optional<ChatConversation> findByBookingId(UUID bookingId);
-
-    Optional<ChatConversation> findFirstByCustomerIdAndHotelIdAndBookingIdIsNotNullAndStatusOrderByLastMessageAtDesc(
-            UUID customerId,
-            UUID hotelId,
-            ConversationStatus status
-    );
-
-    Optional<ChatConversation> findByCustomerIdAndHotelIdAndBookingIdIsNullAndStatus(
-            UUID customerId,
-            UUID hotelId,
-            ConversationStatus status
-    );
+    Optional<ChatConversation> findByCustomerIdAndHotelId(UUID customerId, UUID hotelId);
 
     List<ChatConversation> findAllByCustomerIdOrderByLastMessageAtDesc(UUID customerId);
 

@@ -79,7 +79,8 @@ public class ReminderScheduler {
                 send(
                         reminder,
                         conversation,
-                        "Ngày mai bạn nhận phòng tại " + conversation.getHotelName()
+                        booking,
+                        "Đơn " + safe(booking.bookingCode()) + ": Ngày mai bạn nhận phòng tại " + conversation.getHotelName()
                                 + " từ " + conversation.getCheckInTime()
                                 + ". Hãy xác nhận bạn sẽ đến; nếu đến trễ, bạn có thể báo giờ dự kiến ngay trong chat.",
                         "Sắp đến ngày nhận phòng",
@@ -97,7 +98,8 @@ public class ReminderScheduler {
                 send(
                         reminder,
                         conversation,
-                        "Còn khoảng 2 giờ tới giờ nhận phòng tại " + conversation.getHotelName()
+                        booking,
+                        "Đơn " + safe(booking.bookingCode()) + ": Còn khoảng 2 giờ tới giờ nhận phòng tại " + conversation.getHotelName()
                                 + ". Nếu kế hoạch thay đổi, hãy báo khách sạn trong chat.",
                         "Nhắc nhận phòng",
                         "CHECKIN_REMINDER",
@@ -112,10 +114,12 @@ public class ReminderScheduler {
                     return;
                 }
 
-                if (conversation.getArrivalStatus() == ArrivalStatus.ARRIVING_LATE
+                boolean currentBookingContext = reminder.getBookingId().equals(conversation.getBookingId());
+                if (currentBookingContext
+                        && conversation.getArrivalStatus() == ArrivalStatus.ARRIVING_LATE
                         && conversation.getExpectedArrivalTime() != null) {
                     ZonedDateTime expected = ZonedDateTime.of(
-                            conversation.getCheckIn(),
+                            booking.checkIn(),
                             conversation.getExpectedArrivalTime(),
                             HOTEL_ZONE
                     ).plusHours(1);
@@ -127,11 +131,15 @@ public class ReminderScheduler {
                     }
                 }
 
-                conversation.markNoShowRisk();
+                if (currentBookingContext) {
+                    conversation.markNoShowRisk();
+                }
                 send(
                         reminder,
                         conversation,
-                        "Đã qua giờ nhận phòng nhưng booking vẫn chưa check-in. Bạn vẫn dự kiến đến hôm nay chứ? "
+                        booking,
+                        "Đơn " + safe(booking.bookingCode()) + ": Đã qua giờ nhận phòng nhưng bạn vẫn chưa check-in. "
+                                + "Bạn vẫn dự kiến đến hôm nay chứ? "
                                 + "Hãy xác nhận hoặc báo giờ đến trễ để khách sạn giữ kế hoạch phục vụ.",
                         "Bạn chưa check-in",
                         "CHECKIN_OVERDUE",
@@ -148,7 +156,8 @@ public class ReminderScheduler {
                 send(
                         reminder,
                         conversation,
-                        "Ngày mai bạn trả phòng trước " + conversation.getCheckOutTime()
+                        booking,
+                        "Đơn " + safe(booking.bookingCode()) + ": Ngày mai bạn trả phòng trước " + conversation.getCheckOutTime()
                                 + ". Nếu cần trả phòng muộn, hãy gửi yêu cầu để Hotel Admin xác nhận.",
                         "Nhắc lịch trả phòng",
                         "CHECKOUT_REMINDER",
@@ -165,7 +174,8 @@ public class ReminderScheduler {
                 send(
                         reminder,
                         conversation,
-                        "Còn khoảng 2 giờ tới giờ trả phòng " + conversation.getCheckOutTime()
+                        booking,
+                        "Đơn " + safe(booking.bookingCode()) + ": Còn khoảng 2 giờ tới giờ trả phòng " + conversation.getCheckOutTime()
                                 + ". Bạn nhớ hoàn tất checkout đúng giờ để tránh phụ thu trả trễ.",
                         "Sắp tới giờ trả phòng",
                         "CHECKOUT_REMINDER",
@@ -182,7 +192,9 @@ public class ReminderScheduler {
                 send(
                         reminder,
                         conversation,
-                        "Đã qua giờ trả phòng. Nếu bạn vẫn cần sử dụng phòng, hãy liên hệ khách sạn ngay; "
+                        booking,
+                        "Đơn " + safe(booking.bookingCode()) + ": Đã qua giờ trả phòng. "
+                                + "Nếu bạn vẫn cần sử dụng phòng, hãy liên hệ khách sạn ngay; "
                                 + "phụ thu có thể phát sinh theo chính sách booking.",
                         "Đã quá giờ trả phòng",
                         "CHECKOUT_OVERDUE",
@@ -195,6 +207,7 @@ public class ReminderScheduler {
     private void send(
             ScheduledReminder reminder,
             ChatConversation conversation,
+            BookingClient.BookingSnapshot booking,
             String content,
             String title,
             String notificationType,
@@ -220,7 +233,7 @@ public class ReminderScheduler {
             notificationClient.sendUser(
                     conversation.getHotelAdminId(),
                     title,
-                    "Booking " + safe(conversation.getBookingCode())
+                    "Booking " + safe(booking.bookingCode())
                             + " tại " + conversation.getHotelName() + ": " + content,
                     notificationType,
                     "BOOKING_REMINDER",

@@ -18,7 +18,7 @@ public class ChatConversation {
     @Column(nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "booking_id", updatable = false)
+    @Column(name = "booking_id")
     private UUID bookingId;
 
     @Column(name = "booking_code", length = 40)
@@ -145,6 +145,31 @@ public class ChatConversation {
         this.updatedAt = value;
     }
 
+    public void updateBookingContext(
+            UUID bookingId,
+            String bookingCode,
+            UUID hotelAdminId,
+            String hotelName,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            LocalTime checkInTime,
+            LocalTime checkOutTime
+    ) {
+        this.bookingId = bookingId;
+        this.bookingCode = bookingCode;
+        this.hotelAdminId = hotelAdminId;
+        this.hotelName = hotelName == null || hotelName.isBlank() ? this.hotelName : hotelName.trim();
+        this.checkIn = checkIn;
+        this.checkOut = checkOut;
+        this.checkInTime = checkInTime == null ? this.checkInTime : checkInTime;
+        this.checkOutTime = checkOutTime == null ? this.checkOutTime : checkOutTime;
+        this.arrivalStatus = ArrivalStatus.UNKNOWN;
+        this.expectedArrivalTime = null;
+        this.status = ConversationStatus.OPEN;
+        this.autoReplyEnabled = true;
+        this.updatedAt = Instant.now();
+    }
+
     public void setHumanTakeover(boolean humanTakeover) {
         this.humanTakeover = humanTakeover;
         this.updatedAt = Instant.now();
@@ -171,6 +196,12 @@ public class ChatConversation {
     public void close() {
         this.status = ConversationStatus.CLOSED;
         this.autoReplyEnabled = false;
+        this.updatedAt = Instant.now();
+    }
+
+    public void reopen() {
+        this.status = ConversationStatus.OPEN;
+        this.autoReplyEnabled = true;
         this.updatedAt = Instant.now();
     }
 
