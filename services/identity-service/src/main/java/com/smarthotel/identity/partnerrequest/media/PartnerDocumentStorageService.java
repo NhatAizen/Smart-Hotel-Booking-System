@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.text.Normalizer;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -109,6 +110,74 @@ public class PartnerDocumentStorageService {
         }
     }
 
+    public StoredDocument storeSupportingDocument(
+            UUID userId,
+            String category,
+            MultipartFile file
+    ) {
+        validateSupportingDocument(file);
+        String safeCategory = "business-license".equals(category)
+                ? "business-license"
+                : "management-proof";
+        Path documentDir = root.resolve(userId.toString()).resolve("supporting").normalize();
+        ensureInsideRoot(documentDir);
+
+        try {
+            Files.createDirectories(documentDir);
+            String originalName = safeOriginalName(file.getOriginalFilename());
+            String fileName = safeCategory + "-" + UUID.randomUUID() + supportingExtension(file);
+            Path target = documentDir.resolve(fileName).normalize();
+            ensureInsideRoot(target);
+
+            try (InputStream input = file.getInputStream()) {
+                Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            return new StoredDocument(
+                    root.relativize(target).toString().replace('\\', '/'),
+                    originalName,
+                    normalizedSupportingContentType(file),
+                    file.getSize()
+            );
+        } catch (IOException exception) {
+            throw new IllegalStateException("Không thể lưu giấy tờ hồ sơ đối tác", exception);
+        }
+    }
+
+    public void validateSupportingDocument(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Tệp giấy tờ không được để trống");
+        }
+        if (file.getSize() > maxFileSizeBytes) {
+            throw new IllegalArgumentException("Tệp giấy tờ vượt quá dung lượng cho phép");
+        }
+
+        String contentType = normalizedSupportingContentType(file);
+        if (!contentType.equals("application/pdf")
+                && !contentType.equals("image/jpeg")
+                && !contentType.equals("image/png")) {
+            throw new IllegalArgumentException("Giấy tờ chỉ hỗ trợ PDF, JPG/JPEG hoặc PNG");
+        }
+
+        try (InputStream input = file.getInputStream()) {
+            if (contentType.equals("application/pdf")) {
+                byte[] signature = input.readNBytes(5);
+                if (signature.length < 5
+                        || signature[0] != '%'
+                        || signature[1] != 'P'
+                        || signature[2] != 'D'
+                        || signature[3] != 'F'
+                        || signature[4] != '-') {
+                    throw new IllegalArgumentException("Tệp PDF không hợp lệ");
+                }
+            } else if (ImageIO.read(input) == null) {
+                throw new IllegalArgumentException("Tệp giấy tờ không phải ảnh hợp lệ");
+            }
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("Không thể đọc tệp giấy tờ", exception);
+        }
+    }
+
     private void validateEkycEvidence(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException(
@@ -152,7 +221,7 @@ public class PartnerDocumentStorageService {
 
     public Resource load(String relativePath) {
         if (relativePath == null || relativePath.isBlank()) {
-            throw new IllegalArgumentException("Không tìm thấy ảnh CCCD");
+            throw new IllegalArgumentException("Không tìm thấy tài liệu hồ sơ");
         }
 
         try {
@@ -160,7 +229,7 @@ public class PartnerDocumentStorageService {
             ensureInsideRoot(path);
 
             if (!Files.isRegularFile(path)) {
-                throw new IllegalArgumentException("Không tìm thấy ảnh CCCD");
+                throw new IllegalArgumentException("Không tìm thấy tài liệu hồ sơ");
             }
 
             return new UrlResource(path.toUri());
@@ -240,6 +309,36 @@ public class PartnerDocumentStorageService {
         return "image/png".equalsIgnoreCase(contentType) ? ".png" : ".jpg";
     }
 
+    private String normalizedSupportingContentType(MultipartFile file) {
+        String contentType = file.getContentType() == null
+                ? ""
+                : file.getContentType().trim().toLowerCase(Locale.ROOT);
+        if ("image/jpg".equals(contentType)) return "image/jpeg";
+        return contentType;
+    }
+
+    private String supportingExtension(MultipartFile file) {
+        return switch (normalizedSupportingContentType(file)) {
+            case "application/pdf" -> ".pdf";
+            case "image/png" -> ".png";
+            default -> ".jpg";
+        };
+    }
+
+    private String safeOriginalName(String value) {
+        String normalized = Normalizer.normalize(
+                value == null || value.isBlank() ? "tai-lieu" : value,
+                Normalizer.Form.NFKC
+        );
+        normalized = normalized.replaceAll("[\\r\\n\\t]", " ")
+                .replaceAll("[\\\\/]", "-")
+                .trim();
+        if (normalized.length() > 255) {
+            normalized = normalized.substring(normalized.length() - 255);
+        }
+        return normalized.isBlank() ? "tai-lieu" : normalized;
+    }
+
     private void ensureInsideRoot(Path path) {
         if (!path.toAbsolutePath().normalize().startsWith(root)) {
             throw new IllegalArgumentException("Đường dẫn tài liệu không hợp lệ");
@@ -249,6 +348,14 @@ public class PartnerDocumentStorageService {
     public record StoredDocuments(
             String frontPath,
             String backPath
+    ) {
+    }
+
+    public record StoredDocument(
+            String path,
+            String originalName,
+            String contentType,
+            long size
     ) {
     }
 }

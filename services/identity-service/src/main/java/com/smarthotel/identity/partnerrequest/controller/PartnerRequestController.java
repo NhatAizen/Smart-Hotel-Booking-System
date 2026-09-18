@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -88,7 +89,9 @@ public class PartnerRequestController {
             @Valid @RequestPart("data") SubmitPartnerRequest request,
             @RequestPart("cccdFront") MultipartFile cccdFront,
             @RequestPart("cccdBack") MultipartFile cccdBack,
-            @RequestPart("ekycReceipt") String ekycReceipt
+            @RequestPart("ekycReceipt") String ekycReceipt,
+            @RequestPart(value = "managementProof", required = false) MultipartFile managementProof,
+            @RequestPart(value = "businessLicense", required = false) MultipartFile businessLicense
     ) {
         UUID userId = getCurrentUserId(jwt);
         return ResponseEntity
@@ -98,7 +101,9 @@ public class PartnerRequestController {
                         request,
                         cccdFront,
                         cccdBack,
-                        ekycReceipt
+                        ekycReceipt,
+                        managementProof,
+                        businessLicense
                 ));
     }
 
@@ -122,6 +127,19 @@ public class PartnerRequestController {
     public ResponseEntity<?> getMyCccdBack(@AuthenticationPrincipal Jwt jwt) {
         return documentResponse(
                 partnerRequestService.getMyDocument(getCurrentUserId(jwt), "back")
+        );
+    }
+
+    @GetMapping("/me/documents/{documentType}")
+    public ResponseEntity<?> getMySupportingDocument(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String documentType
+    ) {
+        return documentResponse(
+                partnerRequestService.getMySupportingDocument(
+                        getCurrentUserId(jwt),
+                        documentType
+                )
         );
     }
 

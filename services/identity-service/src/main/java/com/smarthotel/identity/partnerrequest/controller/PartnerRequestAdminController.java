@@ -94,6 +94,33 @@ public class PartnerRequestAdminController {
                 .body(evidence.resource());
     }
 
+    @GetMapping("/{requestId}/documents/{documentType}")
+    public ResponseEntity<?> getSupportingDocument(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID requestId,
+            @PathVariable String documentType
+    ) {
+        PartnerRequestService.PartnerDocumentResource document =
+                partnerRequestService.getAdminSupportingDocument(
+                        getCurrentUserId(jwt),
+                        requestId,
+                        documentType
+                );
+
+        MediaType mediaType;
+        try {
+            mediaType = MediaType.parseMediaType(document.contentType());
+        } catch (Exception ignored) {
+            mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        }
+
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                .contentType(mediaType)
+                .body(document.resource());
+    }
+
     @PatchMapping("/{requestId}/approve")
     public ResponseEntity<PartnerRequestResponse> approve(
             @AuthenticationPrincipal Jwt jwt,
@@ -112,6 +139,21 @@ public class PartnerRequestAdminController {
     ) {
         return ResponseEntity.ok(
                 partnerRequestService.reject(
+                        getCurrentUserId(jwt),
+                        requestId,
+                        request.reason()
+                )
+        );
+    }
+
+    @PatchMapping("/{requestId}/request-more-info")
+    public ResponseEntity<PartnerRequestResponse> requestMoreInfo(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID requestId,
+            @Valid @RequestBody RejectPartnerRequest request
+    ) {
+        return ResponseEntity.ok(
+                partnerRequestService.requestMoreInfo(
                         getCurrentUserId(jwt),
                         requestId,
                         request.reason()

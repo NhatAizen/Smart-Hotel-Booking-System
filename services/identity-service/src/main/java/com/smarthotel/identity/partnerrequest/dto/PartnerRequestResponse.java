@@ -19,6 +19,16 @@ public record PartnerRequestResponse(
         LocalDate dateOfBirth,
         String businessPhone,
         String businessAddress,
+        String contactEmail,
+        String businessTaxCode,
+        boolean businessLicenseAvailable,
+        String businessLicenseName,
+        String businessLicenseContentType,
+        Long businessLicenseSize,
+        boolean managementProofAvailable,
+        String managementProofName,
+        String managementProofContentType,
+        Long managementProofSize,
         String documentUrl,
         boolean cccdFrontAvailable,
         boolean cccdBackAvailable,
@@ -66,6 +76,16 @@ public record PartnerRequestResponse(
                 request.getDateOfBirth(),
                 request.getBusinessPhone(),
                 request.getBusinessAddress(),
+                request.getContactEmail(),
+                request.getBusinessTaxCode(),
+                available(request.getBusinessLicensePath()),
+                request.getBusinessLicenseName(),
+                request.getBusinessLicenseContentType(),
+                request.getBusinessLicenseSize(),
+                available(request.getManagementProofPath()),
+                request.getManagementProofName(),
+                request.getManagementProofContentType(),
+                request.getManagementProofSize(),
                 request.getDocumentUrl(),
                 request.getCccdFrontPath() != null && !request.getCccdFrontPath().isBlank(),
                 request.getCccdBackPath() != null && !request.getCccdBackPath().isBlank(),
@@ -101,5 +121,9 @@ public record PartnerRequestResponse(
                 request.getCreatedAt(),
                 request.getUpdatedAt()
         );
+    }
+
+    private static boolean available(String path) {
+        return path != null && !path.isBlank();
     }
 }

@@ -2,6 +2,7 @@ package com.smarthotel.identity.partnerrequest.dto;
 
 import com.smarthotel.identity.partnerrequest.entity.PartnerApplicantType;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -34,6 +35,14 @@ public record SubmitPartnerRequest(
         @NotBlank(message = "Địa chỉ liên hệ không được để trống")
         @Size(max = 255, message = "Địa chỉ tối đa 255 ký tự")
         String businessAddress,
+
+        @NotBlank(message = "Email liên hệ không được để trống")
+        @Email(message = "Email liên hệ không hợp lệ")
+        @Size(max = 254, message = "Email liên hệ tối đa 254 ký tự")
+        String contactEmail,
+
+        @Size(max = 13, message = "Mã số thuế tối đa 13 ký tự")
+        String businessTaxCode,
 
         @Size(max = 1000, message = "Ghi chú tối đa 1000 ký tự")
         String note

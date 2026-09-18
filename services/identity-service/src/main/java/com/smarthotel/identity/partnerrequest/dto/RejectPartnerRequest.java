@@ -6,11 +6,11 @@ import jakarta.validation.constraints.Size;
 public record RejectPartnerRequest(
 
         @NotBlank(
-                message = "LÃƒÂ½ do tÃ¡Â»Â« chÃ¡Â»â€˜i khÃƒÂ´ng Ã„â€˜Ã†Â°Ã¡Â»Â£c Ã„â€˜Ã¡Â»Æ’ trÃ¡Â»â€˜ng"
+                message = "Lý do xử lý không được để trống"
         )
         @Size(
                 max = 500,
-                message = "LÃƒÂ½ do tÃ¡Â»Â« chÃ¡Â»â€˜i tÃ¡Â»â€˜i Ã„â€˜a 500 kÃƒÂ½ tÃ¡Â»Â±"
+                message = "Lý do xử lý tối đa 500 ký tự"
         )
         String reason
 

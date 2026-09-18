@@ -54,6 +54,36 @@ public class PartnerRequest {
     @Column(name = "business_address", nullable = false, length = 255)
     private String businessAddress;
 
+    @Column(name = "contact_email", length = 254)
+    private String contactEmail;
+
+    @Column(name = "business_tax_code", length = 13)
+    private String businessTaxCode;
+
+    @Column(name = "business_license_path", length = 500)
+    private String businessLicensePath;
+
+    @Column(name = "business_license_name", length = 255)
+    private String businessLicenseName;
+
+    @Column(name = "business_license_content_type", length = 100)
+    private String businessLicenseContentType;
+
+    @Column(name = "business_license_size")
+    private Long businessLicenseSize;
+
+    @Column(name = "management_proof_path", length = 500)
+    private String managementProofPath;
+
+    @Column(name = "management_proof_name", length = 255)
+    private String managementProofName;
+
+    @Column(name = "management_proof_content_type", length = 100)
+    private String managementProofContentType;
+
+    @Column(name = "management_proof_size")
+    private Long managementProofSize;
+
     /**
      * Legacy field from the first partner flow. New submissions use private CCCD images.
      */
@@ -169,6 +199,10 @@ public class PartnerRequest {
             LocalDate dateOfBirth,
             String businessPhone,
             String businessAddress,
+            String contactEmail,
+            String businessTaxCode,
+            SupportingDocument businessLicense,
+            SupportingDocument managementProof,
             String cccdFrontPath,
             String cccdBackPath,
             PartnerOcrResult ocrResult,
@@ -185,6 +219,10 @@ public class PartnerRequest {
                 dateOfBirth,
                 businessPhone,
                 businessAddress,
+                contactEmail,
+                businessTaxCode,
+                businessLicense,
+                managementProof,
                 cccdFrontPath,
                 cccdBackPath,
                 ocrResult,
@@ -218,6 +256,10 @@ public class PartnerRequest {
             LocalDate dateOfBirth,
             String businessPhone,
             String businessAddress,
+            String contactEmail,
+            String businessTaxCode,
+            SupportingDocument businessLicense,
+            SupportingDocument managementProof,
             String cccdFrontPath,
             String cccdBackPath,
             PartnerOcrResult ocrResult,
@@ -232,6 +274,16 @@ public class PartnerRequest {
         this.dateOfBirth = dateOfBirth;
         this.businessPhone = businessPhone;
         this.businessAddress = businessAddress;
+        this.contactEmail = contactEmail;
+        this.businessTaxCode = businessTaxCode;
+        this.businessLicensePath = businessLicense == null ? null : businessLicense.path();
+        this.businessLicenseName = businessLicense == null ? null : businessLicense.name();
+        this.businessLicenseContentType = businessLicense == null ? null : businessLicense.contentType();
+        this.businessLicenseSize = businessLicense == null ? null : businessLicense.size();
+        this.managementProofPath = managementProof == null ? null : managementProof.path();
+        this.managementProofName = managementProof == null ? null : managementProof.name();
+        this.managementProofContentType = managementProof == null ? null : managementProof.contentType();
+        this.managementProofSize = managementProof == null ? null : managementProof.size();
         this.documentUrl = null;
         this.cccdFrontPath = cccdFrontPath;
         this.cccdBackPath = cccdBackPath;
@@ -264,6 +316,16 @@ public class PartnerRequest {
 
     public void approve(UUID systemAdminId) {
         ensurePending();
+        if (contactEmail == null || contactEmail.isBlank()) {
+            throw new IllegalStateException("Hồ sơ chưa có email liên hệ");
+        }
+        if (applicantType == PartnerApplicantType.BUSINESS
+                && (businessTaxCode == null || businessTaxCode.isBlank()
+                || businessLicensePath == null || businessLicensePath.isBlank())) {
+            throw new IllegalStateException(
+                    "Hồ sơ doanh nghiệp chưa có mã số thuế hoặc giấy chứng nhận đăng ký"
+            );
+        }
         if (!ocrVerified) {
             throw new IllegalStateException(
                     "Hồ sơ chưa vượt qua xác minh OCR CCCD nên không thể phê duyệt"
@@ -291,6 +353,61 @@ public class PartnerRequest {
         this.reviewedAt = Instant.now();
     }
 
+    public void requestMoreInfo(UUID systemAdminId, String reason) {
+        ensurePending();
+        this.status = PartnerRequestStatus.NEED_MORE_INFO;
+        this.rejectionReason = reason;
+        this.reviewedBy = systemAdminId;
+        this.reviewedAt = Instant.now();
+    }
+
+    public void resubmit(
+            PartnerApplicantType applicantType,
+            String legalName,
+            String representativeName,
+            String identityNumber,
+            LocalDate dateOfBirth,
+            String businessPhone,
+            String businessAddress,
+            String contactEmail,
+            String businessTaxCode,
+            SupportingDocument businessLicense,
+            SupportingDocument managementProof,
+            String cccdFrontPath,
+            String cccdBackPath,
+            PartnerOcrResult ocrResult,
+            PartnerEkycVerificationResult ekycResult,
+            String ekycEvidencePath,
+            String note
+    ) {
+        if (status != PartnerRequestStatus.NEED_MORE_INFO) {
+            throw new IllegalStateException("Chỉ hồ sơ cần bổ sung mới được gửi lại");
+        }
+        applyApplicationData(
+                applicantType,
+                legalName,
+                representativeName,
+                identityNumber,
+                dateOfBirth,
+                businessPhone,
+                businessAddress,
+                contactEmail,
+                businessTaxCode,
+                businessLicense,
+                managementProof,
+                cccdFrontPath,
+                cccdBackPath,
+                ocrResult,
+                ekycResult,
+                ekycEvidencePath,
+                note
+        );
+        this.status = PartnerRequestStatus.PENDING;
+        this.rejectionReason = null;
+        this.reviewedBy = null;
+        this.reviewedAt = null;
+    }
+
     public void reject(UUID systemAdminId, String reason) {
         ensurePending();
         this.status = PartnerRequestStatus.REJECTED;
@@ -305,5 +422,13 @@ public class PartnerRequest {
                     "Chỉ yêu cầu đang chờ duyệt mới được xử lý"
             );
         }
+    }
+
+    public record SupportingDocument(
+            String path,
+            String name,
+            String contentType,
+            long size
+    ) {
     }
 }

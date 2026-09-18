@@ -36,8 +36,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -146,6 +148,8 @@ class PartnerRequestServiceHistoryTest {
                 dateOfBirth,
                 "0900000000",
                 "Hanoi",
+                "applicant@example.com",
+                null,
                 null
         );
 
@@ -184,7 +188,9 @@ class PartnerRequestServiceHistoryTest {
                 payload,
                 front,
                 back,
-                "receipt"
+                "receipt",
+                null,
+                null
         );
 
         assertEquals(PartnerRequestStatus.PENDING, response.status());
@@ -193,8 +199,240 @@ class PartnerRequestServiceHistoryTest {
         verify(partnerRequestRepository).saveAndFlush(requestCaptor.capture());
         assertEquals(applicantId, requestCaptor.getValue().getUserId());
         assertEquals(PartnerRequestStatus.PENDING, requestCaptor.getValue().getStatus());
-        verify(partnerRequestRepository, never())
+        verify(partnerRequestRepository)
                 .findFirstByUserIdOrderByCreatedAtDescIdDesc(applicantId);
+    }
+
+    @Test
+    void businessApplicationRequiresRegistrationDocument() {
+        UUID applicantId = UUID.randomUUID();
+        User customer = user(applicantId, UserRole.CUSTOMER);
+        SubmitPartnerRequest payload = new SubmitPartnerRequest(
+                PartnerApplicantType.BUSINESS,
+                "Enziu Demo Company",
+                "Applicant",
+                "012345678901",
+                LocalDate.of(1990, 1, 1),
+                "0900000000",
+                "Hanoi",
+                "business@example.com",
+                "0123456789",
+                null
+        );
+
+        when(userRepository.findByIdForUpdate(applicantId)).thenReturn(Optional.of(customer));
+        when(partnerRequestRepository.existsByUserIdAndStatus(
+                applicantId,
+                PartnerRequestStatus.PENDING
+        )).thenReturn(false);
+        when(partnerRequestRepository.findFirstByUserIdOrderByCreatedAtDescIdDesc(applicantId))
+                .thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.submit(
+                        applicantId,
+                        payload,
+                        org.mockito.Mockito.mock(MultipartFile.class),
+                        org.mockito.Mockito.mock(MultipartFile.class),
+                        "receipt",
+                        null,
+                        null
+                )
+        );
+
+        assertTrue(exception.getMessage().contains("giấy chứng nhận đăng ký"));
+    }
+
+    @Test
+    void businessApplicationWithRegistrationDocumentIsSubmitted() {
+        UUID applicantId = UUID.randomUUID();
+        LocalDate dateOfBirth = LocalDate.of(1990, 1, 1);
+        User customer = user(applicantId, UserRole.CUSTOMER);
+        MultipartFile front = org.mockito.Mockito.mock(MultipartFile.class);
+        MultipartFile back = org.mockito.Mockito.mock(MultipartFile.class);
+        MultipartFile license = org.mockito.Mockito.mock(MultipartFile.class);
+        when(license.isEmpty()).thenReturn(false);
+        SubmitPartnerRequest payload = new SubmitPartnerRequest(
+                PartnerApplicantType.BUSINESS,
+                "Enziu Demo Company",
+                "Applicant",
+                "012345678901",
+                dateOfBirth,
+                "0900000000",
+                "Hanoi",
+                "business@example.com",
+                "0123456789",
+                null
+        );
+
+        when(userRepository.findByIdForUpdate(applicantId)).thenReturn(Optional.of(customer));
+        when(partnerRequestRepository.existsByUserIdAndStatus(
+                applicantId,
+                PartnerRequestStatus.PENDING
+        )).thenReturn(false);
+        when(partnerRequestRepository.findFirstByUserIdOrderByCreatedAtDescIdDesc(applicantId))
+                .thenReturn(Optional.empty());
+        when(partnerRequestRepository.existsByIdentityNumberAndUserIdNot(
+                "012345678901",
+                applicantId
+        )).thenReturn(false);
+        when(ocrService.verify(front, back, "012345678901", "Applicant", dateOfBirth))
+                .thenReturn(verifiedOcr(dateOfBirth));
+        when(ekycSessionService.consumeWithEvidence(applicantId, "receipt", front))
+                .thenReturn(new PartnerEkycVerificationSessionService.ConsumedVerification(
+                        verifiedEkyc(),
+                        applicantId + "/ekyc/verified-face.jpg"
+                ));
+        when(documentStorageService.storePair(applicantId, front, back))
+                .thenReturn(new PartnerDocumentStorageService.StoredDocuments(
+                        "front.jpg",
+                        "back.jpg"
+                ));
+        when(documentStorageService.storeSupportingDocument(
+                applicantId,
+                "business-license",
+                license
+        )).thenReturn(new PartnerDocumentStorageService.StoredDocument(
+                applicantId + "/supporting/business.pdf",
+                "dang-ky-kinh-doanh.pdf",
+                "application/pdf",
+                1024L
+        ));
+        when(partnerRequestRepository.saveAndFlush(any(PartnerRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.submit(
+                applicantId,
+                payload,
+                front,
+                back,
+                "receipt",
+                null,
+                license
+        );
+
+        assertEquals(PartnerRequestStatus.PENDING, response.status());
+        assertEquals("0123456789", response.businessTaxCode());
+        assertTrue(response.businessLicenseAvailable());
+        assertEquals("dang-ky-kinh-doanh.pdf", response.businessLicenseName());
+    }
+
+    @Test
+    void systemAdminCanRequestMoreInformationWithReason() {
+        UUID adminId = UUID.randomUUID();
+        UUID applicantId = UUID.randomUUID();
+        UUID requestId = UUID.randomUUID();
+        PartnerRequest request = pendingRequest(applicantId);
+        ReflectionTestUtils.setField(request, "id", requestId);
+
+        when(userRepository.findByIdForUpdate(adminId))
+                .thenReturn(Optional.of(user(adminId, UserRole.SYSTEM_ADMIN)));
+        when(partnerRequestRepository.findUserIdById(requestId))
+                .thenReturn(Optional.of(applicantId));
+        when(userRepository.findByIdForUpdate(applicantId))
+                .thenReturn(Optional.of(user(applicantId, UserRole.CUSTOMER)));
+        when(partnerRequestRepository.findByIdForUpdate(requestId))
+                .thenReturn(Optional.of(request));
+
+        var response = service.requestMoreInfo(
+                adminId,
+                requestId,
+                "Bổ sung giấy tờ quản lý"
+        );
+
+        assertEquals(PartnerRequestStatus.NEED_MORE_INFO, response.status());
+        assertEquals("Bổ sung giấy tờ quản lý", response.rejectionReason());
+        assertEquals(adminId, response.reviewedBy());
+        verify(notificationClient).sendUser(
+                applicantId,
+                "Hồ sơ đối tác cần bổ sung",
+                "EnziuRooms cần bạn bổ sung hồ sơ. Lý do: Bổ sung giấy tờ quản lý",
+                "PARTNER_REQUEST",
+                "PARTNER",
+                "/customer/partner"
+        );
+    }
+
+    @Test
+    void needMoreInfoApplicationIsResubmittedOnSameRecord() {
+        UUID applicantId = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        LocalDate dateOfBirth = LocalDate.of(1990, 1, 1);
+        User customer = user(applicantId, UserRole.CUSTOMER);
+        PartnerRequest existing = pendingRequest(applicantId);
+        UUID requestId = UUID.randomUUID();
+        ReflectionTestUtils.setField(existing, "id", requestId);
+        existing.requestMoreInfo(adminId, "Bổ sung tài liệu quản lý");
+        MultipartFile front = org.mockito.Mockito.mock(MultipartFile.class);
+        MultipartFile back = org.mockito.Mockito.mock(MultipartFile.class);
+        SubmitPartnerRequest payload = new SubmitPartnerRequest(
+                PartnerApplicantType.INDIVIDUAL,
+                "Applicant",
+                "Applicant",
+                "012345678901",
+                dateOfBirth,
+                "0900000000",
+                "Hanoi",
+                "applicant@example.com",
+                null,
+                null
+        );
+
+        when(userRepository.findByIdForUpdate(applicantId)).thenReturn(Optional.of(customer));
+        when(partnerRequestRepository.existsByUserIdAndStatus(
+                applicantId,
+                PartnerRequestStatus.PENDING
+        )).thenReturn(false);
+        when(partnerRequestRepository.findFirstByUserIdOrderByCreatedAtDescIdDesc(applicantId))
+                .thenReturn(Optional.of(existing));
+        when(partnerRequestRepository.existsByIdentityNumberAndUserIdNot(
+                "012345678901",
+                applicantId
+        )).thenReturn(false);
+        when(ocrService.verify(front, back, "012345678901", "Applicant", dateOfBirth))
+                .thenReturn(verifiedOcr(dateOfBirth));
+        when(ekycSessionService.consumeWithEvidence(applicantId, "receipt", front))
+                .thenReturn(new PartnerEkycVerificationSessionService.ConsumedVerification(
+                        verifiedEkyc(),
+                        applicantId + "/ekyc/new-evidence.jpg"
+                ));
+        when(documentStorageService.storePair(applicantId, front, back))
+                .thenReturn(new PartnerDocumentStorageService.StoredDocuments(
+                        "new-front.jpg",
+                        "new-back.jpg"
+                ));
+        when(partnerRequestRepository.saveAndFlush(existing)).thenReturn(existing);
+
+        var response = service.submit(
+                applicantId,
+                payload,
+                front,
+                back,
+                "receipt",
+                null,
+                null
+        );
+
+        assertEquals(requestId, response.id());
+        assertEquals(PartnerRequestStatus.PENDING, response.status());
+        assertNull(response.rejectionReason());
+    }
+
+    @Test
+    void customerCannotUseSystemAdminDocumentEndpoint() {
+        UUID customerId = UUID.randomUUID();
+        when(userRepository.findById(customerId))
+                .thenReturn(Optional.of(user(customerId, UserRole.CUSTOMER)));
+
+        assertThrows(
+                org.springframework.security.access.AccessDeniedException.class,
+                () -> service.getAdminSupportingDocument(
+                        customerId,
+                        UUID.randomUUID(),
+                        "business-license"
+                )
+        );
     }
 
     private User user(UUID id, UserRole role) {
@@ -219,6 +457,10 @@ class PartnerRequestServiceHistoryTest {
                 dateOfBirth,
                 "0900000000",
                 "Hanoi",
+                "applicant@example.com",
+                null,
+                null,
+                null,
                 "front.jpg",
                 "back.jpg",
                 verifiedOcr(dateOfBirth),

@@ -11,6 +11,7 @@ import com.smarthotel.identity.partnerrequest.ekyc.PartnerEkycClient;
 import com.smarthotel.identity.partnerrequest.ekyc.PartnerEkycVerificationResult;
 import com.smarthotel.identity.partnerrequest.ekyc.session.PartnerEkycVerificationSessionService;
 import com.smarthotel.identity.partnerrequest.entity.PartnerRequest;
+import com.smarthotel.identity.partnerrequest.entity.PartnerApplicantType;
 import com.smarthotel.identity.partnerrequest.entity.PartnerRequestStatus;
 import com.smarthotel.identity.partnerrequest.media.PartnerDocumentStorageService;
 import com.smarthotel.identity.partnerrequest.ocr.PartnerOcrResult;
@@ -29,6 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -161,10 +163,20 @@ public class PartnerRequestService {
             SubmitPartnerRequest request,
             MultipartFile cccdFront,
             MultipartFile cccdBack,
-            String ekycReceipt
+            String ekycReceipt,
+            MultipartFile managementProof,
+            MultipartFile businessLicense
     ) {
         User user = findUserForUpdate(userId);
         PartnerDocumentStorageService.StoredDocuments stored = null;
+        PartnerDocumentStorageService.StoredDocument storedManagementProof = null;
+        PartnerDocumentStorageService.StoredDocument storedBusinessLicense = null;
+        PartnerRequest resubmittedRequest = null;
+        String oldFrontPath = null;
+        String oldBackPath = null;
+        String oldEvidencePath = null;
+        String oldManagementProofPath = null;
+        String oldBusinessLicensePath = null;
 
         try {
             if (!user.isActive()) {
@@ -182,6 +194,20 @@ public class PartnerRequestService {
             )) {
                 throw new IllegalStateException("Bạn đã có một yêu cầu đang chờ duyệt");
             }
+
+            Optional<PartnerRequest> latestRequest = partnerRequestRepository
+                    .findFirstByUserIdOrderByCreatedAtDescIdDesc(userId);
+            if (latestRequest.isPresent()
+                    && latestRequest.get().getStatus() == PartnerRequestStatus.NEED_MORE_INFO) {
+                resubmittedRequest = latestRequest.get();
+                oldFrontPath = resubmittedRequest.getCccdFrontPath();
+                oldBackPath = resubmittedRequest.getCccdBackPath();
+                oldEvidencePath = resubmittedRequest.getEkycEvidencePath();
+                oldManagementProofPath = resubmittedRequest.getManagementProofPath();
+                oldBusinessLicensePath = resubmittedRequest.getBusinessLicensePath();
+            }
+
+            validateApplicationDocuments(request, managementProof, businessLicense, resubmittedRequest);
 
             String identityNumber = normalizeIdentity(request.identityNumber());
             if (partnerRequestRepository.existsByIdentityNumberAndUserIdNot(
@@ -213,33 +239,114 @@ public class PartnerRequestService {
 
             stored = documentStorageService.storePair(userId, cccdFront, cccdBack);
 
-            PartnerRequest partnerRequest = new PartnerRequest(
-                    userId,
+            if (managementProof != null && !managementProof.isEmpty()) {
+                storedManagementProof = documentStorageService.storeSupportingDocument(
+                        userId,
+                        "management-proof",
+                        managementProof
+                );
+            }
+            if (businessLicense != null && !businessLicense.isEmpty()) {
+                storedBusinessLicense = documentStorageService.storeSupportingDocument(
+                        userId,
+                        "business-license",
+                        businessLicense
+                );
+            }
+
+            PartnerRequest.SupportingDocument managementDocument = storedManagementProof != null
+                    ? toEntityDocument(storedManagementProof)
+                    : existingManagementProof(resubmittedRequest, request.applicantType());
+            PartnerRequest.SupportingDocument businessDocument = storedBusinessLicense != null
+                    ? toEntityDocument(storedBusinessLicense)
+                    : existingBusinessLicense(resubmittedRequest, request.applicantType());
+
+            String contactEmail = normalize(request.contactEmail()).toLowerCase(Locale.ROOT);
+            String businessTaxCode = normalizeBusinessTaxCode(
                     request.applicantType(),
-                    normalize(request.legalName()),
-                    representativeName,
-                    identityNumber,
-                    request.dateOfBirth(),
-                    normalize(request.businessPhone()),
-                    normalize(request.businessAddress()),
-                    stored.frontPath(),
-                    stored.backPath(),
-                    ocrResult,
-                    ekycResult,
-                    consumedEkyc.evidencePath(),
-                    normalizeNullable(request.note())
+                    request.businessTaxCode()
             );
+
+            PartnerRequest partnerRequest;
+            if (resubmittedRequest == null) {
+                partnerRequest = new PartnerRequest(
+                        userId,
+                        request.applicantType(),
+                        normalize(request.legalName()),
+                        representativeName,
+                        identityNumber,
+                        request.dateOfBirth(),
+                        normalize(request.businessPhone()),
+                        normalize(request.businessAddress()),
+                        contactEmail,
+                        businessTaxCode,
+                        businessDocument,
+                        managementDocument,
+                        stored.frontPath(),
+                        stored.backPath(),
+                        ocrResult,
+                        ekycResult,
+                        consumedEkyc.evidencePath(),
+                        normalizeNullable(request.note())
+                );
+            } else {
+                partnerRequest = resubmittedRequest;
+                partnerRequest.resubmit(
+                        request.applicantType(),
+                        normalize(request.legalName()),
+                        representativeName,
+                        identityNumber,
+                        request.dateOfBirth(),
+                        normalize(request.businessPhone()),
+                        normalize(request.businessAddress()),
+                        contactEmail,
+                        businessTaxCode,
+                        businessDocument,
+                        managementDocument,
+                        stored.frontPath(),
+                        stored.backPath(),
+                        ocrResult,
+                        ekycResult,
+                        consumedEkyc.evidencePath(),
+                        normalizeNullable(request.note())
+                );
+            }
 
             PartnerRequest savedRequest = partnerRequestRepository.saveAndFlush(partnerRequest);
 
+            deleteReplacedDocument(oldFrontPath, stored.frontPath());
+            deleteReplacedDocument(oldBackPath, stored.backPath());
+            deleteReplacedDocument(oldEvidencePath, consumedEkyc.evidencePath());
+            deleteReplacedDocument(
+                    oldManagementProofPath,
+                    managementDocument == null ? null : managementDocument.path()
+            );
+            deleteReplacedDocument(
+                    oldBusinessLicensePath,
+                    businessDocument == null ? null : businessDocument.path()
+            );
+
             notificationClient.sendRole(
                     "SYSTEM_ADMIN",
-                    "Có yêu cầu đối tác mới",
+                    resubmittedRequest == null
+                            ? "Có yêu cầu đối tác mới"
+                            : "Hồ sơ đối tác đã được bổ sung",
                     savedRequest.getLegalName()
-                            + " vừa gửi hồ sơ đã vượt qua OCR CCCD, liveness và face match để đăng ký trở thành đối tác khách sạn.",
+                            + (resubmittedRequest == null
+                            ? " vừa gửi hồ sơ đăng ký đối tác để xét duyệt."
+                            : " vừa cập nhật và gửi lại hồ sơ đối tác."),
                     "PARTNER_REQUEST",
                     "PARTNER",
                     "/admin/partner-requests"
+            );
+
+            notificationClient.sendUser(
+                    userId,
+                    "Hồ sơ đối tác đã được tiếp nhận",
+                    "EnziuRooms đã tiếp nhận hồ sơ của bạn và sẽ thông báo khi có kết quả xét duyệt.",
+                    "PARTNER_REQUEST",
+                    "PARTNER",
+                    "/customer/partner"
             );
 
             return PartnerRequestResponse.from(savedRequest);
@@ -247,6 +354,12 @@ public class PartnerRequestService {
             if (stored != null) {
                 documentStorageService.deleteQuietly(stored.frontPath());
                 documentStorageService.deleteQuietly(stored.backPath());
+            }
+            if (storedManagementProof != null) {
+                documentStorageService.deleteQuietly(storedManagementProof.path());
+            }
+            if (storedBusinessLicense != null) {
+                documentStorageService.deleteQuietly(storedBusinessLicense.path());
             }
             throw exception;
         }
@@ -359,8 +472,37 @@ public class PartnerRequestService {
 
         notificationClient.sendUser(
                 partnerRequest.getUserId(),
+                "Hồ sơ đối tác đã bị từ chối",
+                "Hồ sơ đối tác không được phê duyệt. Lý do: " + normalizedReason,
+                "PARTNER_REQUEST",
+                "PARTNER",
+                "/customer/partner"
+        );
+
+        return PartnerRequestResponse.from(partnerRequest);
+    }
+
+    @Transactional
+    public PartnerRequestResponse requestMoreInfo(
+            UUID systemAdminId,
+            UUID requestId,
+            String reason
+    ) {
+        requireSystemAdminForUpdate(systemAdminId);
+        UUID applicantId = findPartnerRequestUserId(requestId);
+        findUserForUpdate(applicantId);
+        PartnerRequest partnerRequest = findPartnerRequestForUpdate(requestId);
+        if (!partnerRequest.getUserId().equals(applicantId)) {
+            throw new IllegalStateException("Chủ hồ sơ đối tác đã thay đổi bất thường");
+        }
+
+        String normalizedReason = normalize(reason);
+        partnerRequest.requestMoreInfo(systemAdminId, normalizedReason);
+
+        notificationClient.sendUser(
+                partnerRequest.getUserId(),
                 "Hồ sơ đối tác cần bổ sung",
-                "Hồ sơ đối tác chưa được phê duyệt. Lý do: " + normalizedReason,
+                "EnziuRooms cần bạn bổ sung hồ sơ. Lý do: " + normalizedReason,
                 "PARTNER_REQUEST",
                 "PARTNER",
                 "/customer/partner"
@@ -412,6 +554,28 @@ public class PartnerRequestService {
         return new PartnerDocumentResource(resource, contentType);
     }
 
+    @Transactional(readOnly = true)
+    public PartnerDocumentResource getMySupportingDocument(
+            UUID userId,
+            String documentType
+    ) {
+        User user = findUser(userId);
+        if (user.getRole() == UserRole.SYSTEM_ADMIN) {
+            throw new AccessDeniedException("System Admin không có hồ sơ đối tác");
+        }
+        return loadSupportingDocument(findLatestCurrentRequest(user), documentType);
+    }
+
+    @Transactional(readOnly = true)
+    public PartnerDocumentResource getAdminSupportingDocument(
+            UUID systemAdminId,
+            UUID requestId,
+            String documentType
+    ) {
+        requireSystemAdmin(systemAdminId);
+        return loadSupportingDocument(findPartnerRequest(requestId), documentType);
+    }
+
     private PartnerDocumentResource loadDocument(PartnerRequest request, String side) {
         String normalizedSide = side == null ? "" : side.trim().toLowerCase(Locale.ROOT);
         String path = switch (normalizedSide) {
@@ -423,6 +587,109 @@ public class PartnerRequestService {
         Resource resource = documentStorageService.load(path);
         String contentType = documentStorageService.contentType(path);
         return new PartnerDocumentResource(resource, contentType);
+    }
+
+    private PartnerDocumentResource loadSupportingDocument(
+            PartnerRequest request,
+            String documentType
+    ) {
+        String normalizedType = documentType == null
+                ? ""
+                : documentType.trim().toLowerCase(Locale.ROOT);
+        String path = switch (normalizedType) {
+            case "management-proof" -> request.getManagementProofPath();
+            case "business-license" -> request.getBusinessLicensePath();
+            default -> throw new IllegalArgumentException("Loại giấy tờ không hợp lệ");
+        };
+        Resource resource = documentStorageService.load(path);
+        return new PartnerDocumentResource(resource, documentStorageService.contentType(path));
+    }
+
+    private void validateApplicationDocuments(
+            SubmitPartnerRequest request,
+            MultipartFile managementProof,
+            MultipartFile businessLicense,
+            PartnerRequest resubmittedRequest
+    ) {
+        if (managementProof != null && !managementProof.isEmpty()) {
+            documentStorageService.validateSupportingDocument(managementProof);
+        }
+        if (businessLicense != null && !businessLicense.isEmpty()) {
+            documentStorageService.validateSupportingDocument(businessLicense);
+        }
+
+        if (request.applicantType() == PartnerApplicantType.BUSINESS) {
+            normalizeBusinessTaxCode(request.applicantType(), request.businessTaxCode());
+            boolean existingLicense = resubmittedRequest != null
+                    && resubmittedRequest.getBusinessLicensePath() != null
+                    && !resubmittedRequest.getBusinessLicensePath().isBlank();
+            if ((businessLicense == null || businessLicense.isEmpty()) && !existingLicense) {
+                throw new IllegalArgumentException(
+                        "Doanh nghiệp hoặc hộ kinh doanh phải cung cấp giấy chứng nhận đăng ký"
+                );
+            }
+        }
+    }
+
+    private String normalizeBusinessTaxCode(
+            PartnerApplicantType applicantType,
+            String value
+    ) {
+        if (applicantType != PartnerApplicantType.BUSINESS) return null;
+        String normalized = value == null ? "" : value.replaceAll("[^0-9]", "");
+        if (!normalized.matches("\\d{10}|\\d{13}")) {
+            throw new IllegalArgumentException("Mã số thuế phải gồm 10 hoặc 13 chữ số");
+        }
+        return normalized;
+    }
+
+    private PartnerRequest.SupportingDocument toEntityDocument(
+            PartnerDocumentStorageService.StoredDocument document
+    ) {
+        return new PartnerRequest.SupportingDocument(
+                document.path(),
+                document.originalName(),
+                document.contentType(),
+                document.size()
+        );
+    }
+
+    private PartnerRequest.SupportingDocument existingManagementProof(
+            PartnerRequest request,
+            PartnerApplicantType applicantType
+    ) {
+        if (request == null || applicantType != PartnerApplicantType.INDIVIDUAL
+                || request.getManagementProofPath() == null) {
+            return null;
+        }
+        return new PartnerRequest.SupportingDocument(
+                request.getManagementProofPath(),
+                request.getManagementProofName(),
+                request.getManagementProofContentType(),
+                request.getManagementProofSize() == null ? 0L : request.getManagementProofSize()
+        );
+    }
+
+    private PartnerRequest.SupportingDocument existingBusinessLicense(
+            PartnerRequest request,
+            PartnerApplicantType applicantType
+    ) {
+        if (request == null || applicantType != PartnerApplicantType.BUSINESS
+                || request.getBusinessLicensePath() == null) {
+            return null;
+        }
+        return new PartnerRequest.SupportingDocument(
+                request.getBusinessLicensePath(),
+                request.getBusinessLicenseName(),
+                request.getBusinessLicenseContentType(),
+                request.getBusinessLicenseSize() == null ? 0L : request.getBusinessLicenseSize()
+        );
+    }
+
+    private void deleteReplacedDocument(String oldPath, String newPath) {
+        if (oldPath != null && !oldPath.isBlank() && !oldPath.equals(newPath)) {
+            documentStorageService.deleteQuietly(oldPath);
+        }
     }
 
     private void requireSystemAdmin(UUID userId) {

@@ -4,6 +4,8 @@ public enum PartnerRequestStatus {
 
     PENDING,
 
+    NEED_MORE_INFO,
+
     APPROVED,
 
     REJECTED

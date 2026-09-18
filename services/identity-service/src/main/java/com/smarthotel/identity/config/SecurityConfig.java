@@ -204,6 +204,7 @@ public class SecurityConfig {
                                 .requestMatchers(
                                         HttpMethod.POST,
                                         "/api/partner-requests",
+                                        "/api/partner-requests/ocr/**",
                                         "/api/partner-requests/ekyc/**"
                                 )
                                 .hasRole("CUSTOMER")
@@ -219,7 +220,8 @@ public class SecurityConfig {
 
                                 .requestMatchers(
                                         HttpMethod.GET,
-                                        "/api/partner-requests/me/cccd/**"
+                                        "/api/partner-requests/me/cccd/**",
+                                        "/api/partner-requests/me/documents/**"
                                 )
                                 .hasAnyRole(
                                         "CUSTOMER",
