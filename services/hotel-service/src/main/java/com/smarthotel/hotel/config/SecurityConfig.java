@@ -95,6 +95,7 @@ public class SecurityConfig {
                         ).hasRole("HOTEL_ADMIN")
 
                         .requestMatchers(HttpMethod.PUT,
+                                "/api/hotels/*/policies",
                                 "/api/hotels/**",
                                 "/api/room-types/**",
                                 "/api/rooms/**"

@@ -217,6 +217,12 @@ public class Hotel {
         updatedAt = Instant.now();
     }
 
+    public void updateStayTimes(LocalTime checkInTime, LocalTime checkOutTime) {
+        this.checkInTime = checkInTime;
+        this.checkOutTime = checkOutTime;
+        this.updatedAt = Instant.now();
+    }
+
     private void applyDetails(
             String name,
             String description,
