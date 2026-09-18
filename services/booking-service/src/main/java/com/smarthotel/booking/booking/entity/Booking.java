@@ -11,8 +11,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -30,7 +28,7 @@ public class Booking {
     @Column(name = "booking_group_id")
     private UUID bookingGroupId;
 
-    @Column(name = "booking_code", nullable = false, unique = true, length = 40)
+    @Column(name = "booking_code", nullable = false, length = 40)
     private String bookingCode;
 
     @Column(name = "check_in_code", nullable = false, unique = true, length = 100)
@@ -208,6 +206,15 @@ public class Booking {
     @Column(name = "terms_accepted", nullable = false)
     private boolean termsAccepted;
 
+    @Column(name = "hotel_policy_snapshot", columnDefinition = "TEXT")
+    private String hotelPolicySnapshot;
+
+    @Column(name = "minimum_age_snapshot")
+    private Integer minimumAgeSnapshot;
+
+    @Column(name = "room_refundable_snapshot")
+    private Boolean roomRefundableSnapshot;
+
     @Column(name = "payment_expires_at")
     private Instant paymentExpiresAt;
 
@@ -230,6 +237,7 @@ public class Booking {
     private Instant updatedAt;
 
     public Booking(
+            String bookingCode,
             UUID bookingGroupId,
             UUID customerId,
             UUID hotelId,
@@ -265,7 +273,10 @@ public class Booking {
 
         this.id = UUID.randomUUID();
         this.bookingGroupId = bookingGroupId;
-        this.bookingCode = generateBookingCode(now);
+        if (bookingCode == null || bookingCode.isBlank()) {
+            throw new IllegalArgumentException("Thiếu mã đặt phòng theo khách sạn");
+        }
+        this.bookingCode = bookingCode;
         this.checkInCode = "ENZIU-CHECKIN:" + UUID.randomUUID();
         this.customerId = customerId;
         this.hotelId = hotelId;
@@ -330,6 +341,9 @@ public class Booking {
         this.invoiceAddress = invoiceRequested ? normalize(invoiceAddress) : null;
         this.invoiceEmail = invoiceRequested ? normalizeEmail(invoiceEmail) : null;
         this.termsAccepted = termsAccepted;
+        this.hotelPolicySnapshot = null;
+        this.minimumAgeSnapshot = null;
+        this.roomRefundableSnapshot = null;
         this.customerHidden = false;
         this.createdAt = now;
         this.updatedAt = now;
@@ -460,6 +474,17 @@ public class Booking {
             this.paymentStatus = BookingPaymentStatus.UNPAID;
         }
 
+        this.updatedAt = Instant.now();
+    }
+
+    public void applyTermsSnapshot(
+            String hotelPolicySnapshot,
+            Integer minimumAgeSnapshot,
+            Boolean roomRefundableSnapshot
+    ) {
+        this.hotelPolicySnapshot = normalizeNullable(hotelPolicySnapshot);
+        this.minimumAgeSnapshot = minimumAgeSnapshot;
+        this.roomRefundableSnapshot = roomRefundableSnapshot;
         this.updatedAt = Instant.now();
     }
     public void assessLateCheckoutFee(BigDecimal fee, Instant assessedAt) {
@@ -781,17 +806,6 @@ public class Booking {
         return value.setScale(2, RoundingMode.HALF_UP);
     }
 
-    private static String generateBookingCode(Instant now) {
-        String date = DateTimeFormatter.ofPattern("yyyyMMdd")
-                .withZone(ZoneOffset.UTC)
-                .format(now);
-        String suffix = UUID.randomUUID().toString()
-                .replace("-", "")
-                .substring(0, 8)
-                .toUpperCase(Locale.ROOT);
-        return "EZR-" + date + "-" + suffix;
-    }
-
     private static String normalize(String value) {
         return value == null ? null : value.trim();
     }
@@ -872,6 +886,9 @@ public class Booking {
     public String getInvoiceAddress() { return invoiceAddress; }
     public String getInvoiceEmail() { return invoiceEmail; }
     public boolean isTermsAccepted() { return termsAccepted; }
+    public String getHotelPolicySnapshot() { return hotelPolicySnapshot; }
+    public Integer getMinimumAgeSnapshot() { return minimumAgeSnapshot; }
+    public Boolean getRoomRefundableSnapshot() { return roomRefundableSnapshot; }
     public Instant getPaymentExpiresAt() { return paymentExpiresAt; }
     public Instant getCancelledAt() { return cancelledAt; }
     public Instant getCheckedInAt() { return checkedInAt; }

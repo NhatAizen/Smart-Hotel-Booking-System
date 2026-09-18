@@ -1,5 +1,8 @@
 package com.smarthotel.booking.booking.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smarthotel.booking.booking.code.BookingCodeService;
 import com.smarthotel.booking.booking.dto.ApplyPaymentRequest;
 import com.smarthotel.booking.booking.dto.AvailabilityResponse;
 import com.smarthotel.booking.booking.dto.BookingResponse;
@@ -28,6 +31,7 @@ import com.smarthotel.booking.integration.hotel.HotelClient;
 import com.smarthotel.booking.integration.notification.NotificationClient;
 import com.smarthotel.booking.pricing.dto.LateCheckoutDetailsResponse;
 import com.smarthotel.booking.pricing.service.PricingService;
+import com.smarthotel.booking.policy.service.PlatformPolicyService;
 import com.smarthotel.booking.promotion.service.PromotionService;
 import com.smarthotel.booking.rolechange.fence.OwnerDemotionFenceService;
 import org.springframework.stereotype.Service;
@@ -61,6 +65,7 @@ public class BookingService {
     private static final ZoneId HOTEL_TIME_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final BookingRepository bookingRepository;
+    private final BookingCodeService bookingCodeService;
     private final HotelClient hotelClient;
     private final NotificationClient notificationClient;
     private final RoomHoldService roomHoldService;
@@ -68,18 +73,24 @@ public class BookingService {
     private final PricingService pricingService;
     private final PromotionService promotionService;
     private final OwnerDemotionFenceService ownerDemotionFenceService;
+    private final PlatformPolicyService platformPolicyService;
+    private final ObjectMapper objectMapper;
 
     public BookingService(
             BookingRepository bookingRepository,
+            BookingCodeService bookingCodeService,
             HotelClient hotelClient,
             NotificationClient notificationClient,
             RoomHoldService roomHoldService,
             AvailabilityRealtimeService realtimeService,
             PricingService pricingService,
             PromotionService promotionService,
-            OwnerDemotionFenceService ownerDemotionFenceService
+            OwnerDemotionFenceService ownerDemotionFenceService,
+            PlatformPolicyService platformPolicyService,
+            ObjectMapper objectMapper
     ) {
         this.bookingRepository = bookingRepository;
+        this.bookingCodeService = bookingCodeService;
         this.hotelClient = hotelClient;
         this.notificationClient = notificationClient;
         this.roomHoldService = roomHoldService;
@@ -87,6 +98,8 @@ public class BookingService {
         this.pricingService = pricingService;
         this.promotionService = promotionService;
         this.ownerDemotionFenceService = ownerDemotionFenceService;
+        this.platformPolicyService = platformPolicyService;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -101,6 +114,9 @@ public class BookingService {
         validateGuestAndInvoiceInformation(request);
 
         HotelClient.HotelDetails targetHotel = hotelClient.getHotel(request.hotelId());
+        HotelClient.HotelPolicyDetails hotelPolicy = hotelClient.getHotelPolicy(request.hotelId());
+        String hotelPolicySnapshot = serializeHotelPolicy(hotelPolicy);
+        int minimumAgeSnapshot = platformPolicyService.minimumBookingAge();
         if (targetHotel.ownerId() == null) {
             throw new IllegalStateException("Khách sạn chưa có chủ sở hữu");
         }
@@ -234,6 +250,7 @@ public class BookingService {
             for (int roomIndex = 0; roomIndex < resolvedRooms.size(); roomIndex++) {
                 ResolvedRoom item = resolvedRooms.get(roomIndex);
                 Booking booking = new Booking(
+                        bookingCodeService.nextCode(request.hotelId(), targetHotel.name()),
                         bookingGroupId,
                         request.customerId(),
                         request.hotelId(),
@@ -269,6 +286,11 @@ public class BookingService {
                         item.pricing().baseAmount(),
                         item.pricing().weekendSurchargeAmount(),
                         item.pricing().specialDateSurchargeAmount()
+                );
+                booking.applyTermsSnapshot(
+                        hotelPolicySnapshot,
+                        minimumAgeSnapshot,
+                        item.roomType().refundable()
                 );
                 booking.applyDiscountSnapshot(
                         discountPlan.membership().level(),
@@ -668,8 +690,9 @@ public class BookingService {
         int ageAtCheckIn = Period.between(
                 citizen.dateOfBirth(), booking.getCheckIn()
         ).getYears();
+        int minimumAge = platformPolicyService.minimumBookingAge();
         boolean ageEligible = !citizen.dateOfBirth().isAfter(booking.getCheckIn())
-                && ageAtCheckIn >= 18;
+                && ageAtCheckIn >= minimumAge;
 
         // Họ tên tài khoản/booking có thể là tên hiển thị hoặc được nhập tự do.
         // Vì vậy tên đọc từ CCCD chỉ mang tính tham khảo, KHÔNG phải điều kiện
@@ -730,11 +753,12 @@ public class BookingService {
                 throw new IllegalStateException("Ngày sinh người nhận phòng không hợp lệ");
             }
             ageAtCheckIn = Period.between(expectedDateOfBirth, booking.getCheckIn()).getYears();
-            ageEligible = ageAtCheckIn >= 18;
+            int minimumAge = platformPolicyService.minimumBookingAge();
+            ageEligible = ageAtCheckIn >= minimumAge;
             dateOfBirthMatched = true;
             if (!ageEligible) {
                 throw new IllegalStateException(
-                        "Người đại diện nhận phòng chưa đủ 18 tuổi"
+                        "Người đại diện nhận phòng chưa đủ " + minimumAge + " tuổi"
                 );
             }
         }
@@ -1313,15 +1337,24 @@ public class BookingService {
         if (dateOfBirth.isAfter(today)) {
             throw new IllegalArgumentException("Ngày sinh người đặt không hợp lệ");
         }
-        if (Period.between(dateOfBirth, today).getYears() < 18) {
+        int minimumAge = platformPolicyService.minimumBookingAge();
+        if (Period.between(dateOfBirth, today).getYears() < minimumAge) {
             throw new IllegalArgumentException(
-                    "Người đứng tên đặt phòng phải từ đủ 18 tuổi trở lên"
+                    "Người đứng tên đặt phòng phải từ đủ " + minimumAge + " tuổi trở lên"
             );
         }
         if (!request.ageConfirmed()) {
             throw new IllegalArgumentException(
                     "Bạn phải xác nhận điều kiện độ tuổi trước khi đặt phòng"
             );
+        }
+    }
+
+    private String serializeHotelPolicy(HotelClient.HotelPolicyDetails policy) {
+        try {
+            return objectMapper.writeValueAsString(policy);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Không thể ghi nhận điều kiện khách sạn cho booking", exception);
         }
     }
 

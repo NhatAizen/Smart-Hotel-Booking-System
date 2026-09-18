@@ -113,6 +113,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/campaigns/active", "/api/promotions/available")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/platform-policies")
+                        .permitAll()
                         .requestMatchers(
                                 "/api/membership/me",
                                 "/api/membership/tiers",
@@ -133,6 +135,8 @@ public class SecurityConfig {
                                 "/api/admin/membership-tiers/**",
                                 "/api/admin/reviews/**"
                         )
+                        .hasRole("SYSTEM_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/admin/platform-policies")
                         .hasRole("SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/reviews/bookings/**")
                         .hasAnyRole("CUSTOMER", "HOTEL_ADMIN")

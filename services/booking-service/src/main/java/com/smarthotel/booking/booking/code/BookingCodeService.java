@@ -53,6 +53,7 @@ public class BookingCodeService {
         String ascii = Normalizer.normalize(source, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "")
                 .toUpperCase(Locale.ROOT)
+                .replace('Đ', 'D')
                 .replaceAll("[^A-Z0-9]+", " ")
                 .trim();
 

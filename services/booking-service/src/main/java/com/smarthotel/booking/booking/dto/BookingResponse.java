@@ -62,6 +62,9 @@ public record BookingResponse(
         String invoiceAddress,
         String invoiceEmail,
         boolean termsAccepted,
+        String hotelPolicySnapshot,
+        Integer minimumAgeSnapshot,
+        Boolean roomRefundableSnapshot,
         Instant paymentExpiresAt,
         Instant cancelledAt,
         Instant checkedInAt,
@@ -94,7 +97,9 @@ public record BookingResponse(
                 booking.getSpecialRequest(), booking.isInvoiceRequested(),
                 booking.getInvoiceCompanyName(), booking.getInvoiceTaxCode(),
                 booking.getInvoiceAddress(), booking.getInvoiceEmail(),
-                booking.isTermsAccepted(), booking.getPaymentExpiresAt(),
+                booking.isTermsAccepted(), booking.getHotelPolicySnapshot(),
+                booking.getMinimumAgeSnapshot(), booking.getRoomRefundableSnapshot(),
+                booking.getPaymentExpiresAt(),
                 booking.getCancelledAt(), booking.getCheckedInAt(), booking.getCheckedOutAt(),
                 booking.getCreatedAt(), booking.getUpdatedAt()
         );

@@ -44,6 +44,22 @@ public class HotelClient {
         return response;
     }
 
+    public HotelPolicyDetails getHotelPolicy(UUID hotelId) {
+        HotelPolicyDetails response = restClient.get()
+                .uri("/api/hotels/{hotelId}/policies", hotelId)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (request, httpResponse) -> {
+                    throw new IllegalStateException(
+                            "Không thể tải chính sách khách sạn: " + hotelId
+                    );
+                })
+                .body(HotelPolicyDetails.class);
+        if (response == null) {
+            throw new IllegalStateException("Hotel Service không trả về chính sách khách sạn");
+        }
+        return response;
+    }
+
     public List<OwnedHotelDetails> getMyHotels(String bearerToken) {
         if (bearerToken == null || bearerToken.isBlank()) {
             throw new IllegalStateException("Thiếu token Hotel Admin để kiểm tra quyền khách sạn");
@@ -136,6 +152,35 @@ public class HotelClient {
             UUID id,
             UUID ownerId,
             String name
+    ) {
+    }
+
+    public record HotelPolicyDetails(
+            UUID hotelId,
+            LocalTime checkInTime,
+            LocalTime checkOutTime,
+            Boolean lateCheckoutAllowed,
+            String lateCheckoutDetails,
+            String childrenPolicy,
+            Boolean cribAvailable,
+            Boolean extraBedAvailable,
+            Boolean petsAllowed,
+            Boolean smokingAllowed,
+            Boolean partiesAllowed,
+            LocalTime quietHoursFrom,
+            LocalTime quietHoursTo,
+            Boolean identityDocumentRequired,
+            String checkInInstructions,
+            List<AdditionalRuleDetails> additionalRules,
+            boolean configured
+    ) {
+    }
+
+    public record AdditionalRuleDetails(
+            UUID id,
+            String title,
+            String content,
+            Integer sortOrder
     ) {
     }
 
