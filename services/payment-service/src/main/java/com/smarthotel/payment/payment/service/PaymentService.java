@@ -16,6 +16,7 @@ import com.smarthotel.payment.wallet.dto.CreateWalletTopUpRequest;
 import com.smarthotel.payment.wallet.service.HotelAdminDemotionFenceService;
 import com.smarthotel.payment.wallet.service.WalletService;
 import com.smarthotel.payment.wallet.service.RoleChangePaymentFinalityGuard;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -432,18 +433,30 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
-    public PaymentResponse getById(UUID paymentId) {
-        return PaymentResponse.from(findPayment(paymentId));
+    public PaymentResponse getById(UUID paymentId, UUID actorId, String actorRole) {
+        Payment payment = findPayment(paymentId);
+        ensureCanView(payment, actorId, actorRole);
+        return PaymentResponse.from(payment);
     }
 
     @Transactional(readOnly = true)
-    public List<PaymentResponse> getByBooking(UUID bookingId) {
-        return paymentRepository.findAllByBookingIdOrderByCreatedAtDesc(bookingId)
-                .stream().map(PaymentResponse::from).toList();
+    public List<PaymentResponse> getByBooking(UUID bookingId, UUID actorId, String actorRole) {
+        List<Payment> payments = paymentRepository.findAllByBookingIdOrderByCreatedAtDesc(bookingId);
+        if (!payments.isEmpty() && !isSystemAdmin(actorRole)) {
+            payments.forEach(payment -> ensureCanView(payment, actorId, actorRole));
+        }
+        return payments.stream().map(PaymentResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<PaymentResponse> getByCustomer(UUID customerId) {
+    public List<PaymentResponse> getByCustomer(
+            UUID customerId,
+            UUID actorId,
+            String actorRole
+    ) {
+        if (!isSystemAdmin(actorRole) && !customerId.equals(actorId)) {
+            throw new AccessDeniedException("Không được đọc giao dịch của khách hàng khác");
+        }
         return paymentRepository.findAllByCustomerIdOrderByCreatedAtDesc(customerId)
                 .stream().map(PaymentResponse::from).toList();
     }
@@ -640,6 +653,20 @@ public class PaymentService {
 
     private Payment findPayment(UUID id) {
         return paymentRepository.findById(id).orElseThrow(() -> new PaymentNotFoundException(id));
+    }
+
+    private void ensureCanView(Payment payment, UUID actorId, String actorRole) {
+        if (isSystemAdmin(actorRole)) return;
+        if (actorId != null && (actorId.equals(payment.getCustomerId())
+                || actorId.equals(payment.getHotelOwnerId()))) {
+            return;
+        }
+        throw new AccessDeniedException("Giao dịch không thuộc tài khoản hiện tại");
+    }
+
+    private boolean isSystemAdmin(String role) {
+        return role != null
+                && "SYSTEM_ADMIN".equals(role.trim().replaceFirst("(?i)^ROLE_", "").toUpperCase());
     }
 
     private long nextOrderCode() {

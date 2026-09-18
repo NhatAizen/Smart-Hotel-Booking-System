@@ -101,18 +101,27 @@ public class PaymentController {
     }
 
     @GetMapping("/payments/{paymentId}")
-    public PaymentResponse payment(@PathVariable UUID paymentId) {
-        return paymentService.getById(paymentId);
+    public PaymentResponse payment(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID paymentId
+    ) {
+        return paymentService.getById(paymentId, currentUserId(jwt), currentRole(jwt));
     }
 
     @GetMapping("/bookings/{bookingId}/payments")
-    public List<PaymentResponse> bookingPayments(@PathVariable UUID bookingId) {
-        return paymentService.getByBooking(bookingId);
+    public List<PaymentResponse> bookingPayments(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID bookingId
+    ) {
+        return paymentService.getByBooking(bookingId, currentUserId(jwt), currentRole(jwt));
     }
 
     @GetMapping("/customers/{customerId}/payments")
-    public List<PaymentResponse> customerPayments(@PathVariable UUID customerId) {
-        return paymentService.getByCustomer(customerId);
+    public List<PaymentResponse> customerPayments(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID customerId
+    ) {
+        return paymentService.getByCustomer(customerId, currentUserId(jwt), currentRole(jwt));
     }
 
     @GetMapping("/payments")
@@ -130,5 +139,10 @@ public class PaymentController {
             throw new IllegalStateException("Không xác định được người dùng hiện tại");
         }
         return UUID.fromString(jwt.getSubject());
+    }
+
+    private String currentRole(Jwt jwt) {
+        String role = jwt == null ? null : jwt.getClaimAsString("role");
+        return role == null ? "" : role.trim().replaceFirst("(?i)^ROLE_", "").toUpperCase();
     }
 }
