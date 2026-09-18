@@ -1,27 +1,108 @@
 services:
-  identity-service:
+  identity-postgres:
+    ports: !reset []
     environment:
+      POSTGRES_PASSWORD: ${IDENTITY_DB_PASSWORD:?IDENTITY_DB_PASSWORD is required}
+
+  hotel-postgres:
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${HOTEL_DB_PASSWORD:?HOTEL_DB_PASSWORD is required}
+
+  booking-postgres:
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${BOOKING_DB_PASSWORD:?BOOKING_DB_PASSWORD is required}
+
+  payment-postgres:
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD:?PAYMENT_DB_PASSWORD is required}
+
+  notification-postgres:
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
+
+  chat-postgres:
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${CHAT_DB_PASSWORD:?CHAT_DB_PASSWORD is required}
+
+  redis:
+    ports: !reset []
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - redis-cli -a "$$REDIS_PASSWORD" ping
+
+  rabbitmq:
+    ports: !reset []
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+
+  mailpit:
+    ports: !reset []
+
+  identity-service:
+    ports: !reset []
+    environment:
+      DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?IDENTITY_DB_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:?NOTIFICATION_INTERNAL_API_KEY is required}
+      EKYC_INTERNAL_API_KEY: ${EKYC_INTERNAL_API_KEY:?EKYC_INTERNAL_API_KEY is required}
       OAUTH_FRONTEND_REDIRECT: ${PUBLIC_WEB_URL}/oauth2/callback
       FRONTEND_BASE_URL: ${PUBLIC_WEB_URL}
       PUBLIC_BASE_URL: ${PUBLIC_WEB_URL}
-      PUBLIC_PROFILE_MEDIA_BASE_URL: ${PUBLIC_WEB_URL}/api/users/media
+      PUBLIC_PROFILE_MEDIA_BASE_URL: /api/users/media
 
   hotel-service:
+    ports: !reset []
     environment:
+      DB_PASSWORD: ${HOTEL_DB_PASSWORD:?HOTEL_DB_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:?NOTIFICATION_INTERNAL_API_KEY is required}
       PUBLIC_MEDIA_BASE_URL: ${PUBLIC_WEB_URL}/api/hotels/media
 
   booking-service:
+    ports: !reset []
     environment:
+      DB_PASSWORD: ${BOOKING_DB_PASSWORD:?BOOKING_DB_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:?NOTIFICATION_INTERNAL_API_KEY is required}
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
       PUBLIC_REVIEW_MEDIA_BASE_URL: ${PUBLIC_WEB_URL}/api/reviews/media
 
   payment-service:
+    ports: !reset []
     environment:
+      DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?PAYMENT_DB_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:?NOTIFICATION_INTERNAL_API_KEY is required}
+      PAYOS_PAYOUT_ENABLED: "false"
       PAYOS_RETURN_URL: ${PUBLIC_WEB_URL}/payment/payos/success
       PAYOS_CANCEL_URL: ${PUBLIC_WEB_URL}/payment/payos/cancel
       PAYOS_WEBHOOK_URL: ${PUBLIC_WEB_URL}/api/payments/payos/webhook
 
   notification-service:
+    ports: !reset []
     environment:
+      DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:?NOTIFICATION_INTERNAL_API_KEY is required}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
       MAIL_HOST: ${MAIL_HOST}
       MAIL_PORT: ${MAIL_PORT}
       MAIL_USERNAME: ${MAIL_USERNAME}
@@ -29,6 +110,38 @@ services:
       MAIL_FROM: ${MAIL_FROM}
       MAIL_SMTP_AUTH: "true"
       MAIL_STARTTLS_ENABLE: "true"
+
+  ai-service:
+    ports: !reset []
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+
+  ekyc-service:
+    environment:
+      EKYC_INTERNAL_API_KEY: ${EKYC_INTERNAL_API_KEY:?EKYC_INTERNAL_API_KEY is required}
+      EKYC_TOKEN_SECRET: ${EKYC_TOKEN_SECRET:?EKYC_TOKEN_SECRET is required}
+
+  realtime-service:
+    ports: !reset []
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+      REALTIME_ALLOWED_ORIGIN_PATTERNS: ${PUBLIC_WEB_URL:?PUBLIC_WEB_URL is required}
+
+  chat-service:
+    ports: !reset []
+    environment:
+      DB_PASSWORD: ${CHAT_DB_PASSWORD:?CHAT_DB_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:?NOTIFICATION_INTERNAL_API_KEY is required}
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?RABBITMQ_USERNAME is required}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+
+  api-gateway:
+    ports: !reset []
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
 
   frontend-prod:
     build:

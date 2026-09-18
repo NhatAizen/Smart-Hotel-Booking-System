@@ -8,6 +8,8 @@ if (-not (Test-Path $EnvFile)) {
     exit 1
 }
 
+& "$PSScriptRoot\validate-prod-env.ps1" -EnvFile $EnvFile
+
 docker compose `
   -f docker-compose.yml `
   -f infrastructure/deploy/docker-compose.prod.yml `

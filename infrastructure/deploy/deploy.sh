@@ -9,6 +9,8 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
+"$(dirname "$0")/validate-prod-env.sh" "$ENV_FILE"
+
 docker compose \
   -f docker-compose.yml \
   -f infrastructure/deploy/docker-compose.prod.yml \
