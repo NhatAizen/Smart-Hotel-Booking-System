@@ -3,14 +3,34 @@ from __future__ import annotations
 from functools import lru_cache
 import base64
 import binascii
+import logging
+import re
+from time import perf_counter
+from uuid import uuid4
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from starlette.responses import Response
 
 from .config import settings
 from .schemas import ChallengeRequest, ChallengeResponse, VerificationJsonRequest, VerificationResponse
 from .security import require_internal_key
 from .service import EkycService
+
+LOGGER = logging.getLogger("enziu.ekyc")
+CORRELATION_HEADER = "X-Correlation-ID"
+SAFE_CORRELATION_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+REQUESTS = Counter(
+    "enziu_ekyc_http_requests_total",
+    "Total eKYC HTTP requests",
+    ("method", "status"),
+)
+REQUEST_DURATION = Histogram(
+    "enziu_ekyc_http_request_duration_seconds",
+    "eKYC HTTP request duration",
+    ("method",),
+)
 
 app = FastAPI(
     title="EnziuRooms eKYC Service",
@@ -28,6 +48,31 @@ app.add_middleware(
     allow_methods=[],
     allow_headers=[],
 )
+
+
+@app.middleware("http")
+async def correlation_and_metrics(request: Request, call_next):
+    incoming = request.headers.get(CORRELATION_HEADER, "")
+    correlation_id = incoming if SAFE_CORRELATION_ID.fullmatch(incoming) else str(uuid4())
+    started = perf_counter()
+    status = 500
+    try:
+        response = await call_next(request)
+        status = response.status_code
+        response.headers[CORRELATION_HEADER] = correlation_id
+        return response
+    finally:
+        elapsed = perf_counter() - started
+        REQUESTS.labels(request.method, str(status)).inc()
+        REQUEST_DURATION.labels(request.method).observe(elapsed)
+        LOGGER.info(
+            "service=ekyc-service correlationId=%s method=%s path=%s status=%s durationMs=%.1f",
+            correlation_id,
+            request.method,
+            request.url.path,
+            status,
+            elapsed * 1000,
+        )
 
 
 @lru_cache(maxsize=1)
@@ -63,6 +108,11 @@ def health() -> dict:
     # Instantiating the service proves that both ONNX models can be opened.
     get_service()
     return {"status": "UP", "engine": "OpenCV YuNet + SFace", "storage": "stateless"}
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.post(

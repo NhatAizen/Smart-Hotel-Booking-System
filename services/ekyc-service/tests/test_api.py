@@ -56,6 +56,19 @@ def test_internal_endpoint_rejects_missing_key(monkeypatch):
     assert response.status_code == 401
 
 
+def test_response_returns_safe_correlation_id(monkeypatch):
+    response = client(monkeypatch).post(
+        "/internal/v1/challenges",
+        headers={
+            "X-Internal-Api-Key": settings.internal_api_key,
+            "X-Correlation-ID": "test-request-123",
+        },
+        json={"userId": "user-123"},
+    )
+    assert response.status_code == 200
+    assert response.headers["X-Correlation-ID"] == "test-request-123"
+
+
 def test_create_challenge_requires_internal_key(monkeypatch):
     response = client(monkeypatch).post(
         "/internal/v1/challenges",
