@@ -3,6 +3,8 @@ package com.smarthotel.booking.realtime;
 import com.smarthotel.booking.booking.realtime.AvailabilityEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
@@ -47,7 +49,8 @@ public class RealtimeEventPublisher {
         event.put("data", data);
 
         try {
-            rabbitTemplate.convertAndSend("enziurooms.events", "booking.availability.changed", event);
+            rabbitTemplate.convertAndSend(
+                    "enziurooms.events", "booking.availability.changed", event, correlationHeader());
         } catch (RuntimeException exception) {
             log.warn("Không publish được availability realtime cho hotel {}: {}", availability.hotelId(), exception.getMessage());
         }
@@ -64,8 +67,19 @@ public class RealtimeEventPublisher {
         event.put("eventId", UUID.randomUUID().toString()); event.put("type", type);
         event.put("source", "booking-service"); event.put("occurredAt", Instant.now().toString());
         event.put("audience", audience); event.put("data", data);
-        try { rabbitTemplate.convertAndSend("enziurooms.events", "promotion.changed", event); }
+        try { rabbitTemplate.convertAndSend(
+                "enziurooms.events", "promotion.changed", event, correlationHeader()); }
         catch (RuntimeException exception) { log.warn("Không publish được promotion event: {}", exception.getMessage()); }
+    }
+
+    private MessagePostProcessor correlationHeader() {
+        String correlationId = MDC.get("correlationId");
+        return message -> {
+            if (correlationId != null && !correlationId.isBlank()) {
+                message.getMessageProperties().setHeader("X-Correlation-ID", correlationId);
+            }
+            return message;
+        };
     }
 
 }

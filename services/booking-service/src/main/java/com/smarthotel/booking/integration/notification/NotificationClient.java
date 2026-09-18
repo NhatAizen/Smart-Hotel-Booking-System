@@ -1,5 +1,7 @@
 package com.smarthotel.booking.integration.notification;
 
+import com.smarthotel.booking.observability.CorrelationIdRestClientCustomizer;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +24,7 @@ public class NotificationClient {
             @Value("${clients.notification.api-key}") String apiKey
     ) {
         this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
                 .baseUrl(baseUrl)
                 .defaultHeader("X-Internal-Api-Key", apiKey)
                 .build();
@@ -29,6 +32,7 @@ public class NotificationClient {
                 HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());
         requestFactory.setReadTimeout(Duration.ofSeconds(40));
         this.invoiceRestClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
                 .baseUrl(baseUrl)
                 .defaultHeader("X-Internal-Api-Key", apiKey)
                 .requestFactory(requestFactory)

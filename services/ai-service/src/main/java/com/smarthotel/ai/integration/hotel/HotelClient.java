@@ -1,5 +1,7 @@
 package com.smarthotel.ai.integration.hotel;
 
+import com.smarthotel.ai.observability.CorrelationIdRestClientCustomizer;
+
 import com.smarthotel.ai.integration.hotel.dto.HotelResponse;
 import com.smarthotel.ai.integration.hotel.dto.HotelWithRoomTypes;
 import com.smarthotel.ai.integration.hotel.dto.RoomResponse;
@@ -19,7 +21,9 @@ public class HotelClient {
     private final RestClient restClient;
 
     public HotelClient(@Value("${clients.hotel.base-url}") String hotelServiceUrl) {
-        this.restClient = RestClient.builder().baseUrl(hotelServiceUrl).build();
+        this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
+                .baseUrl(hotelServiceUrl).build();
     }
 
     public List<HotelResponse> getHotels() {

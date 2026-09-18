@@ -56,6 +56,7 @@ public class SecurityConfig {
                         .pathMatchers(
                                 "/actuator/health",
                                 "/actuator/info",
+                                "/actuator/prometheus",
                                 "/error"
                         )
                         .permitAll()

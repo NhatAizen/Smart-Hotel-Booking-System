@@ -1,5 +1,7 @@
 package com.smarthotel.booking.integration.payment;
 
+import com.smarthotel.booking.observability.CorrelationIdRestClientCustomizer;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -17,6 +19,7 @@ public class PaymentClient {
 
     public PaymentClient(@Value("${clients.payment.base-url}") String baseUrl) {
         this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
                 .baseUrl(baseUrl).build();
     }
 

@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: enziu-spring-services
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - api-gateway:8080
+          - identity-service:8081
+          - hotel-service:8082
+          - booking-service:8083
+          - payment-service:8084
+          - notification-service:8085
+          - ai-service:8086
+          - realtime-service:8087
+          - chat-service:8088
+
+  - job_name: enziu-ekyc-service
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - ekyc-service:8090

@@ -53,12 +53,16 @@ app:
     public-base-url: ${PUBLIC_MEDIA_BASE_URL:http://localhost:8080/api/hotels/media}
     max-file-size-bytes: ${MEDIA_MAX_FILE_SIZE_BYTES:10485760}
 
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} service=${spring.application.name} level=%-5level correlationId=%X{correlationId:-none} logger=%logger{36} message=%msg%n"
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
 
   endpoint:
     health:
-      show-details: always
+      show-details: when_authorized

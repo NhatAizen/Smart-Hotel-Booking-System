@@ -1,5 +1,6 @@
 package com.smarthotel.booking.integration.hotel;
 
+import com.smarthotel.booking.observability.CorrelationIdRestClientCustomizer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
@@ -18,6 +19,7 @@ public class RoleChangeHotelClient {
             @Value("${clients.hotel.base-url}") String hotelServiceUrl
     ) {
         this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
                 .baseUrl(hotelServiceUrl)
                 .build();
     }

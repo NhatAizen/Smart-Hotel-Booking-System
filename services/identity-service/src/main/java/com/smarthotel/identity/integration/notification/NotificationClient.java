@@ -1,5 +1,7 @@
 package com.smarthotel.identity.integration.notification;
 
+import com.smarthotel.identity.observability.CorrelationIdRestClientCustomizer;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +20,7 @@ public class NotificationClient {
             @Value("${clients.notification.api-key}") String apiKey
     ) {
         this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
                 .baseUrl(baseUrl)
                 .defaultHeader("X-Internal-Api-Key", apiKey)
                 .build();

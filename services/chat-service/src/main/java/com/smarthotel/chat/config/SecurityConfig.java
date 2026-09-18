@@ -36,6 +36,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/actuator/health",
                                 "/actuator/info",
+                                "/actuator/prometheus",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/v3/api-docs",

@@ -185,6 +185,7 @@ public class SecurityConfig {
                                         "/v3/api-docs/**",
                                         "/actuator/health",
                                         "/actuator/info",
+                                        "/actuator/prometheus",
                                         "/error"
                                 )
                                 .permitAll()

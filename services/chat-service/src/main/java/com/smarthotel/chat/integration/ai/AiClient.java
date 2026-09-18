@@ -1,5 +1,7 @@
 package com.smarthotel.chat.integration.ai;
 
+import com.smarthotel.chat.observability.CorrelationIdRestClientCustomizer;
+
 import com.smarthotel.chat.conversation.entity.ChatConversation;
 import com.smarthotel.chat.integration.booking.BookingClient;
 import com.smarthotel.chat.integration.hotel.HotelClient;
@@ -16,7 +18,9 @@ public class AiClient {
     private final RestClient restClient;
 
     public AiClient(@Value("${clients.ai.base-url}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+        this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
+                .baseUrl(baseUrl).build();
     }
 
     public AiReply reply(

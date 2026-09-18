@@ -1,5 +1,7 @@
 package com.smarthotel.payment.integration.booking;
 
+import com.smarthotel.payment.observability.CorrelationIdRestClientCustomizer;
+
 import com.smarthotel.payment.payment.entity.PaymentType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
@@ -17,7 +19,9 @@ public class BookingClient {
     private final RestClient restClient;
 
     public BookingClient(@Value("${clients.booking.base-url}") String bookingServiceUrl) {
-        this.restClient = RestClient.builder().baseUrl(bookingServiceUrl).build();
+        this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
+                .baseUrl(bookingServiceUrl).build();
     }
 
     public BookingDetails getBooking(UUID bookingId) {

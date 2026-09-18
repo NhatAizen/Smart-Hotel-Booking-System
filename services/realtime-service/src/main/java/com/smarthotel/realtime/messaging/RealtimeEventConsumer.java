@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smarthotel.realtime.websocket.RealtimeSessionRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -26,7 +28,13 @@ public class RealtimeEventConsumer {
     }
 
     @RabbitListener(queues = "${app.realtime.queue:enziurooms.realtime}")
-    public void consume(Map<String, Object> event) {
+    public void consume(
+            Map<String, Object> event,
+            @Header(name = "X-Correlation-ID", required = false) String correlationId
+    ) {
+        if (correlationId != null && !correlationId.isBlank()) {
+            MDC.put("correlationId", correlationId);
+        }
         try {
             Map<String, Object> audience = asMap(event.get("audience"));
             boolean broadcast = Boolean.TRUE.equals(audience.get("broadcast"));
@@ -41,6 +49,9 @@ public class RealtimeEventConsumer {
             registry.sendMatching(objectMapper.writeValueAsString(event), broadcast, userIds, roles);
         } catch (JsonProcessingException exception) {
             log.warn("Không serialize được realtime event {}", event.get("type"), exception);
+            throw new IllegalStateException("Không serialize được realtime event", exception);
+        } finally {
+            MDC.remove("correlationId");
         }
     }
 

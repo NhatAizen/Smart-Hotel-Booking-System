@@ -1,5 +1,6 @@
 package com.smarthotel.payment.integration.identity;
 
+import com.smarthotel.payment.observability.CorrelationIdRestClientCustomizer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
@@ -17,7 +18,10 @@ public class PartnerIdentityClient {
     public PartnerIdentityClient(
             @Value("${clients.identity.base-url}") String identityServiceUrl
     ) {
-        this.restClient = RestClient.builder().baseUrl(identityServiceUrl).build();
+        this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
+                .baseUrl(identityServiceUrl)
+                .build();
     }
 
     public PayoutProfile getApprovedPayoutProfile(String accessToken) {

@@ -2,6 +2,7 @@ package com.smarthotel.identity.rolechange.integration;
 
 import com.smarthotel.identity.rolechange.dto.RoleChangeBookingEligibilityRequest;
 import com.smarthotel.identity.rolechange.exception.RoleChangeDependencyException;
+import com.smarthotel.identity.observability.CorrelationIdRestClientCustomizer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
@@ -41,6 +42,7 @@ public class RoleChangeOperationsClient {
         requestFactory.setConnectTimeout(Duration.ofSeconds(2));
         requestFactory.setReadTimeout(Duration.ofSeconds(5));
         return RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
                 .baseUrl(baseUrl)
                 .requestFactory(requestFactory)
                 .build();

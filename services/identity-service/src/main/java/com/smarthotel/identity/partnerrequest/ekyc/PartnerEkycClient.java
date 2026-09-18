@@ -3,8 +3,11 @@ package com.smarthotel.identity.partnerrequest.ekyc;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smarthotel.identity.partnerrequest.config.PartnerEkycProperties;
+import com.smarthotel.identity.observability.CorrelationIdRestClientCustomizer;
+import com.smarthotel.identity.observability.CorrelationIdFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -58,6 +61,7 @@ public class PartnerEkycClient {
         );
 
         this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
                 .baseUrl(properties.baseUrl())
                 .requestFactory(requestFactory)
                 .build();
@@ -121,14 +125,18 @@ public class PartnerEkycClient {
 
             byte[] body = objectMapper.writeValueAsBytes(payload);
 
-            HttpRequest request = HttpRequest.newBuilder()
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                     .uri(URI.create(trimTrailingSlash(properties.baseUrl()) + "/internal/v1/verify-json"))
                     .timeout(Duration.ofSeconds(properties.readTimeoutSeconds()))
                     .header(INTERNAL_KEY_HEADER, properties.internalApiKey())
                     .header("Content-Type", "application/json; charset=UTF-8")
                     .header("Accept", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                    .build();
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(body));
+            String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);
+            if (correlationId != null && !correlationId.isBlank()) {
+                requestBuilder.header(CorrelationIdFilter.HEADER, correlationId);
+            }
+            HttpRequest request = requestBuilder.build();
 
             HttpResponse<byte[]> remote = httpClient.send(
                     request,

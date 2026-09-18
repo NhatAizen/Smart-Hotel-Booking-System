@@ -41,7 +41,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST, "/api/payments/payos/webhook").permitAll()
                         .requestMatchers(
-                                "/actuator/health", "/actuator/info", "/error",
+                                "/actuator/health", "/actuator/info", "/actuator/prometheus", "/error",
                                 "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**"
                         ).permitAll()
                         .requestMatchers(

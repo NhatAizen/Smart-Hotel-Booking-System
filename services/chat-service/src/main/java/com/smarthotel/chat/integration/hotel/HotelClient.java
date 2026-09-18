@@ -1,5 +1,7 @@
 package com.smarthotel.chat.integration.hotel;
 
+import com.smarthotel.chat.observability.CorrelationIdRestClientCustomizer;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -18,7 +20,9 @@ public class HotelClient {
     private final RestClient restClient;
 
     public HotelClient(@Value("${clients.hotel.base-url}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+        this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
+                .baseUrl(baseUrl).build();
     }
 
     public HotelSnapshot getHotel(UUID hotelId) {

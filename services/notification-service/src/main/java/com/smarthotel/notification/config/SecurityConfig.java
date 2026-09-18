@@ -33,7 +33,7 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(
-                                "/actuator/health", "/actuator/info", "/error",
+                                "/actuator/health", "/actuator/info", "/actuator/prometheus", "/error",
                                 "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**"
                         ).permitAll()
                         // The controllers authenticate these service-to-service calls with X-Internal-Api-Key.

@@ -1,5 +1,6 @@
 package com.smarthotel.booking.integration.hotel;
 
+import com.smarthotel.booking.observability.CorrelationIdRestClientCustomizer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -23,6 +24,7 @@ public class HotelClient {
             @Value("${clients.hotel.base-url}") String hotelServiceUrl
     ) {
         this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
                 .baseUrl(hotelServiceUrl)
                 .build();
     }

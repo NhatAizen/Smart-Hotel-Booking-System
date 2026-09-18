@@ -1,5 +1,7 @@
 package com.smarthotel.ai.integration.booking;
 
+import com.smarthotel.ai.observability.CorrelationIdRestClientCustomizer;
+
 import com.smarthotel.ai.integration.booking.dto.AvailabilityResponse;
 import com.smarthotel.ai.integration.booking.dto.BookingResponse;
 import com.smarthotel.ai.integration.booking.dto.ReviewResponse;
@@ -21,7 +23,9 @@ public class BookingClient {
     private final RestClient restClient;
 
     public BookingClient(@Value("${clients.booking.base-url}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+        this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
+                .baseUrl(baseUrl).build();
     }
 
     public AvailabilityResponse getAvailability(UUID hotelId, LocalDate checkIn, LocalDate checkOut) {

@@ -3,6 +3,8 @@ package com.smarthotel.chat.realtime;
 import com.smarthotel.chat.message.dto.ChatMessageResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
@@ -56,9 +58,19 @@ public class ChatRealtimePublisher {
         event.put("data", data);
 
         try {
-            rabbitTemplate.convertAndSend(EXCHANGE, "chat.message.created", event);
+            rabbitTemplate.convertAndSend(EXCHANGE, "chat.message.created", event, correlationHeader());
         } catch (RuntimeException exception) {
             log.warn("Không publish được realtime chat: {}", exception.getMessage());
         }
+    }
+
+    private MessagePostProcessor correlationHeader() {
+        String correlationId = MDC.get("correlationId");
+        return message -> {
+            if (correlationId != null && !correlationId.isBlank()) {
+                message.getMessageProperties().setHeader("X-Correlation-ID", correlationId);
+            }
+            return message;
+        };
     }
 }

@@ -1,5 +1,6 @@
 package com.smarthotel.booking.integration.identity;
 
+import com.smarthotel.booking.observability.CorrelationIdRestClientCustomizer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -16,6 +17,7 @@ public class IdentityClient {
             @Value("${clients.identity.base-url}") String identityServiceUrl
     ) {
         this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
                 .baseUrl(identityServiceUrl)
                 .build();
     }

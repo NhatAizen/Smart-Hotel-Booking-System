@@ -1,5 +1,6 @@
 package com.smarthotel.payment.integration.hotel;
 
+import com.smarthotel.payment.observability.CorrelationIdRestClientCustomizer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
@@ -13,7 +14,10 @@ public class HotelClient {
     private final RestClient restClient;
 
     public HotelClient(@Value("${clients.hotel.base-url}") String hotelServiceUrl) {
-        this.restClient = RestClient.builder().baseUrl(hotelServiceUrl).build();
+        this.restClient = RestClient.builder()
+                .requestInterceptor(CorrelationIdRestClientCustomizer.interceptor())
+                .baseUrl(hotelServiceUrl)
+                .build();
     }
 
     public HotelDetails getHotel(UUID hotelId) {
