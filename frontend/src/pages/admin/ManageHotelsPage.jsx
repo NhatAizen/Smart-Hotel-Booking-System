@@ -557,7 +557,7 @@ export default function ManageHotelsPage() {
                   </div>
                   <div>
                     <dt>Trạng thái hồ sơ</dt>
-                    <dd>Chờ System Admin kiểm duyệt</dd>
+                    <dd>Chờ EnziuRooms xét duyệt</dd>
                   </div>
                 </dl>
               </section>
@@ -596,7 +596,7 @@ export default function ManageHotelsPage() {
                   <Navigation size={19} aria-hidden="true" />
                   <div>
                     <strong>Địa chỉ & vị trí OpenStreetMap</strong>
-                    <span>Đối chiếu địa chỉ khai báo với pin tọa độ do Hotel Admin lưu.</span>
+                    <span>Đối chiếu địa chỉ khai báo với vị trí khách sạn đã ghim trên bản đồ.</span>
                   </div>
                 </div>
 

@@ -435,18 +435,6 @@
   gap: 7px;
 }
 
-.booking-v2-chat-unread {
-  min-width: 18px;
-  height: 18px;
-  display: inline-grid;
-  place-items: center;
-  padding: 0 4px;
-  color: #fff;
-  background: #e2554a;
-  border-radius: 999px;
-  font-size: 9px;
-}
-
 .booking-v2-pay-action {
   color: #08754d;
   background: #e9f8f1;
@@ -2989,6 +2977,122 @@
   display: grid;
   gap: 14px;
   margin-top: 20px;
+}
+
+/* =========================================================
+   BOOKING DETAIL — VIEWPORT-SAFE DIALOG
+   Header remains visible; only the content grid scrolls.
+========================================================= */
+.booking-v2-detail-backdrop {
+  z-index: 2200;
+  overflow: hidden;
+  padding: 16px;
+  overscroll-behavior: contain;
+}
+
+.booking-v2-modal {
+  width: min(1100px, 100%);
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.booking-v2-modal > .booking-v2-modal-header {
+  flex: 0 0 auto;
+  padding: 20px 72px 18px 24px;
+  background: #fff;
+}
+
+.booking-v2-modal > .booking-v2-modal-close {
+  z-index: 3;
+}
+
+.booking-v2-modal > .booking-v2-modal-grid {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr) 248px;
+  gap: 20px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 24px 24px;
+  scrollbar-color: #afbfcc transparent;
+  scrollbar-width: thin;
+}
+
+.booking-v2-modal-details {
+  min-width: 0;
+  gap: 18px;
+}
+
+.booking-v2-modal-details > * {
+  min-width: 0;
+}
+
+.booking-v2-modal .booking-v2-qr-panel {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  width: 100%;
+  padding: 16px;
+}
+
+.booking-v2-modal .booking-v2-qr-panel img {
+  width: min(156px, 100%);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.booking-v2-modal .booking-v2-qr-loading,
+.booking-v2-modal .booking-v2-qr-unavailable {
+  width: 100%;
+  min-height: 126px;
+}
+
+@media (max-width: 820px) {
+  .booking-v2-modal > .booking-v2-modal-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .booking-v2-modal .booking-v2-qr-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 560px) {
+  .booking-v2-detail-backdrop {
+    padding: 0;
+  }
+
+  .booking-v2-modal {
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .booking-v2-modal > .booking-v2-modal-header {
+    padding: 16px 58px 14px 16px;
+  }
+
+  .booking-v2-modal > .booking-v2-modal-header h2 {
+    font-size: 22px;
+    overflow-wrap: anywhere;
+  }
+
+  .booking-v2-modal > .booking-v2-modal-grid {
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .booking-v2-modal .booking-v2-qr-panel {
+    padding: 16px;
+  }
 }
 
 .booking-v2-room-change-result-hero {

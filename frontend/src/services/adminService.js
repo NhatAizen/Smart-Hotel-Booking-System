@@ -4,12 +4,16 @@ function unwrap(response) {
   return response.data;
 }
 
-export async function getPendingPartnerRequests() {
+export async function getPartnerRequests(status = "PENDING") {
   return unwrap(
     await apiClient.get("/admin/partner-requests", {
-      params: { status: "PENDING" },
+      params: { status },
     }),
   );
+}
+
+export async function getPendingPartnerRequests() {
+  return getPartnerRequests("PENDING");
 }
 
 export async function approvePartnerRequest(requestId) {
@@ -29,6 +33,15 @@ export async function rejectPartnerRequest(requestId, reason) {
   );
 }
 
+export async function requestMorePartnerInfo(requestId, reason) {
+  return unwrap(
+    await apiClient.patch(
+      `/admin/partner-requests/${requestId}/request-more-info`,
+      { reason },
+    ),
+  );
+}
+
 
 export async function getPartnerRequestDocument(requestId, side) {
   const response = await apiClient.get(
@@ -41,6 +54,14 @@ export async function getPartnerRequestDocument(requestId, side) {
 export async function getPartnerRequestEkycEvidence(requestId) {
   const response = await apiClient.get(
     `/admin/partner-requests/${requestId}/ekyc/evidence`,
+    { responseType: "blob" },
+  );
+  return response.data;
+}
+
+export async function getPartnerRequestSupportingDocument(requestId, documentType) {
+  const response = await apiClient.get(
+    `/admin/partner-requests/${requestId}/documents/${documentType}`,
     { responseType: "blob" },
   );
   return response.data;

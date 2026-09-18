@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../auth/AuthContext";
 import {
+  AvatarImage,
   EmptyState,
   ErrorState,
   LoadingState,
@@ -122,7 +123,12 @@ function normalizeUser(user = {}) {
     createdAt: user.createdAt ?? user.createdDate ?? user.registeredAt ?? null,
     phone: user.phone ?? user.phoneNumber ?? "—",
     emailVerified: user.emailVerified ?? user.verified ?? null,
-    avatarUrl: user.avatarUrl ?? user.avatar ?? null,
+    avatarUrl:
+      user.avatarUrl
+      ?? user.avatar
+      ?? user.picture
+      ?? user.profileImage
+      ?? null,
     deleted: user.deleted ?? false,
     deletedAt: user.deletedAt ?? null,
   };
@@ -558,7 +564,11 @@ export default function ManageUsersPage() {
                     <td data-label="Người dùng">
                       <div className="admin-user-identity">
                         <span className="admin-user-list-avatar">
-                          {item.avatarUrl ? <img src={item.avatarUrl} alt="" /> : item.fullName.charAt(0).toUpperCase()}
+                          <AvatarImage
+                            source={item}
+                            alt=""
+                            fallback={item.fullName.charAt(0).toUpperCase()}
+                          />
                         </span>
                         <div><strong>{item.fullName}</strong><span>{item.email}</span></div>
                       </div>
@@ -626,7 +636,13 @@ export default function ManageUsersPage() {
             </div>
 
             <div className="admin-user-detail-hero">
-              <span className="admin-user-detail-avatar">{selected.fullName.charAt(0).toUpperCase()}</span>
+              <span className="admin-user-detail-avatar">
+                <AvatarImage
+                  source={selected}
+                  alt=""
+                  fallback={selected.fullName.charAt(0).toUpperCase()}
+                />
+              </span>
               <div><h3>{selected.fullName}</h3><p>{selected.email}</p></div>
               <StatusBadge status={selected.status} label={statusLabel(selected.status)} tone={statusTone(selected.status)} />
             </div>

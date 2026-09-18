@@ -26,7 +26,7 @@ import "./AiAssistantPage.css";
 
 const QUICK_PROMPTS = [
   "Tìm khách sạn cho 2 người, ưu tiên review tốt",
-  "Booking sắp tới của tôi là khi nào?",
+  "Đơn đặt phòng sắp tới của tôi là khi nào?",
   "Tôi còn phải thanh toán bao nhiêu?",
   "QR check-in hoạt động như thế nào?",
 ];
@@ -248,7 +248,7 @@ export default function AiAssistantPage() {
     {
       role: "assistant",
       content:
-        "Chào bạn, mình là Enziu AI. Mình có thể giúp tìm và so sánh khách sạn, tóm tắt đánh giá hoặc tra cứu booking của bạn. Bạn muốn bắt đầu với điều gì?",
+        "Chào bạn, mình là Enziu AI. Mình có thể giúp tìm và so sánh khách sạn, tóm tắt đánh giá hoặc xem lại đơn đặt phòng của bạn. Bạn muốn bắt đầu với điều gì?",
       hotels: [],
       bookings: [],
       suggestedPrompts: QUICK_PROMPTS,
@@ -314,7 +314,7 @@ export default function AiAssistantPage() {
       setError(
         requestError.response?.data?.message
           ?? requestError.response?.data?.error
-          ?? "Không thể kết nối Enziu AI. Hãy kiểm tra AI Service và Gemini API.",
+          ?? "Enziu AI đang tạm thời gián đoạn. Vui lòng thử lại sau.",
       );
     } finally {
       setSending(false);
@@ -338,12 +338,12 @@ export default function AiAssistantPage() {
             <span className="enziu-ai-eyebrow"><WandSparkles size={15} /> ENZIU AI</span>
             <h1>Trợ lý du lịch EnziuRooms</h1>
             <p>
-              Tìm khách sạn, so sánh lựa chọn, đọc review thật và hỏi về booking của chính bạn trong một cuộc trò chuyện.
+              Tìm khách sạn, so sánh lựa chọn, xem đánh giá và hỏi về đơn đặt phòng của bạn trong một cuộc trò chuyện.
             </p>
           </div>
           <div className="enziu-ai-grounded-badge">
             <ShieldCheck size={19} />
-            <div><strong>Grounded AI</strong><span>Hotel · Room · Booking · Review</span></div>
+            <div><strong>Thông tin hữu ích cho chuyến đi</strong><span>Khách sạn · Phòng · Đánh giá · Đơn đặt phòng</span></div>
           </div>
         </section>
 
@@ -353,7 +353,7 @@ export default function AiAssistantPage() {
           <aside className="enziu-ai-sidebar">
             <div className="enziu-ai-sidebar-title">
               <CalendarDays size={18} />
-              <div><strong>Chuyến đi của bạn</strong><span>Giúp AI kiểm tra phòng trống chính xác</span></div>
+              <div><strong>Chuyến đi của bạn</strong><span>Thêm ngày để kiểm tra phòng trống và giá</span></div>
             </div>
 
             <label>
@@ -407,9 +407,9 @@ export default function AiAssistantPage() {
 
             <div className="enziu-ai-capabilities">
               <span><MapPin size={14} /> Tìm & so sánh khách sạn</span>
-              <span><MessageCircleQuestion size={14} /> Tóm tắt review thật</span>
-              <span><WalletCards size={14} /> Booking & thanh toán của tôi</span>
-              <span><ShieldCheck size={14} /> Chính sách & QR check-in</span>
+              <span><MessageCircleQuestion size={14} /> Tóm tắt đánh giá</span>
+              <span><WalletCards size={14} /> Đơn đặt phòng & thanh toán</span>
+              <span><ShieldCheck size={14} /> Chính sách & nhận phòng</span>
             </div>
           </aside>
 
@@ -417,8 +417,8 @@ export default function AiAssistantPage() {
             <header className="enziu-ai-chat-header">
               <div className="enziu-ai-bot-mark"><Bot size={23} /></div>
               <div>
-                <strong>Enziu AI Assistant</strong>
-                <span><i /> Đang chuẩn bị thông tin</span>
+                <strong>Enziu AI</strong>
+                <span><i /> Sẵn sàng hỗ trợ chuyến đi của bạn</span>
               </div>
             </header>
 

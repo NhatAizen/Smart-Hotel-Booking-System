@@ -1,0 +1,908 @@
+.enziu-chat-root {
+  --chat-navy: #0c3158;
+  --chat-blue: #1677e8;
+  --chat-cyan: #14b8d4;
+  --chat-teal: #0f9f91;
+  --chat-line: #dbe7ef;
+  --chat-muted: #657d8f;
+  position: fixed;
+  right: 24px;
+  bottom: 96px;
+  z-index: 1460;
+  pointer-events: none;
+  font-family: inherit;
+}
+
+.enziu-chat-root.hotel-admin {
+  bottom: 24px;
+}
+
+.enziu-chat-root button,
+.enziu-chat-root input,
+.enziu-chat-root textarea,
+.enziu-chat-panel {
+  pointer-events: auto;
+}
+
+.enziu-chat-launcher {
+  position: relative;
+  min-width: 132px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 18px;
+  color: #fff;
+  background: linear-gradient(135deg, #0f9f91 0%, #118eb9 52%, #176fda 100%);
+  border: 1px solid rgba(255, 255, 255, .8);
+  border-radius: 999px;
+  box-shadow: 0 16px 34px rgba(10, 82, 128, .28);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 850;
+  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+}
+
+.enziu-chat-launcher:hover {
+  transform: translateY(-2px);
+  filter: saturate(1.06);
+  box-shadow: 0 20px 42px rgba(10, 82, 128, .34);
+}
+
+.enziu-chat-launcher.open {
+  width: 52px;
+  min-width: 52px;
+  height: 52px;
+  padding: 0;
+}
+
+.enziu-chat-launcher b {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  min-width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0 5px;
+  color: #fff;
+  background: #ee554b;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.enziu-chat-panel {
+  box-sizing: border-box;
+  position: absolute;
+  right: 0;
+  bottom: 68px;
+  width: min(404px, calc(100vw - 32px));
+  height: min(680px, calc(100dvh - 188px));
+  max-height: calc(100dvh - 32px);
+  min-height: min(430px, calc(100dvh - 188px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #17384f;
+  background: #fff;
+  border: 1px solid rgba(204, 220, 231, .95);
+  border-radius: 22px;
+  box-shadow: 0 26px 74px rgba(12, 49, 88, .24);
+  isolation: isolate;
+  outline: none;
+  animation: enziu-chat-enter .22s cubic-bezier(.2, .8, .2, 1);
+}
+
+.hotel-admin .enziu-chat-panel {
+  height: min(700px, calc(100dvh - 108px));
+  min-height: min(430px, calc(100dvh - 108px));
+}
+
+@keyframes enziu-chat-enter {
+  from { opacity: 0; transform: translateY(12px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.enziu-chat-panel-header {
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 12px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 82% -40%, rgba(86, 232, 229, .52), transparent 46%),
+    linear-gradient(135deg, #0b3157, #0e6d91 58%, #109a91);
+}
+
+.enziu-chat-panel-header.thread-header {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.enziu-chat-header-identity,
+.enziu-chat-header-actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.enziu-chat-header-identity {
+  gap: 9px;
+}
+
+.enziu-chat-header-copy {
+  min-width: 0;
+}
+
+.enziu-chat-header-actions {
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.enziu-chat-panel-header h2,
+.enziu-chat-panel-header p {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enziu-chat-panel-header h2 {
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.enziu-chat-panel-header p {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, .76);
+  font-size: 9px;
+}
+
+.enziu-chat-panel-header button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #fff;
+  background: rgba(255, 255, 255, .1);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .18s ease;
+}
+
+.enziu-chat-panel-header button:hover {
+  background: rgba(255, 255, 255, .2);
+}
+
+.enziu-chat-brand-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, .13);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 13px;
+}
+
+.enziu-chat-avatar {
+  width: 46px;
+  height: 46px;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  display: block;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #e9f2f7;
+}
+
+.enziu-chat-avatar img,
+.enziu-chat-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  object-fit: cover;
+}
+
+.enziu-chat-avatar-fallback {
+  color: #fff;
+  background: linear-gradient(135deg, #1782d8, #13a094);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.enziu-chat-avatar-fallback.person {
+  background: linear-gradient(135deg, #315b8f, #6c77d8);
+}
+
+.enziu-chat-avatar.header-avatar {
+  width: 42px;
+  height: 42px;
+  border: 2px solid rgba(255, 255, 255, .7);
+  border-radius: 13px;
+}
+
+.enziu-chat-search-row {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 8px;
+  padding: 10px 11px;
+  background: #fbfdfe;
+  border-bottom: 1px solid #e5edf2;
+}
+
+.enziu-chat-search-row label {
+  min-width: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+  color: #7790a2;
+  background: #fff;
+  border: 1px solid #dce7ee;
+  border-radius: 12px;
+}
+
+.enziu-chat-search-row input {
+  min-width: 0;
+  width: 100%;
+  color: #21445c;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 11px;
+}
+
+.enziu-chat-search-row > button {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: #38627c;
+  background: #fff;
+  border: 1px solid #dce7ee;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.enziu-chat-hotel-filter {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 11px 8px;
+  padding: 0 10px;
+  color: #25837d;
+  background: #eff9f8;
+  border: 1px solid #d8ece9;
+  border-radius: 10px;
+}
+
+.enziu-chat-hotel-filter select {
+  min-width: 0;
+  width: 100%;
+  height: 34px;
+  color: #31546b;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.enziu-chat-conversation-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 5px 7px 10px;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+
+.enziu-chat-conversation {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 9px;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background .18s ease;
+}
+
+.enziu-chat-conversation:hover,
+.enziu-chat-conversation:focus-visible {
+  background: #eef8fb;
+}
+
+.enziu-chat-conversation-avatar {
+  position: relative;
+}
+
+.enziu-chat-item-unread {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  color: #fff;
+  background: #ee554b;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.enziu-chat-conversation-copy {
+  min-width: 0;
+}
+
+.enziu-chat-conversation-copy > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.enziu-chat-conversation-copy strong,
+.enziu-chat-conversation-copy p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enziu-chat-conversation-copy strong {
+  color: #173b54;
+  font-size: 11px;
+}
+
+.enziu-chat-conversation-copy time {
+  flex: 0 0 auto;
+  color: #91a2ad;
+  font-size: 8px;
+}
+
+.enziu-chat-conversation-copy small {
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #168b85;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enziu-chat-conversation-copy p {
+  margin: 4px 0;
+  color: #708697;
+  font-size: 10px;
+}
+
+.enziu-chat-conversation-copy p.unread {
+  color: #243f54;
+  font-weight: 800;
+}
+
+.enziu-chat-state {
+  height: 100%;
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 28px;
+  color: #8295a3;
+  text-align: center;
+  font-size: 10px;
+}
+
+.enziu-chat-state > svg {
+  color: #149a91;
+}
+
+.enziu-chat-state strong {
+  color: #31536a;
+  font-size: 12px;
+}
+
+.enziu-chat-state span {
+  max-width: 270px;
+  line-height: 1.5;
+}
+
+.enziu-chat-state button {
+  min-height: 34px;
+  padding: 0 12px;
+  color: #fff;
+  background: #1777c9;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.enziu-chat-state.error > svg,
+.enziu-chat-state.error strong {
+  color: #b94e43;
+}
+
+.enziu-chat-booking-context {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 11px;
+  background: #f2f8fb;
+  border-bottom: 1px solid #dfeaf0;
+}
+
+.enziu-chat-booking-context > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #668092;
+  font-size: 8px;
+}
+
+.enziu-chat-booking-context > p strong {
+  color: #176f86;
+}
+
+.enziu-chat-booking-context div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.enziu-chat-booking-context span {
+  color: #7b8f9d;
+  font-size: 7px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.enziu-chat-booking-context strong {
+  overflow: hidden;
+  color: #31546b;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enziu-chat-takeover-row {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 11px;
+  background: #edf9f7;
+  border-bottom: 1px solid #d9ece8;
+}
+
+.enziu-chat-takeover-row > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #22786f;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.enziu-chat-takeover-row button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 10px;
+  color: #176f68;
+  background: #fff;
+  border: 1px solid #bcded8;
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 8px;
+  font-weight: 850;
+}
+
+.enziu-chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 15px 11px;
+  background:
+    radial-gradient(circle at 100% 0, rgba(21, 162, 179, .055), transparent 34%),
+    linear-gradient(180deg, #fbfdfe, #f5f9fb);
+  scrollbar-width: thin;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+.enziu-chat-message {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.enziu-chat-message.mine {
+  justify-content: flex-end;
+}
+
+.enziu-chat-avatar.message-avatar,
+.enziu-chat-avatar-spacer {
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  border-radius: 9px;
+}
+
+.enziu-chat-message > div {
+  max-width: 79%;
+}
+
+.enziu-chat-message p {
+  margin: 0;
+  padding: 9px 11px;
+  color: #39566b;
+  background: #fff;
+  border: 1px solid #dce7ed;
+  border-radius: 14px 14px 14px 4px;
+  box-shadow: 0 4px 12px rgba(24, 59, 81, .045);
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.enziu-chat-message.mine p {
+  color: #fff;
+  background: linear-gradient(135deg, #159f94, #167bc4);
+  border-color: transparent;
+  border-radius: 14px 14px 4px 14px;
+}
+
+.enziu-chat-message footer {
+  min-height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+  padding: 2px 3px 0;
+  color: #91a1ac;
+  font-size: 7px;
+}
+
+.enziu-chat-message.mine footer {
+  justify-content: flex-end;
+}
+
+.enziu-chat-message footer button {
+  padding: 0;
+  color: #c44e45;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 7px;
+  font-weight: 900;
+  text-decoration: underline;
+}
+
+.enziu-chat-delivery {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.enziu-chat-system-event {
+  width: min(88%, 330px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 11px auto;
+  text-align: center;
+}
+
+.enziu-chat-system-event span {
+  padding: 6px 10px;
+  color: #657d8f;
+  background: rgba(229, 238, 244, .84);
+  border: 1px solid rgba(207, 221, 230, .9);
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.enziu-chat-system-event time {
+  color: #98a8b3;
+  font-size: 7px;
+}
+
+.enziu-chat-booking-tools {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  background: #fff;
+  border-top: 1px solid #e0e9ef;
+}
+
+.enziu-chat-booking-tools > button {
+  width: 100%;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  color: #42647a;
+  background: #fbfdfe;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.enziu-chat-booking-tools > button span {
+  margin-left: auto;
+  color: #16827b;
+  font-size: 8px;
+}
+
+.enziu-chat-booking-tool-body {
+  max-height: 180px;
+  display: grid;
+  gap: 8px;
+  overflow-y: auto;
+  padding: 8px 10px 10px;
+  background: #f7fafc;
+}
+
+.enziu-chat-arrival-buttons,
+.enziu-chat-late-checkout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+}
+
+.enziu-chat-arrival-buttons > button,
+.enziu-chat-arrival-buttons label,
+.enziu-chat-late-checkout label,
+.enziu-chat-late-checkout > input,
+.enziu-chat-late-checkout > button {
+  min-height: 34px;
+}
+
+.enziu-chat-arrival-buttons label {
+  display: grid;
+  grid-template-columns: auto 76px auto;
+  align-items: center;
+  gap: 5px;
+  color: #62798a;
+  font-size: 8px;
+}
+
+.enziu-chat-arrival-buttons button,
+.enziu-chat-late-checkout button {
+  padding: 0 9px;
+  color: #16756f;
+  background: #fff;
+  border: 1px solid #c9e0dd;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.enziu-chat-booking-tool-body input {
+  min-width: 0;
+  padding: 0 7px;
+  color: #38566a;
+  background: #fff;
+  border: 1px solid #d9e5eb;
+  border-radius: 8px;
+  outline: none;
+  font: inherit;
+  font-size: 8px;
+}
+
+.enziu-chat-late-checkout {
+  grid-template-columns: 118px minmax(0, 1fr) auto;
+}
+
+.enziu-chat-late-checkout label {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  color: #687f8f;
+  font-size: 7px;
+}
+
+.enziu-chat-inline-error {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  color: #a9473e;
+  background: #fff1ef;
+  border-top: 1px solid #f1d1cc;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.enziu-chat-composer {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: end;
+  gap: 7px;
+  padding: 9px 10px 10px;
+  background: #fff;
+  border-top: 1px solid #e0e9ef;
+}
+
+.enziu-chat-composer textarea {
+  min-height: 42px;
+  max-height: 94px;
+  resize: none;
+  padding: 10px 11px;
+  color: #27485f;
+  background: #f7fafc;
+  border: 1px solid #d7e3ea;
+  border-radius: 12px;
+  outline: 0;
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.45;
+  overflow-y: auto;
+}
+
+.enziu-chat-composer textarea:focus,
+.enziu-chat-search-row input:focus {
+  border-color: #62a9e4;
+  box-shadow: 0 0 0 3px rgba(22, 119, 232, .1);
+}
+
+.enziu-chat-composer button {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, #12a094, #1778ca);
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.enziu-chat-root button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.enziu-chat-root button:focus-visible,
+.enziu-chat-root input:focus-visible,
+.enziu-chat-root textarea:focus-visible {
+  outline: 3px solid rgba(64, 168, 237, .35);
+  outline-offset: 2px;
+}
+
+.enziu-chat-root .spin {
+  animation: enziu-chat-spin .8s linear infinite;
+}
+
+@keyframes enziu-chat-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .enziu-chat-root,
+  .enziu-chat-root.hotel-admin {
+    right: 10px;
+    bottom: max(76px, calc(env(safe-area-inset-bottom) + 72px));
+  }
+
+  .enziu-chat-root.hotel-admin {
+    bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .enziu-chat-launcher {
+    width: 54px;
+    min-width: 54px;
+    height: 54px;
+    padding: 0;
+  }
+
+  .enziu-chat-launcher > span {
+    display: none;
+  }
+
+  .enziu-chat-panel,
+  .hotel-admin .enziu-chat-panel {
+    position: fixed;
+    inset: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+    width: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    border-radius: 18px;
+  }
+
+  .enziu-chat-message > div {
+    max-width: 84%;
+  }
+
+  .enziu-chat-system-event {
+    width: min(92%, 360px);
+  }
+}
+
+@media (max-width: 410px) {
+  .enziu-chat-panel-header {
+    gap: 6px;
+    padding-inline: 8px;
+  }
+
+  .enziu-chat-panel-header button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .enziu-chat-avatar.header-avatar {
+    width: 38px;
+    height: 38px;
+  }
+
+  .enziu-chat-arrival-buttons,
+  .enziu-chat-late-checkout {
+    grid-template-columns: 1fr;
+  }
+
+  .enziu-chat-arrival-buttons label {
+    grid-template-columns: auto 1fr auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enziu-chat-root *,
+  .enziu-chat-root *::before,
+  .enziu-chat-root *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
+}

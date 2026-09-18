@@ -34,6 +34,9 @@ export function resolveNotificationTarget(item, role) {
   const normalizedRole = normalizeRole(role);
 
   if (normalizedRole === "HOTEL_ADMIN") {
+    if (category === "COMPLAINT") {
+      return actionUrl && actionUrl !== "/hotel-admin" ? actionUrl : "/hotel-admin/complaints";
+    }
     if (category === "HOUSEKEEPING" || type === "ROOM_CLEANING") {
       return actionUrl && actionUrl !== "/hotel-admin"
         ? actionUrl
@@ -71,6 +74,9 @@ export function resolveNotificationTarget(item, role) {
   }
 
   if (normalizedRole === "CUSTOMER") {
+    if (category === "COMPLAINT") {
+      return actionUrl && actionUrl !== "/" ? actionUrl : "/customer/complaints";
+    }
     if (category === "PARTNER") {
       return actionUrl && actionUrl !== "/"
         ? actionUrl
@@ -90,6 +96,9 @@ export function resolveNotificationTarget(item, role) {
   }
 
   if (normalizedRole === "SYSTEM_ADMIN") {
+    if (category === "COMPLAINT") {
+      return actionUrl && actionUrl !== "/" ? actionUrl : "/admin/complaints";
+    }
     if (category === "PARTNER") {
       return actionUrl && actionUrl !== "/" ? actionUrl : "/admin/partner-requests";
     }

@@ -968,7 +968,7 @@ export default function RoomTypesPage() {
           previousApproval === "APPROVED"
             ? refreshedRoomType?.approvalStatus === "APPROVED"
               ? " Thay đổi nhỏ đã áp dụng ngay, không cần xét duyệt lại."
-              : " Thay đổi quan trọng cần System Admin xét duyệt lại trước khi công khai."
+              : " Thay đổi quan trọng cần EnziuRooms xét duyệt lại trước khi công khai."
             : "";
 
         setMessage(`Đã cập nhật loại phòng.${roomMessage}${approvalMessage}`);
@@ -1126,7 +1126,7 @@ export default function RoomTypesPage() {
         className="catalog-heading catalog-experience__header"
         eyebrow="DANH MỤC PHÒNG"
         title="Loại phòng khách sạn"
-        description="Quản lý giá, sức chứa, tiện nghi, hình ảnh, chính sách thanh toán và số phòng thực tế của từng loại phòng."
+        description="Quản lý giá, sức chứa, tiện nghi, hình ảnh, chính sách thanh toán và số lượng phòng của từng loại."
         actions={(
           <button
             type="button"
@@ -1709,7 +1709,7 @@ export default function RoomTypesPage() {
             </div>
 
             <div className="catalog-field catalog-field-full catalog-room-inventory-editor">
-              <span>{editingId ? "Phòng thực tế" : "Tạo phòng ban đầu"}</span>
+              <span>{editingId ? "Danh sách phòng" : "Tạo phòng ban đầu"}</span>
 
               {editingId ? (
                 <>
@@ -1788,7 +1788,7 @@ export default function RoomTypesPage() {
                     <div className="catalog-room-change-panel catalog-room-rename-panel">
                       <div className="catalog-room-rename-heading">
                         <strong>Đổi số một phòng thực tế</strong>
-                        <small>Thao tác này không thay đổi loại phòng và không cần System Admin duyệt lại.</small>
+                        <small>Thao tác này không thay đổi loại phòng và không cần xét duyệt lại.</small>
                       </div>
 
                       <label className="catalog-field">

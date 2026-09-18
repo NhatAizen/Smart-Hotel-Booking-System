@@ -32,6 +32,7 @@ export default function Modal({
   initialFocusRef,
   ariaLabel,
   className = "",
+  backdropClassName = "",
   bodyClassName = "",
 }) {
   const modalRef = useRef(null);
@@ -98,7 +99,7 @@ export default function Modal({
 
   return createPortal(
     <div
-      className="ui-modal-backdrop"
+      className={classNames("ui-modal-backdrop", backdropClassName)}
       role="presentation"
       onMouseDown={(event) => {
         if (closeOnBackdrop && event.target === event.currentTarget) onClose?.();

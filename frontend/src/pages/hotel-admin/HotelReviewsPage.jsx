@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { EmptyState, ErrorState, LoadingState, StatusBadge } from "../../components/ui";
+import { AvatarImage, EmptyState, ErrorState, LoadingState, StatusBadge } from "../../components/ui";
 import {
   createHotelReviewReply,
   deleteHotelReviewReply,
@@ -325,7 +325,11 @@ export default function HotelReviewsPage() {
                 <header className="review-management-card-head">
                   <div className="review-management-author">
                     <span className="review-management-avatar">
-                      {review.customerAvatarUrl ? <img src={review.customerAvatarUrl} alt="" /> : String(review.customerName ?? "K").charAt(0).toUpperCase()}
+                      <AvatarImage
+                        source={review.customerAvatarUrl}
+                        alt=""
+                        fallback={String(review.customerName ?? "K").charAt(0).toUpperCase()}
+                      />
                     </span>
                     <div>
                       <strong>{review.customerName ?? "Khách EnziuRooms"}</strong>
@@ -407,7 +411,7 @@ export default function HotelReviewsPage() {
       )}
 
       <p className="review-management-footer-note">
-        Hotel Admin không thể sửa hoặc xóa nội dung đánh giá của khách. Review bị System Admin ẩn sẽ không xuất hiện công khai.
+        Khách sạn không thể sửa hoặc xóa nội dung đánh giá của khách. Đánh giá bị EnziuRooms ẩn sẽ không xuất hiện công khai.
       </p>
     </main>
   );

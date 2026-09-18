@@ -9,6 +9,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { getMyBookings } from "../../services/bookingService";
+import { friendlyErrorMessage } from "../../utils/userFacingText";
 
 function money(value) {
   return `${Math.round(Number(value ?? 0)).toLocaleString("vi-VN", { maximumFractionDigits: 0 })} ₫`;
@@ -86,7 +87,7 @@ export default function BookingQuickPanel({ customerId, open }) {
       <div className="booking-quick-header">
         <div>
           <span>ĐƠN ĐẶT PHÒNG</span>
-          <strong>Booking gần đây</strong>
+          <strong>Đơn gần đây</strong>
         </div>
         <div className="booking-quick-summary">
           <small>{summary.activeCount} đơn đang hoạt động</small>
@@ -97,11 +98,11 @@ export default function BookingQuickPanel({ customerId, open }) {
       {loading ? (
         <div className="booking-quick-state">
           <LoaderCircle className="spin" size={22} />
-          Đang tải booking...
+          Đang tải đơn đặt phòng...
         </div>
       ) : null}
 
-      {error ? <div className="booking-quick-error">{error}</div> : null}
+      {error ? <div className="booking-quick-error">{friendlyErrorMessage(error, "Chưa thể tải đơn đặt phòng lúc này.")}</div> : null}
 
       {!loading && !error && bookings.length === 0 ? (
         <div className="booking-quick-state">Bạn chưa có đơn đặt phòng nào.</div>
@@ -135,7 +136,7 @@ export default function BookingQuickPanel({ customerId, open }) {
               {expanded ? (
                 <div className="booking-quick-details">
                   <span>
-                    <ReceiptText size={15} /> Tổng booking: {money(booking.totalPrice)}
+                    <ReceiptText size={15} /> Tổng tiền: {money(booking.totalPrice)}
                   </span>
                   <span>
                     <CircleDollarSign size={15} /> Đã trả: {money(booking.paidAmount)}

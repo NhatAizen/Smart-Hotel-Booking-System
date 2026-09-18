@@ -30,6 +30,7 @@ import {
 import { useAuth } from "../../auth/AuthContext";
 import enziuLogo from "../../assets/enziu-logo.png";
 import NotificationBell from "../notifications/NotificationBell";
+import { AvatarImage } from "../ui";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -85,11 +86,6 @@ export default function Navbar() {
    * avatarUrl
    * avatar
    */
-  const avatarUrl =
-    user?.avatarUrl ??
-    user?.avatar ??
-    null;
-
   /*
    * =========================================================
    * ĐÓNG ACCOUNT MENU KHI CLICK RA NGOÀI
@@ -342,17 +338,11 @@ export default function Navbar() {
                   aria-controls="customer-account-dropdown"
                 >
                   <span className="account-avatar">
-                    {avatarUrl ? (
-                      <img
-                        src={avatarUrl}
-                        alt={
-                          user?.fullName ??
-                          "Ảnh đại diện"
-                        }
-                      />
-                    ) : (
-                      getAvatarText()
-                    )}
+                    <AvatarImage
+                      source={user}
+                      alt={user?.fullName ?? "Ảnh đại diện"}
+                      fallback={getAvatarText()}
+                    />
                   </span>
 
                   <span className="account-info">
@@ -390,17 +380,11 @@ export default function Navbar() {
                     ====================================== */}
                     <div className="account-dropdown-header">
                       <span className="account-dropdown-avatar">
-                        {avatarUrl ? (
-                          <img
-                            src={avatarUrl}
-                            alt={
-                              user?.fullName ??
-                              "Ảnh đại diện"
-                            }
-                          />
-                        ) : (
-                          getAvatarText()
-                        )}
+                        <AvatarImage
+                          source={user}
+                          alt={user?.fullName ?? "Ảnh đại diện"}
+                          fallback={getAvatarText()}
+                        />
                       </span>
 
                       <div>
@@ -457,7 +441,7 @@ export default function Navbar() {
                         </strong>
 
                         <small>
-                          Lịch sử và trạng thái booking
+                          Lịch sử và trạng thái đơn
                         </small>
                       </span>
                     </Link>

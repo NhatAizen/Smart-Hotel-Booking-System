@@ -17,6 +17,8 @@ import {
   useState,
 } from "react";
 
+import { AvatarImage } from "../ui";
+
 import "./ReviewExplorerModal.css";
 
 const PAGE_SIZE = 5;
@@ -343,19 +345,12 @@ export default function ReviewExplorerModal({
                     <aside className="review-author-column">
                       <div className="review-author-head">
                         <span className="review-author-avatar">
-                          <span>
-                            {String(review.customerName ?? "K").charAt(0).toUpperCase()}
-                          </span>
-                          {review.customerAvatarUrl ? (
-                            <img
-                              src={review.customerAvatarUrl}
-                              alt={review.customerName ?? "Ảnh đại diện khách hàng"}
-                              loading="lazy"
-                              onError={(event) => {
-                                event.currentTarget.style.display = "none";
-                              }}
-                            />
-                          ) : null}
+                          <AvatarImage
+                            source={review.customerAvatarUrl}
+                            alt={review.customerName ?? "Ảnh đại diện khách hàng"}
+                            loading="lazy"
+                            fallback={<span>{String(review.customerName ?? "K").charAt(0).toUpperCase()}</span>}
+                          />
                         </span>
                         <div>
                           <strong>{review.customerName}</strong>

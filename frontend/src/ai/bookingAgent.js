@@ -513,7 +513,7 @@ function formatRoomFact(room) {
   if (room.maxChildren > 0) {
     parts.push(`${room.maxChildren} trẻ em`);
   } else {
-    parts.push("không hỗ trợ trẻ em theo dữ liệu hiện tại");
+    parts.push("hiện chưa có thông tin phù hợp cho trẻ em");
   }
 
   if (room.bedCount > 0 || room.bedType) {
@@ -999,7 +999,7 @@ function buildSmartFallback({ question, facts, state, messages }) {
 
     if (!candidates.length) {
       return {
-        answer: `${hotelName} hiện chưa có loại phòng nào được dữ liệu xác nhận phù hợp cho gia đình có trẻ em.`,
+        answer: `${hotelName} hiện chưa có loại phòng nào phù hợp rõ ràng cho gia đình có trẻ em.`,
         relevantRoomNames: [],
         suggestedPrompts: [],
       };

@@ -82,6 +82,23 @@ export const STATUS_LABELS = Object.freeze({
   CLOSED: "Đã đóng",
   READ: "Đã đọc",
   UNREAD: "Chưa đọc",
+  BLOCKED: "Đã chặn",
+  DELETED: "Đã xóa",
+  DISABLED: "Đã vô hiệu hóa",
+  HELD: "Đang tạm giữ",
+  RELEASED: "Đã giải ngân",
+  REPLIED: "Đã phản hồi",
+  RESOLVED: "Đã giải quyết",
+  SUBMITTED: "Đã tiếp nhận",
+  UNDER_REVIEW: "Đang xem xét",
+  WAITING: "Đang chờ",
+  WAITING_FOR_HOTEL: "Chờ khách sạn phản hồi",
+  WAITING_FOR_CUSTOMER: "Chờ khách hàng bổ sung",
+  RESOLVING: "Đang xử lý",
+  VERIFIED: "Đã xác minh",
+  VISIBLE: "Đang hiển thị",
+  HIDDEN: "Đã ẩn",
+  LOCKED: "Đã khóa",
 });
 
 export const STATUS_TONES = Object.freeze({
@@ -118,6 +135,23 @@ export const STATUS_TONES = Object.freeze({
   UNREAD: "info",
   OCCUPIED: "info",
   UNPAID: "warning",
+  BLOCKED: "danger",
+  DELETED: "neutral",
+  DISABLED: "neutral",
+  HELD: "warning",
+  RELEASED: "success",
+  REPLIED: "info",
+  RESOLVED: "success",
+  SUBMITTED: "info",
+  UNDER_REVIEW: "info",
+  WAITING: "warning",
+  WAITING_FOR_HOTEL: "warning",
+  WAITING_FOR_CUSTOMER: "warning",
+  RESOLVING: "info",
+  VERIFIED: "success",
+  VISIBLE: "success",
+  HIDDEN: "neutral",
+  LOCKED: "danger",
 });
 
 export function normalizeEnum(value) {
@@ -144,9 +178,11 @@ function overrideFor(value, overrides) {
 }
 
 export function statusLabel(value, overrides) {
+  if (value === null || value === undefined || value === "") return "";
   const override = overrideFor(value, overrides);
   if (override) return typeof override === "string" ? override : override.label;
-  return humanizeEnum(value, STATUS_LABELS);
+  const normalized = normalizeEnum(value);
+  return STATUS_LABELS[normalized] ?? "Trạng thái chưa xác định";
 }
 
 export function statusTone(value, overrides) {

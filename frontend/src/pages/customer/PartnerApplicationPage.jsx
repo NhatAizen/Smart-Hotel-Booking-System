@@ -1,16 +1,20 @@
 import {
   BadgeCheck,
+  ArrowLeft,
+  ArrowRight,
   BriefcaseBusiness,
   Building2,
   CalendarDays,
   CheckCircle2,
   Clock3,
   FileCheck2,
+  FileText,
   Info,
   RotateCcw,
   ScanLine,
   Send,
   ShieldCheck,
+  Trash2,
   UploadCloud,
   UserRound,
   XCircle,
@@ -38,14 +42,24 @@ const EMPTY_FORM = {
   businessPhone: "",
   businessAddress: "",
   note: "",
+  contactEmail: "",
+  businessTaxCode: "",
 };
+
+const PARTNER_STEPS = [
+  "Loại đối tác",
+  "Thông tin",
+  "Xác minh danh tính",
+  "Giấy tờ",
+  "Kiểm tra & gửi",
+];
 
 function normalizeStatus(value) {
   return String(value ?? "").trim().toUpperCase();
 }
 
 function applicantTypeLabel(value) {
-  return value === "BUSINESS" ? "Doanh nghiệp" : "Cá nhân";
+  return value === "BUSINESS" ? "Doanh nghiệp / Hộ kinh doanh" : "Cá nhân";
 }
 
 function statusMeta(status) {
@@ -55,7 +69,7 @@ function statusMeta(status) {
       icon: BadgeCheck,
       title: "Hồ sơ đã được phê duyệt",
       description:
-        "Tài khoản đối tác đã được kích hoạt. Hãy đăng xuất và đăng nhập lại để bắt đầu sử dụng.",
+        "Hồ sơ đã được duyệt. Hãy đăng nhập lại để bắt đầu quản lý khách sạn trên EnziuRooms.",
     };
   }
 
@@ -63,9 +77,19 @@ function statusMeta(status) {
     return {
       className: "rejected",
       icon: XCircle,
+      title: "Hồ sơ đã bị từ chối",
+      description:
+        "Hồ sơ không được phê duyệt. Lý do xử lý được hiển thị bên dưới.",
+    };
+  }
+
+  if (status === "NEED_MORE_INFO") {
+    return {
+      className: "needs-info",
+      icon: Info,
       title: "Hồ sơ cần bổ sung",
       description:
-        "Hồ sơ chưa được duyệt. Bạn có thể cập nhật thông tin, chụp lại CCCD và xác minh lại.",
+        "Vui lòng cập nhật thông tin hoặc giấy tờ theo yêu cầu rồi gửi lại hồ sơ.",
     };
   }
 
@@ -75,7 +99,7 @@ function statusMeta(status) {
       icon: Clock3,
       title: "Hồ sơ đang chờ duyệt",
       description:
-        "Thông tin CCCD và khuôn mặt đã được xác minh. Hồ sơ đang chờ xét duyệt.",
+        "Hồ sơ của bạn đã được gửi và đang chờ EnziuRooms xét duyệt.",
     };
   }
 
@@ -134,6 +158,82 @@ function validateImage(file, label) {
   return "";
 }
 
+function formatFileSize(value) {
+  const bytes = Number(value ?? 0);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function validateSupportingFile(file) {
+  if (!file) return "";
+  const extension = String(file.name ?? "").toLowerCase().split(".").pop();
+  const allowedType = ["application/pdf", "image/jpeg", "image/png"].includes(file.type)
+    || ["pdf", "jpg", "jpeg", "png"].includes(extension);
+  if (!allowedType) return "Chỉ hỗ trợ PDF, JPG/JPEG hoặc PNG.";
+  if (file.size > 8 * 1024 * 1024) return "Tệp tối đa 8MB.";
+  return "";
+}
+
+function SupportingFileField({
+  title,
+  description,
+  required,
+  file,
+  existingName,
+  submitting,
+  onSelect,
+  onRemove,
+}) {
+  function receiveFile(candidate) {
+    if (candidate) onSelect(candidate);
+  }
+
+  return (
+    <div className={`partner-supporting-upload ${file || existingName ? "has-file" : ""}`}>
+      <div className="partner-supporting-upload-copy">
+        <FileText size={22} />
+        <div>
+          <strong>{title}{required ? " *" : ""}</strong>
+          <small>{description}</small>
+        </div>
+      </div>
+      {file || existingName ? (
+        <div className="partner-selected-file">
+          <FileCheck2 size={20} />
+          <span>
+            <strong>{file?.name ?? existingName}</strong>
+            <small>{submitting ? "Đang tải lên..." : file ? `${formatFileSize(file.size)} · Sẵn sàng` : "Đã lưu trong hồ sơ"}</small>
+          </span>
+          {file ? (
+            <button type="button" onClick={onRemove} aria-label={`Xóa ${file.name}`}>
+              <Trash2 size={17} />
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <label
+          className="partner-file-dropzone"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            event.preventDefault();
+            receiveFile(event.dataTransfer.files?.[0]);
+          }}
+        >
+          <UploadCloud size={25} />
+          <span><strong>Kéo thả tệp vào đây</strong><small>hoặc chọn từ thiết bị</small></span>
+          <b>Chọn tệp</b>
+          <input
+            type="file"
+            accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
+            onChange={(event) => receiveFile(event.target.files?.[0])}
+          />
+        </label>
+      )}
+    </div>
+  );
+}
+
 export default function PartnerApplicationPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [request, setRequest] = useState(null);
@@ -150,9 +250,13 @@ export default function PartnerApplicationPage() {
   const [pageError, setPageError] = useState("");
   const [ocrError, setOcrError] = useState("");
   const [success, setSuccess] = useState("");
+  const [activeStep, setActiveStep] = useState(1);
+  const [managementProofFile, setManagementProofFile] = useState(null);
+  const [businessLicenseFile, setBusinessLicenseFile] = useState(null);
+  const [fileError, setFileError] = useState("");
 
   const status = normalizeStatus(request?.status);
-  const canSubmit = !request || status === "REJECTED";
+  const canSubmit = !request || status === "NEED_MORE_INFO";
   const currentStatus = useMemo(
     () => (request ? statusMeta(status) : null),
     [request, status],
@@ -185,6 +289,8 @@ export default function PartnerApplicationPage() {
           dateOfBirth: partner.dateOfBirth ?? "",
           businessPhone: partner.businessPhone ?? "",
           businessAddress: partner.businessAddress ?? "",
+          contactEmail: partner.contactEmail ?? profile?.email ?? "",
+          businessTaxCode: partner.businessTaxCode ?? "",
           note: partner.note ?? "",
         });
       } else {
@@ -195,6 +301,7 @@ export default function PartnerApplicationPage() {
           businessPhone: profile?.phone ?? current.businessPhone,
           businessAddress:
             profile?.address ?? profile?.city ?? current.businessAddress,
+          contactEmail: profile?.email ?? current.contactEmail,
         }));
       }
     } catch (requestError) {
@@ -286,6 +393,44 @@ export default function PartnerApplicationPage() {
     setSuccess("");
   }
 
+  function chooseSupportingFile(file, kind) {
+    const validationError = validateSupportingFile(file);
+    if (validationError) {
+      setFileError(validationError);
+      return;
+    }
+    if (kind === "business") setBusinessLicenseFile(file);
+    else setManagementProofFile(file);
+    setFileError("");
+    setPageError("");
+  }
+
+  function validateInformation() {
+    if (!form.legalName.trim()) {
+      return form.applicantType === "BUSINESS"
+        ? "Vui lòng nhập tên doanh nghiệp hoặc hộ kinh doanh."
+        : "Vui lòng nhập họ và tên.";
+    }
+    if (form.applicantType === "BUSINESS") {
+      if (!form.representativeName.trim()) return "Vui lòng nhập họ tên người đại diện.";
+      const taxCode = form.businessTaxCode.replace(/\D/g, "");
+      if (!/^\d{10}(\d{3})?$/.test(taxCode)) {
+        return "Mã số thuế phải gồm 10 hoặc 13 chữ số.";
+      }
+    }
+    if (!form.dateOfBirth) return "Vui lòng nhập ngày sinh của chủ hồ sơ hoặc người đại diện.";
+    if (!form.businessPhone.trim()) return "Vui lòng nhập số điện thoại liên hệ.";
+    if (!/^\S+@\S+\.\S+$/.test(form.contactEmail.trim())) {
+      return "Vui lòng nhập email liên hệ hợp lệ.";
+    }
+    if (!form.businessAddress.trim()) {
+      return form.applicantType === "BUSINESS"
+        ? "Vui lòng nhập địa chỉ trụ sở."
+        : "Vui lòng nhập địa chỉ liên hệ.";
+    }
+    return "";
+  }
+
   function validateOcrInputs() {
     const representativeName =
       form.applicantType === "INDIVIDUAL"
@@ -343,12 +488,12 @@ export default function PartnerApplicationPage() {
         backFile,
       );
       setOcrCheck(result);
-      setSuccess(result?.message || "CCCD mặt trước và mặt sau đã được OCR/MRZ và đối chiếu thành công.");
+      setSuccess(result?.message || "Thông tin trên hai mặt CCCD đã được đối chiếu thành công.");
     } catch (ocrError) {
       setOcrCheck(null);
       setOcrError(
         ocrError.response?.data?.message ||
-          "OCR/MRZ chưa đọc chắc chắn được CCCD. Hãy chụp rõ cả mặt trước và mặt sau, giữ thẻ thẳng, gần hơn, đủ sáng và tránh lóa.",
+          "Chưa đọc rõ thông tin trên CCCD. Hãy chụp lại đủ hai mặt, giữ thẻ thẳng, đủ sáng và tránh lóa.",
       );
     } finally {
       setCheckingOcr(false);
@@ -356,26 +501,14 @@ export default function PartnerApplicationPage() {
   }
 
   function validateBase() {
-    if (!form.legalName.trim()) {
-      return "Vui lòng nhập họ tên hoặc tên doanh nghiệp.";
-    }
-    if (form.applicantType === "BUSINESS" && !form.representativeName.trim()) {
-      return "Vui lòng nhập họ tên người đại diện pháp luật.";
-    }
+    const informationError = validateInformation();
+    if (informationError) return informationError;
     if (!/^\d{12}$/.test(form.identityNumber)) {
       return "CCCD phải gồm đúng 12 chữ số.";
     }
     if (/^(\d)\1{11}$/.test(form.identityNumber)) {
       return "Số CCCD không hợp lệ.";
     }
-    if (!form.dateOfBirth) return "Vui lòng nhập ngày sinh đúng trên CCCD.";
-    if (!form.businessPhone.trim()) {
-      return "Vui lòng nhập số điện thoại liên hệ.";
-    }
-    if (!form.businessAddress.trim()) {
-      return "Vui lòng nhập địa chỉ liên hệ.";
-    }
-
     const frontError = validateImage(frontFile, "mặt trước");
     if (frontError) return frontError;
     const backError = validateImage(backFile, "mặt sau");
@@ -387,12 +520,56 @@ export default function PartnerApplicationPage() {
     const baseError = validateBase();
     if (baseError) return baseError;
     if (!ocrCheck?.verified) {
-      return "Vui lòng kiểm tra OCR CCCD thành công trước khi xác minh khuôn mặt.";
+      return "Vui lòng hoàn tất bước kiểm tra CCCD trước khi xác minh khuôn mặt.";
     }
     if (!ekycCapture?.verified || !ekycCapture?.verificationReceipt) {
       return "Vui lòng quét khuôn mặt đến khi vòng xác minh chuyển xanh trước khi gửi hồ sơ.";
     }
+    if (form.applicantType === "BUSINESS"
+      && !businessLicenseFile
+      && !request?.businessLicenseAvailable) {
+      return "Vui lòng tải giấy chứng nhận đăng ký doanh nghiệp hoặc hộ kinh doanh.";
+    }
+    const managementError = validateSupportingFile(managementProofFile);
+    if (managementError) return managementError;
+    const licenseError = validateSupportingFile(businessLicenseFile);
+    if (licenseError) return licenseError;
     return "";
+  }
+
+  function validateCurrentStep(step) {
+    if (step === 1) return form.applicantType ? "" : "Vui lòng chọn loại đối tác.";
+    if (step === 2) return validateInformation();
+    if (step === 3) {
+      const baseError = validateBase();
+      if (baseError) return baseError;
+      if (!ocrCheck?.verified) return "Vui lòng hoàn tất kiểm tra CCCD.";
+      if (!ekycCapture?.verified || !ekycCapture?.verificationReceipt) {
+        return "Vui lòng hoàn tất xác minh khuôn mặt.";
+      }
+    }
+    if (step === 4) {
+      if (form.applicantType === "BUSINESS"
+        && !businessLicenseFile
+        && !request?.businessLicenseAvailable) {
+        return "Vui lòng tải giấy chứng nhận đăng ký doanh nghiệp hoặc hộ kinh doanh.";
+      }
+      return validateSupportingFile(
+        form.applicantType === "BUSINESS" ? businessLicenseFile : managementProofFile,
+      );
+    }
+    return "";
+  }
+
+  function goToNextStep() {
+    const validationError = validateCurrentStep(activeStep);
+    if (validationError) {
+      setPageError(validationError);
+      return;
+    }
+    setPageError("");
+    setActiveStep((current) => Math.min(PARTNER_STEPS.length, current + 1));
+    window.scrollTo({ top: 120, behavior: "smooth" });
   }
 
   async function handleSubmit(event) {
@@ -432,11 +609,19 @@ export default function PartnerApplicationPage() {
           dateOfBirth: form.dateOfBirth,
           businessPhone: form.businessPhone.trim(),
           businessAddress: form.businessAddress.trim(),
+          contactEmail: form.contactEmail.trim(),
+          businessTaxCode: form.applicantType === "BUSINESS"
+            ? form.businessTaxCode.replace(/\D/g, "")
+            : null,
           note: form.note.trim() || null,
         },
         frontFile,
         backFile,
         ekycCapture,
+        {
+          managementProof: form.applicantType === "INDIVIDUAL" ? managementProofFile : null,
+          businessLicense: form.applicantType === "BUSINESS" ? businessLicenseFile : null,
+        },
       );
 
       setRequest(saved);
@@ -444,6 +629,9 @@ export default function PartnerApplicationPage() {
       setBackFile(null);
       setOcrCheck(null);
       setEkycCapture(null);
+      setManagementProofFile(null);
+      setBusinessLicenseFile(null);
+      setActiveStep(1);
       if (frontPreview) URL.revokeObjectURL(frontPreview);
       if (backPreview) URL.revokeObjectURL(backPreview);
       setFrontPreview("");
@@ -461,7 +649,7 @@ export default function PartnerApplicationPage() {
       }
       setPageError(
         responseMessage ??
-          "Không thể xác minh/gửi hồ sơ. Hãy dùng ảnh CCCD rõ nét và thực hiện camera eKYC lại.",
+          "Chưa thể gửi hồ sơ. Hãy kiểm tra lại ảnh CCCD và thực hiện xác minh khuôn mặt thêm một lần nữa.",
       );
     } finally {
       setSubmitting(false);
@@ -488,7 +676,7 @@ export default function PartnerApplicationPage() {
             </span>
             <h1>Trở thành đối tác khách sạn</h1>
             <p>
-              Xác minh danh tính bằng CCCD và khuôn mặt trước khi gửi hồ sơ xét duyệt.
+              Hoàn tất hồ sơ để bắt đầu đăng phòng, quản lý đặt chỗ và vận hành khách sạn cùng EnziuRooms.
             </p>
           </div>
           <div className="partner-hero-benefits">
@@ -496,14 +684,14 @@ export default function PartnerApplicationPage() {
               <ScanLine size={21} />
               <span>
                 <strong>Xác minh danh tính</strong>
-                <small>Đối chiếu CCCD và khuôn mặt trực tiếp</small>
+                <small>Đối chiếu CCCD và khuôn mặt trước khi gửi hồ sơ</small>
               </span>
             </div>
             <div>
               <ShieldCheck size={21} />
               <span>
-                <strong>Kiểm tra người thật</strong>
-                <small>Camera chỉ dùng trong bước xác minh</small>
+                <strong>Bảo vệ tài khoản</strong>
+                <small>Giúp EnziuRooms xác nhận đúng người đăng ký</small>
               </span>
             </div>
           </div>
@@ -526,9 +714,9 @@ export default function PartnerApplicationPage() {
               <span>TRẠNG THÁI HỒ SƠ</span>
               <h2>{currentStatus.title}</h2>
               <p>{currentStatus.description}</p>
-              {status === "REJECTED" && request.rejectionReason ? (
+              {["REJECTED", "NEED_MORE_INFO"].includes(status) && request.rejectionReason ? (
                 <div className="partner-rejection-reason">
-                  <strong>Lý do:</strong> {request.rejectionReason}
+                  <strong>{status === "NEED_MORE_INFO" ? "Nội dung cần bổ sung:" : "Lý do:"}</strong> {request.rejectionReason}
                 </div>
               ) : null}
             </div>
@@ -544,7 +732,7 @@ export default function PartnerApplicationPage() {
             <BadgeCheck size={52} />
             <h2>Chào mừng bạn trở thành đối tác EnziuRooms</h2>
             <p>
-              Tài khoản đối tác đã được kích hoạt. Hãy đăng xuất rồi đăng nhập lại để bắt đầu quản lý khách sạn.
+              Hồ sơ đã được duyệt. Hãy đăng nhập lại để bắt đầu quản lý khách sạn trên EnziuRooms.
             </p>
           </section>
         ) : status === "PENDING" ? (
@@ -552,7 +740,7 @@ export default function PartnerApplicationPage() {
             <div className="partner-section-heading">
               <div>
                 <span>HỒ SƠ ĐÃ GỬI</span>
-                <h2>Hồ sơ đã xác minh</h2>
+                <h2>Hồ sơ đang được xét duyệt</h2>
               </div>
               <BadgeCheck size={28} />
             </div>
@@ -568,7 +756,7 @@ export default function PartnerApplicationPage() {
               <div className={`partner-ocr-banner ${request.ekycVerified ? "verified" : "failed"}`}>
                 <ShieldCheck size={22} />
                 <div>
-                  <strong>{request.ekycVerified ? "Xác minh khuôn mặt hợp lệ" : "Chưa có eKYC hợp lệ"}</strong>
+                  <strong>{request.ekycVerified ? "Khuôn mặt đã được xác minh" : "Chưa xác minh khuôn mặt"}</strong>
                   <small>Khuôn mặt đã được đối chiếu với ảnh trên CCCD.</small>
                 </div>
               </div>
@@ -581,7 +769,12 @@ export default function PartnerApplicationPage() {
               <div><small>Số CCCD</small><strong>{request.identityNumber}</strong></div>
               <div><small>Ngày sinh</small><strong>{formatDate(request.dateOfBirth)}</strong></div>
               <div><small>Điện thoại</small><strong>{request.businessPhone}</strong></div>
+              <div><small>Email</small><strong>{request.contactEmail || "Chưa cung cấp"}</strong></div>
+              {request.applicantType === "BUSINESS" ? <div><small>Mã số thuế</small><strong>{request.businessTaxCode || "Chưa cung cấp"}</strong></div> : null}
               <div className="wide"><small>Địa chỉ</small><strong>{request.businessAddress}</strong></div>
+              <div><small>Giấy tờ bổ sung</small><strong>{request.applicantType === "BUSINESS"
+                ? request.businessLicenseName || "Chưa cung cấp"
+                : request.managementProofName || "Không cung cấp"}</strong></div>
               <div><small>Xác minh CCCD</small><strong>{request.ocrVerified ? "Đạt" : "Chưa đạt"}</strong></div>
               <div><small>Xác minh khuôn mặt</small><strong>{request.ekycVerified ? "Đạt" : "Chưa đạt"}</strong></div>
               <div><small>Xác minh lúc</small><strong>{formatDateTime(request.ekycProcessedAt)}</strong></div>
@@ -599,46 +792,67 @@ export default function PartnerApplicationPage() {
             <form className="partner-form-card" onSubmit={handleSubmit}>
               <div className="partner-section-heading">
                 <div>
-                  <span>{status === "REJECTED" ? "GỬI LẠI HỒ SƠ" : "HỒ SƠ ĐĂNG KÝ"}</span>
-                  <h2>{status === "REJECTED" ? "Cập nhật và xác minh lại" : "Thông tin định danh"}</h2>
-                  <p>Thông tin dưới đây phải trùng với CCCD được tải lên.</p>
+                  <span>{status === "NEED_MORE_INFO" ? "BỔ SUNG HỒ SƠ" : "HỒ SƠ ĐĂNG KÝ"}</span>
+                  <h2>{PARTNER_STEPS[activeStep - 1]}</h2>
+                  <p>Chọn hình thức phù hợp và hoàn thiện từng bước trước khi gửi hồ sơ.</p>
                 </div>
-                {status === "REJECTED" ? <RotateCcw size={24} /> : <FileCheck2 size={24} />}
+                {status === "NEED_MORE_INFO" ? <RotateCcw size={24} /> : <FileCheck2 size={24} />}
               </div>
 
-              <fieldset className="partner-type-selector">
+              <nav className="partner-stepper" aria-label="Tiến trình đăng ký đối tác">
+                {PARTNER_STEPS.map((step, index) => {
+                  const number = index + 1;
+                  const complete = number < activeStep;
+                  return (
+                    <button
+                      type="button"
+                      className={`${number === activeStep ? "active" : ""} ${complete ? "complete" : ""}`}
+                      onClick={() => complete && setActiveStep(number)}
+                      disabled={!complete && number !== activeStep}
+                      aria-current={number === activeStep ? "step" : undefined}
+                      key={step}
+                    >
+                      <b>{complete ? <CheckCircle2 size={16} /> : number}</b>
+                      <span>{step}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+
+              {activeStep === 1 ? <fieldset className="partner-type-selector">
                 <legend>Loại đối tác</legend>
                 <label className={form.applicantType === "INDIVIDUAL" ? "active" : ""}>
                   <input type="radio" name="applicantType" value="INDIVIDUAL" checked={form.applicantType === "INDIVIDUAL"} onChange={updateField} />
-                  <UserRound size={22} /><span><strong>Cá nhân</strong><small>Chủ cơ sở / hộ kinh doanh</small></span>
+                  <UserRound size={22} /><span><strong>Cá nhân</strong><small>Phù hợp với chủ lưu trú hoặc người trực tiếp quản lý cơ sở</small></span>
                 </label>
                 <label className={form.applicantType === "BUSINESS" ? "active" : ""}>
                   <input type="radio" name="applicantType" value="BUSINESS" checked={form.applicantType === "BUSINESS"} onChange={updateField} />
-                  <BriefcaseBusiness size={22} /><span><strong>Doanh nghiệp</strong><small>Công ty / pháp nhân</small></span>
+                  <BriefcaseBusiness size={22} /><span><strong>Doanh nghiệp / Hộ kinh doanh</strong><small>Dành cho đơn vị có giấy đăng ký kinh doanh hoặc hộ kinh doanh</small></span>
                 </label>
-              </fieldset>
+              </fieldset> : null}
 
               <div className="partner-form-grid">
+                {activeStep === 2 ? <>
                 <label className="partner-field wide">
-                  <span>{form.applicantType === "BUSINESS" ? "Tên doanh nghiệp" : "Họ và tên pháp lý"} *</span>
-                  <input name="legalName" value={form.legalName} onChange={updateField} maxLength={150} placeholder={form.applicantType === "BUSINESS" ? "Nhập tên pháp lý doanh nghiệp" : "Nhập họ và tên"} />
+                  <span>{form.applicantType === "BUSINESS" ? "Tên doanh nghiệp / hộ kinh doanh" : "Họ và tên"} *</span>
+                  <input name="legalName" value={form.legalName} onChange={updateField} maxLength={150} placeholder={form.applicantType === "BUSINESS" ? "Nhập tên trên giấy chứng nhận đăng ký" : "Nhập họ và tên theo CCCD"} />
                 </label>
 
                 {form.applicantType === "BUSINESS" ? (
-                  <label className="partner-field wide">
-                    <span>Họ tên người đại diện trên CCCD *</span>
-                    <input name="representativeName" value={form.representativeName} onChange={updateField} maxLength={150} placeholder="Nhập tên người đại diện" />
-                  </label>
+                  <>
+                    <label className="partner-field">
+                      <span>Mã số thuế *</span>
+                      <input name="businessTaxCode" inputMode="numeric" value={form.businessTaxCode} onChange={updateField} maxLength={13} placeholder="10 hoặc 13 chữ số" />
+                    </label>
+                    <label className="partner-field">
+                      <span>Người đại diện *</span>
+                      <input name="representativeName" value={form.representativeName} onChange={updateField} maxLength={150} placeholder="Họ tên theo CCCD" />
+                    </label>
+                  </>
                 ) : null}
 
                 <label className="partner-field">
-                  <span>Số CCCD 12 chữ số *</span>
-                  <input name="identityNumber" inputMode="numeric" value={form.identityNumber} onChange={updateIdentityNumber} maxLength={12} placeholder="079204012345" />
-                  <small>Số này phải khớp với thông tin trên CCCD.</small>
-                </label>
-
-                <label className="partner-field">
-                  <span>Ngày sinh trên CCCD *</span>
+                  <span>{form.applicantType === "BUSINESS" ? "Ngày sinh người đại diện" : "Ngày sinh"} *</span>
                   <div className="partner-input-icon"><CalendarDays size={17} /><input type="date" name="dateOfBirth" value={form.dateOfBirth} onChange={updateField} /></div>
                   <small>Ngày sinh phải khớp với thông tin trên CCCD.</small>
                 </label>
@@ -649,8 +863,21 @@ export default function PartnerApplicationPage() {
                 </label>
 
                 <label className="partner-field">
-                  <span>Địa chỉ liên hệ *</span>
-                  <input name="businessAddress" value={form.businessAddress} onChange={updateField} maxLength={255} placeholder="TP. Hồ Chí Minh" />
+                  <span>Email *</span>
+                  <input type="email" name="contactEmail" value={form.contactEmail} onChange={updateField} maxLength={254} placeholder="contact@example.com" />
+                </label>
+
+                <label className="partner-field wide">
+                  <span>{form.applicantType === "BUSINESS" ? "Địa chỉ trụ sở" : "Địa chỉ liên hệ"} *</span>
+                  <input name="businessAddress" value={form.businessAddress} onChange={updateField} maxLength={255} placeholder={form.applicantType === "BUSINESS" ? "Địa chỉ trên giấy đăng ký" : "Địa chỉ liên hệ hiện tại"} />
+                </label>
+                </> : null}
+
+                {activeStep === 3 ? <>
+                <label className="partner-field wide">
+                  <span>Số CCCD của {form.applicantType === "BUSINESS" ? "người đại diện" : "chủ hồ sơ"} *</span>
+                  <input name="identityNumber" inputMode="numeric" value={form.identityNumber} onChange={updateIdentityNumber} maxLength={12} placeholder="079204012345" />
+                  <small>Số này phải khớp với thông tin trên CCCD.</small>
                 </label>
 
                 <div className="partner-field wide">
@@ -678,9 +905,9 @@ export default function PartnerApplicationPage() {
                       </div>
                       <div>
                         <span>BƯỚC 1 · KIỂM TRA CCCD</span>
-                        <h3>{ocrCheck?.verified ? "CCCD đã được xác minh" : "OCR và đối chiếu thông tin"}</h3>
+                        <h3>{ocrCheck?.verified ? "CCCD đã được xác minh" : "Kiểm tra thông tin CCCD"}</h3>
                         <p>
-                          Hệ thống OCR cả mặt trước và mặt sau. Mặt trước đối chiếu số CCCD, họ tên và ngày sinh; mặt sau đọc MRZ để xác nhận hai ảnh thuộc cùng một CCCD.
+                          EnziuRooms kiểm tra thông tin trên cả hai mặt CCCD và đối chiếu với nội dung bạn đã khai.
                         </p>
                       </div>
                     </div>
@@ -693,11 +920,11 @@ export default function PartnerApplicationPage() {
                           <div><CheckCircle2 size={16} /><span>Ngày sinh</span><strong>{formatCompactDate(ocrCheck.dateOfBirth || form.dateOfBirth)}</strong></div>
                         </div>
 
-                        <section className="partner-mrz-result-card" aria-label="Kết quả xác minh MRZ mặt sau">
+                        <section className="partner-mrz-result-card" aria-label="Thông tin đọc từ mặt sau CCCD">
                           <div className="partner-mrz-result-head">
                             <div>
-                              <span>MẶT SAU / MRZ</span>
-                              <strong>Thông tin đọc từ vùng MRZ</strong>
+                              <span>THÔNG TIN MẶT SAU</span>
+                              <strong>Thông tin trên CCCD</strong>
                             </div>
                             <span className="partner-mrz-valid-badge">
                               <CheckCircle2 size={16} /> Hợp lệ
@@ -736,14 +963,14 @@ export default function PartnerApplicationPage() {
                     ) : (
                       <div className="partner-ocr-precheck-note">
                         <Info size={17} />
-                        <span>Chụp rõ đủ 4 góc của cả hai mặt, không phản sáng; đặc biệt giữ rõ vùng MRZ ở cạnh dưới mặt sau. Chỉ khi OCR + MRZ cùng đạt thì bước camera mới được mở.</span>
+                        <span>Chụp rõ đủ 4 góc của cả hai mặt, không phản sáng và không che thông tin. Sau khi CCCD được kiểm tra, bạn có thể tiếp tục xác minh khuôn mặt.</span>
                       </div>
                     )}
 
 
                     {ocrError ? (
                       <div className="partner-ekyc-error" role="alert">
-                        <strong>OCR CCCD chưa đạt</strong>
+                        <strong>Chưa đọc rõ CCCD</strong>
                         <span>{ocrError}</span>
                       </div>
                     ) : null}
@@ -756,10 +983,10 @@ export default function PartnerApplicationPage() {
                     >
                       <ScanLine size={18} />
                       {checkingOcr
-                        ? "Đang quét cả 2 mặt CCCD..."
+                        ? "Đang kiểm tra hai mặt CCCD..."
                         : ocrCheck?.verified
                           ? "Kiểm tra lại CCCD"
-                          : "Kiểm tra OCR CCCD"}
+                          : "Kiểm tra CCCD"}
                     </button>
                   </section>
                 </div>
@@ -773,39 +1000,116 @@ export default function PartnerApplicationPage() {
                     onInteraction={() => setPageError("")}
                   />
                 </div>
+                </> : null}
 
-                <label className="partner-field wide">
-                  <span>Ghi chú</span>
-                  <textarea name="note" value={form.note} onChange={updateField} maxLength={1000} placeholder="Ghi chú thêm cho hồ sơ..." />
-                </label>
+                {activeStep === 4 ? (
+                  <section className="partner-supporting-documents partner-field wide">
+                    <div className="partner-step-intro">
+                      <span>GIẤY TỜ HỒ SƠ</span>
+                      <h3>{form.applicantType === "BUSINESS" ? "Giấy đăng ký kinh doanh" : "Tài liệu quyền quản lý"}</h3>
+                      <p>{form.applicantType === "BUSINESS"
+                        ? "Tải giấy chứng nhận đăng ký doanh nghiệp hoặc hộ kinh doanh để EnziuRooms xét duyệt."
+                        : "Nếu có, bạn có thể cung cấp tài liệu chứng minh quyền sở hữu hoặc quyền quản lý cơ sở lưu trú. EnziuRooms có thể yêu cầu bổ sung tài liệu trong quá trình xét duyệt."}</p>
+                    </div>
+
+                    {form.applicantType === "BUSINESS" ? (
+                      <SupportingFileField
+                        title="Giấy chứng nhận đăng ký doanh nghiệp / hộ kinh doanh"
+                        description="PDF, JPG, JPEG hoặc PNG · tối đa 8MB"
+                        required
+                        file={businessLicenseFile}
+                        existingName={request?.businessLicenseName}
+                        submitting={submitting}
+                        onSelect={(file) => chooseSupportingFile(file, "business")}
+                        onRemove={() => setBusinessLicenseFile(null)}
+                      />
+                    ) : (
+                      <SupportingFileField
+                        title="Giấy tờ chứng minh quyền quản lý cơ sở lưu trú"
+                        description="Không bắt buộc · PDF, JPG, JPEG hoặc PNG · tối đa 8MB"
+                        file={managementProofFile}
+                        existingName={request?.managementProofName}
+                        submitting={submitting}
+                        onSelect={(file) => chooseSupportingFile(file, "management")}
+                        onRemove={() => setManagementProofFile(null)}
+                      />
+                    )}
+
+                    {fileError ? <div className="partner-file-error" role="alert">{fileError}</div> : null}
+                    <div className="partner-demo-note">
+                      <Info size={18} />
+                      <p>Tài liệu này giúp EnziuRooms kiểm tra hồ sơ. Nếu thông tin chưa đầy đủ, bạn có thể được yêu cầu bổ sung trước khi hồ sơ được duyệt.</p>
+                    </div>
+                  </section>
+                ) : null}
+
+                {activeStep === 5 ? (
+                  <section className="partner-review-step partner-field wide">
+                    <div className="partner-step-intro">
+                      <span>KIỂM TRA CUỐI</span>
+                      <h3>Thông tin sẽ gửi xét duyệt</h3>
+                      <p>Kiểm tra lại thông tin trước khi gửi. Bạn sẽ được thông báo ngay khi hồ sơ có kết quả.</p>
+                    </div>
+                    <div className="partner-review-grid">
+                      <div><small>Loại đối tác</small><strong>{applicantTypeLabel(form.applicantType)}</strong></div>
+                      <div><small>{form.applicantType === "BUSINESS" ? "Tên đơn vị" : "Họ và tên"}</small><strong>{form.legalName}</strong></div>
+                      {form.applicantType === "BUSINESS" ? <div><small>Mã số thuế</small><strong>{form.businessTaxCode}</strong></div> : null}
+                      <div><small>Người đại diện</small><strong>{form.applicantType === "BUSINESS" ? form.representativeName : form.legalName}</strong></div>
+                      <div><small>Email</small><strong>{form.contactEmail}</strong></div>
+                      <div><small>Điện thoại</small><strong>{form.businessPhone}</strong></div>
+                      <div className="wide"><small>Địa chỉ</small><strong>{form.businessAddress}</strong></div>
+                      <div><small>Số CCCD</small><strong>{form.identityNumber}</strong></div>
+                      <div><small>Xác minh CCCD</small><strong>{ocrCheck?.verified ? "Đã hoàn tất" : "Chưa hoàn tất"}</strong></div>
+                      <div><small>Khuôn mặt</small><strong>{ekycCapture?.verified ? "Đã xác minh" : "Chưa hoàn tất"}</strong></div>
+                      <div><small>Giấy tờ bổ sung</small><strong>{form.applicantType === "BUSINESS"
+                        ? businessLicenseFile?.name ?? request?.businessLicenseName ?? "Chưa có"
+                        : managementProofFile?.name ?? request?.managementProofName ?? "Không cung cấp"}</strong></div>
+                    </div>
+                    <label className="partner-field wide">
+                      <span>Ghi chú</span>
+                      <textarea name="note" value={form.note} onChange={updateField} maxLength={1000} placeholder="Bạn có thể ghi thêm thông tin cần EnziuRooms lưu ý..." />
+                    </label>
+                  </section>
+                ) : null}
               </div>
 
-              <div className="partner-form-consent">
+              {activeStep === 5 ? <div className="partner-form-consent">
                 <ShieldCheck size={19} />
                 <p>
-                  EnziuRooms sẽ <strong>kiểm tra CCCD, xác minh người thật và đối chiếu khuôn mặt</strong> trước khi gửi hồ sơ. Bạn chỉ cần bắt đầu một lần và giữ khuôn mặt trong khung đến khi xác minh thành công.
+                  Khi gửi hồ sơ, bạn xác nhận thông tin đã khai khớp với giấy tờ cung cấp. EnziuRooms có thể yêu cầu bổ sung nếu hồ sơ chưa đầy đủ.
                 </p>
-              </div>
+              </div> : null}
 
-              <div className="partner-form-actions">
-                <button type="submit" className="partner-submit-button" disabled={submitting || !ocrCheck?.verified || !ekycCapture?.verified || !ekycCapture?.verificationReceipt}>
-                  <Send size={18} />
-                  {submitting ? "Đang gửi hồ sơ..." : status === "REJECTED" ? "Gửi lại hồ sơ đã xác minh" : "Gửi hồ sơ đã xác minh"}
-                </button>
+              <div className="partner-form-actions partner-wizard-actions">
+                {activeStep > 1 ? (
+                  <button type="button" className="partner-back-button" onClick={() => setActiveStep((current) => current - 1)}>
+                    <ArrowLeft size={18} /> Quay lại
+                  </button>
+                ) : <span />}
+                {activeStep < PARTNER_STEPS.length ? (
+                  <button type="button" className="partner-next-button" onClick={goToNextStep}>
+                    Tiếp tục <ArrowRight size={18} />
+                  </button>
+                ) : (
+                  <button type="submit" className="partner-submit-button" disabled={submitting || !ocrCheck?.verified || !ekycCapture?.verified || !ekycCapture?.verificationReceipt}>
+                    <Send size={18} />
+                    {submitting ? "Đang gửi hồ sơ..." : status === "NEED_MORE_INFO" ? "Gửi lại hồ sơ" : "Gửi hồ sơ xét duyệt"}
+                  </button>
+                )}
               </div>
             </form>
 
             <aside className="partner-guide-card">
-              <span>QUY TRÌNH eKYC</span>
-              <h2>Hệ thống kiểm tra gì?</h2>
+              <span>CÁC BƯỚC XÁC MINH</span>
+              <h2>Bạn sẽ thực hiện những gì?</h2>
               <ol>
-                <li><b>1</b><div><strong>Kiểm tra CCCD hai mặt</strong><small>Đọc và đối chiếu thông tin trên mặt trước và mặt sau.</small></div></li>
-                <li><b>2</b><div><strong>Camera trực tiếp</strong><small>Sử dụng camera để xác minh khuôn mặt tại thời điểm đăng ký.</small></div></li>
-                <li><b>3</b><div><strong>Xác minh người thật</strong><small>Giữ khuôn mặt chính diện trong khung đến khi vòng chuyển xanh.</small></div></li>
-                <li><b>4</b><div><strong>Đối chiếu khuôn mặt</strong><small>So sánh khuôn mặt camera với ảnh chân dung trên CCCD.</small></div></li>
-                <li><b>5</b><div><strong>Xét duyệt hồ sơ</strong><small>Hồ sơ được kiểm tra trước khi tài khoản đối tác được kích hoạt.</small></div></li>
+                <li><b>1</b><div><strong>Chụp hai mặt CCCD</strong><small>Đảm bảo ảnh rõ, đủ góc và không bị lóa.</small></div></li>
+                <li><b>2</b><div><strong>Xác minh khuôn mặt</strong><small>Nhìn thẳng vào camera và giữ khuôn mặt trong khung.</small></div></li>
+                <li><b>3</b><div><strong>Đối chiếu chân dung</strong><small>EnziuRooms so sánh khuôn mặt với ảnh trên CCCD.</small></div></li>
+                <li><b>4</b><div><strong>Bổ sung giấy tờ</strong><small>Tải tài liệu cần thiết theo loại đối tác đã chọn.</small></div></li>
+                <li><b>5</b><div><strong>Gửi hồ sơ chờ duyệt</strong><small>EnziuRooms sẽ thông báo khi hồ sơ có kết quả.</small></div></li>
               </ol>
-              <div className="partner-guide-note"><Info size={18} /><p>Thông tin xác minh được dùng để hỗ trợ xét duyệt và bảo vệ tài khoản đối tác.</p></div>
+              <div className="partner-guide-note"><Info size={18} /><p>Thông tin bạn cung cấp chỉ được sử dụng cho việc xác minh và xét duyệt hồ sơ đối tác.</p></div>
             </aside>
           </div>
         ) : null}

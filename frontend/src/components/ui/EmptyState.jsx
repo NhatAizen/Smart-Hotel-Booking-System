@@ -2,7 +2,7 @@ import classNames from "./classNames";
 
 export default function EmptyState({
   icon,
-  title = "Chưa có dữ liệu",
+  title = "Chưa có thông tin",
   description,
   actions,
   compact = false,

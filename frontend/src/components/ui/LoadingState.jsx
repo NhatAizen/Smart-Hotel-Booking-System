@@ -1,7 +1,7 @@
 import classNames from "./classNames";
 
 export default function LoadingState({
-  message = "Đang tải dữ liệu...",
+  message = "Đang tải...",
   label,
   inline = false,
   className = "",

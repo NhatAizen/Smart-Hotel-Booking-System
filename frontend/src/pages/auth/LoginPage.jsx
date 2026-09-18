@@ -9,33 +9,85 @@ import {
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { Browser } from "@capacitor/browser";
+import { Capacitor } from "@capacitor/core";
+
 import enziuLogo from "../../assets/enziu-logo.png";
+
+const DEFAULT_OAUTH_URLS = {
+  google: "/oauth2/authorization/google",
+  facebook: "/oauth2/authorization/facebook",
+};
+
+const MOBILE_OAUTH_URLS = {
+  google: "https://enziurooms.xyz/oauth2/authorization/google",
+  facebook: "https://enziurooms.xyz/oauth2/authorization/facebook",
+};
 
 function GoogleMark() {
   return (
-    <svg className="auth-provider-logo-svg" viewBox="0 0 48 48" aria-hidden="true">
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12S17.4 12 24 12c3 0 5.7 1.1 7.8 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5Z" />
-      <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.7 1.1 7.8 3l5.7-5.7C34 6.1 29.3 4 24 4c-7.7 0-14.3 4.3-17.7 10.7Z" />
-      <path fill="#4CAF50" d="M24 44c5.1 0 9.7-2 13.2-5.2l-6.1-5.1C29.1 35.2 26.7 36 24 36c-5.2 0-9.6-3.3-11.2-7.9l-6.5 5C9.7 39.6 16.3 44 24 44Z" />
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.2 5.7l6.1 5.1C36.8 39.2 44 34 44 24c0-1.2-.1-2.4-.4-3.5Z" />
+    <svg
+      className="auth-provider-logo-svg"
+      viewBox="0 0 48 48"
+      aria-hidden="true"
+    >
+      <path
+        fill="#FFC107"
+        d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12S17.4 12 24 12c3 0 5.7 1.1 7.8 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5Z"
+      />
+      <path
+        fill="#FF3D00"
+        d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.7 1.1 7.8 3l5.7-5.7C34 6.1 29.3 4 24 4c-7.7 0-14.3 4.3-17.7 10.7Z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24 44c5.1 0 9.7-2 13.2-5.2l-6.1-5.1C29.1 35.2 26.7 36 24 36c-5.2 0-9.6-3.3-11.2-7.9l-6.5 5C9.7 39.6 16.3 44 24 44Z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.2 5.7l6.1 5.1C36.8 39.2 44 34 44 24c0-1.2-.1-2.4-.4-3.5Z"
+      />
     </svg>
   );
 }
 
 function FacebookMark() {
-  return <span className="auth-facebook-mark" aria-hidden="true">f</span>;
+  return (
+    <span className="auth-facebook-mark" aria-hidden="true">
+      f
+    </span>
+  );
 }
 
-function ProviderCard({ provider, title, description, buttonLabel, onClick, children }) {
+function ProviderCard({
+  provider,
+  title,
+  description,
+  buttonLabel,
+  onClick,
+  children,
+}) {
   return (
     <article className={`auth-provider-card auth-provider-card-${provider}`}>
       <div className="auth-provider-card-decor" aria-hidden="true" />
-      <div className={`auth-provider-logo-shell${provider === "enziu" ? " auth-provider-logo-enziu" : ""}`}>
+
+      <div
+        className={`auth-provider-logo-shell${
+          provider === "enziu" ? " auth-provider-logo-enziu" : ""
+        }`}
+      >
         {children}
       </div>
+
       <h2>{title}</h2>
+
       <p>{description}</p>
-      <button type="button" className="auth-provider-action" onClick={onClick}>
+
+      <button
+        type="button"
+        className="auth-provider-action"
+        onClick={onClick}
+      >
         <span>{buttonLabel}</span>
         <ArrowRight size={19} />
       </button>
@@ -45,71 +97,162 @@ function ProviderCard({ provider, title, description, buttonLabel, onClick, chil
 
 export default function LoginPage() {
   const navigate = useNavigate();
+
   const [notice, setNotice] = useState(() => {
-    const message = sessionStorage.getItem("enziuroomsAuthNotice") ?? "";
+    const message =
+      sessionStorage.getItem("enziuroomsAuthNotice") ?? "";
+
     sessionStorage.removeItem("enziuroomsAuthNotice");
+
     return message;
   });
 
-  function handleSocialLogin(provider, label) {
-    /*
-     * Production luôn khởi tạo OAuth qua cùng domain EnziuRooms.
-     * Nginx sẽ chuyển /oauth2/** sang identity-service.
-     *
-     * Không dùng URL localhost từ .env khi build production, vì trên
-     * điện thoại/máy người dùng "localhost" chính là thiết bị của họ.
-     */
-    if (import.meta.env.PROD) {
-      window.location.assign(`/oauth2/authorization/${provider}`);
-      return;
-    }
-
+  async function handleSocialLogin(provider, label) {
     const envName =
       provider === "google"
         ? "VITE_GOOGLE_OAUTH_URL"
         : "VITE_FACEBOOK_OAUTH_URL";
-    const oauthUrl = String(import.meta.env[envName] ?? "").trim();
 
-    if (oauthUrl) {
-      window.location.assign(oauthUrl);
+    const configuredUrl = String(
+      import.meta.env[envName] ?? "",
+    ).trim();
+
+    const isNative = Capacitor.isNativePlatform();
+
+    /*
+     * Trên Android/iOS:
+     * Không được dùng URL tương đối như:
+     *
+     * /oauth2/authorization/google
+     *
+     * vì WebView của Capacitor có origin:
+     *
+     * https://localhost
+     *
+     * và nó sẽ thành:
+     *
+     * https://localhost/oauth2/authorization/google
+     *
+     * => React Router 404.
+     *
+     * Vì vậy mobile phải mở URL backend thật.
+     */
+    const oauthUrl = isNative
+      ? configuredUrl || MOBILE_OAUTH_URLS[provider]
+      : configuredUrl || DEFAULT_OAUTH_URLS[provider];
+
+    if (!oauthUrl) {
+      setNotice(
+        `${label} hiện chưa khả dụng. Bạn có thể đăng nhập bằng tài khoản EnziuRooms.`,
+      );
       return;
     }
 
-    setNotice(`${label} hiện chưa khả dụng. Bạn có thể đăng nhập bằng tài khoản EnziuRooms.`);
+    setNotice("");
+
+    try {
+      if (isNative) {
+        /*
+         * Mở OAuth bằng browser của hệ điều hành thay vì
+         * điều hướng WebView chính của Capacitor.
+         */
+        await Browser.open({
+          url: oauthUrl,
+        });
+
+        return;
+      }
+
+      /*
+       * Trên web vẫn giữ flow OAuth hiện tại.
+       */
+      window.location.assign(oauthUrl);
+    } catch (error) {
+      console.error(`${label} OAuth error:`, error);
+
+      setNotice(
+        `Không thể mở đăng nhập ${label}. Vui lòng thử lại.`,
+      );
+    }
   }
 
   return (
     <main className="auth-login-hub-page">
       <div className="auth-login-hub-shell">
-        <section className="auth-login-hero" aria-label="EnziuRooms">
+        <section
+          className="auth-login-hero"
+          aria-label="EnziuRooms"
+        >
           <div className="auth-login-hero-overlay" />
+
           <div className="auth-login-hero-content">
-            <Link to="/" className="auth-login-hero-brand" aria-label="Về trang chủ EnziuRooms">
+            <Link
+              to="/"
+              className="auth-login-hero-brand"
+              aria-label="Về trang chủ EnziuRooms"
+            >
               <img src={enziuLogo} alt="EnziuRooms" />
             </Link>
 
-            <h1>Đặt phòng thông minh,<br />trải nghiệm trọn vẹn</h1>
+            <h1>
+              Đặt phòng thông minh,
+              <br />
+              trải nghiệm trọn vẹn
+            </h1>
 
             <div className="auth-login-hero-benefits">
               <div>
-                <span><Hotel size={20} /></span>
-                <p><strong>Đa dạng lựa chọn</strong><small>Hàng ngàn khách sạn chất lượng</small></p>
+                <span>
+                  <Hotel size={20} />
+                </span>
+
+                <p>
+                  <strong>Đa dạng lựa chọn</strong>
+                  <small>
+                    Hàng ngàn khách sạn chất lượng
+                  </small>
+                </p>
               </div>
+
               <div>
-                <span><Tag size={20} /></span>
-                <p><strong>Giá tốt mỗi ngày</strong><small>Cam kết giá tốt nhất cho bạn</small></p>
+                <span>
+                  <Tag size={20} />
+                </span>
+
+                <p>
+                  <strong>Giá tốt mỗi ngày</strong>
+                  <small>
+                    Cam kết giá tốt nhất cho bạn
+                  </small>
+                </p>
               </div>
+
               <div>
-                <span><ShieldCheck size={20} /></span>
-                <p><strong>Đặt phòng an toàn</strong><small>Bảo mật thông tin, thanh toán an toàn</small></p>
+                <span>
+                  <ShieldCheck size={20} />
+                </span>
+
+                <p>
+                  <strong>Đặt phòng an toàn</strong>
+                  <small>
+                    Bảo mật thông tin, thanh toán an toàn
+                  </small>
+                </p>
               </div>
             </div>
           </div>
         </section>
 
-        {notice ? <div className="auth-hub-notice">{notice}</div> : null}
+        {notice ? (
+          <div className="auth-hub-notice">
+            {notice}
+          </div>
+        ) : null}
 
-        <section className="auth-provider-grid" aria-label="Chọn phương thức đăng nhập">
+        <section
+          className="auth-provider-grid"
+          aria-label="Chọn phương thức đăng nhập"
+        >
           <ProviderCard
             provider="enziu"
             title="Tiếp tục với EnziuRooms"
@@ -117,7 +260,10 @@ export default function LoginPage() {
             buttonLabel="Tiếp tục với EnziuRooms"
             onClick={() => navigate("/login/enziurooms")}
           >
-            <img src={enziuLogo} alt="Logo EnziuRooms" />
+            <img
+              src={enziuLogo}
+              alt="Logo EnziuRooms"
+            />
           </ProviderCard>
 
           <ProviderCard
@@ -125,7 +271,9 @@ export default function LoginPage() {
             title="Tiếp tục với Google"
             description="Đăng nhập nhanh chóng và an toàn bằng tài khoản Google của bạn."
             buttonLabel="Tiếp tục với Google"
-            onClick={() => handleSocialLogin("google", "Google")}
+            onClick={() =>
+              handleSocialLogin("google", "Google")
+            }
           >
             <GoogleMark />
           </ProviderCard>
@@ -135,18 +283,33 @@ export default function LoginPage() {
             title="Tiếp tục với Facebook"
             description="Đăng nhập nhanh chóng và an toàn bằng tài khoản Facebook của bạn."
             buttonLabel="Tiếp tục với Facebook"
-            onClick={() => handleSocialLogin("facebook", "Facebook")}
+            onClick={() =>
+              handleSocialLogin("facebook", "Facebook")
+            }
           >
             <FacebookMark />
           </ProviderCard>
         </section>
 
         <footer className="auth-login-hub-footer">
-          <span><ShieldCheck size={17} /> Bảo mật thông tin tuyệt đối</span>
+          <span>
+            <ShieldCheck size={17} />
+            Bảo mật thông tin tuyệt đối
+          </span>
+
           <i aria-hidden="true" />
-          <span><Headphones size={17} /> Hỗ trợ 24/7</span>
+
+          <span>
+            <Headphones size={17} />
+            Hỗ trợ 24/7
+          </span>
+
           <i aria-hidden="true" />
-          <span><Heart size={17} /> Trải nghiệm đặt phòng tốt nhất</span>
+
+          <span>
+            <Heart size={17} />
+            Trải nghiệm đặt phòng tốt nhất
+          </span>
         </footer>
       </div>
     </main>

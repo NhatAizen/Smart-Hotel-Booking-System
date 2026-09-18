@@ -130,7 +130,7 @@ function statusCopy(status) {
       return {
         icon: CheckCircle2,
         title: "Thanh toán thành công",
-        message: "PayOS đã xác nhận giao dịch. Booking của bạn đang được hoàn tất.",
+        message: "PayOS đã xác nhận giao dịch. Đơn đặt phòng của bạn đang được hoàn tất.",
         tone: "success",
       };
     case "CANCELLED":
@@ -151,7 +151,7 @@ function statusCopy(status) {
       return {
         icon: XCircle,
         title: "Thanh toán chưa thành công",
-        message: "PayOS chưa ghi nhận được giao dịch. Bạn có thể kiểm tra lại hoặc tạo booking mới.",
+        message: "PayOS chưa ghi nhận được giao dịch. Bạn có thể kiểm tra lại hoặc thực hiện đặt phòng mới.",
         tone: "danger",
       };
     case "REFUNDED":
@@ -284,7 +284,7 @@ export default function PaymentGatewayPage() {
                 window.setTimeout(() => {
                   if (!window.closed) {
                     navigate(
-                      `/hotel-admin/current-stays?payment=paid&bookingId=${encodeURIComponent(hotelReturnContext.bookingId ?? "")}`,
+                      `/hotel-admin/stays?tab=check-out&payment=paid&bookingId=${encodeURIComponent(hotelReturnContext.bookingId ?? "")}`,
                       { replace: true },
                     );
                   }
@@ -309,7 +309,7 @@ export default function PaymentGatewayPage() {
                 window.setTimeout(() => {
                   if (!window.closed) {
                     navigate(
-                      `/hotel-admin/check-in?resume=1&orderCode=${encodeURIComponent(result.orderCode ?? orderCode)}`,
+                      `/hotel-admin/stays?tab=check-in&resume=1&orderCode=${encodeURIComponent(result.orderCode ?? orderCode)}`,
                       { replace: true },
                     );
                   }
@@ -369,8 +369,8 @@ export default function PaymentGatewayPage() {
           to={
             isHotelAdmin
               ? hotelReturnContext?.source === "CURRENT_STAYS"
-                ? "/hotel-admin/current-stays"
-                : `/hotel-admin/check-in?resume=1&orderCode=${encodeURIComponent(orderCode)}`
+                ? "/hotel-admin/stays?tab=check-out"
+                : `/hotel-admin/stays?tab=check-in&resume=1&orderCode=${encodeURIComponent(orderCode)}`
               : "/customer/bookings"
           }
           className="checkout-back-link"
@@ -378,7 +378,7 @@ export default function PaymentGatewayPage() {
           <ArrowLeft size={18} />
           {isHotelAdmin
             ? hotelReturnContext?.source === "CURRENT_STAYS"
-              ? "Quay lại khách đang lưu trú"
+              ? "Quay lại trả phòng"
               : "Quay lại nhận phòng"
             : "Xem đơn đặt phòng"}
         </Link>
@@ -452,15 +452,17 @@ export default function PaymentGatewayPage() {
               <Link
                 to={
                   isHotelAdmin
-                    ? `/hotel-admin/check-in?resume=1&orderCode=${encodeURIComponent(orderCode)}`
+                    ? hotelReturnContext?.source === "CURRENT_STAYS"
+                      ? "/hotel-admin/stays?tab=check-out"
+                      : `/hotel-admin/stays?tab=check-in&resume=1&orderCode=${encodeURIComponent(orderCode)}`
                     : "/customer/bookings"
                 }
               >
                 {isHotelAdmin
                   ? hotelReturnContext?.source === "CURRENT_STAYS"
-                    ? "Quay lại khách đang lưu trú"
-                    : "Quay lại quầy check-in"
-                  : "Xem lịch sử booking"}
+                    ? "Quay lại trả phòng"
+                    : "Quay lại nhận phòng"
+                  : "Xem đơn đặt phòng"}
               </Link>
             </div>
           </section>

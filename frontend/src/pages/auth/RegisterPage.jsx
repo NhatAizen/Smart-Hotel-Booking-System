@@ -143,7 +143,7 @@ export default function RegisterPage() {
                 <span className="enziu-register-feature-icon"><CheckCircle2 size={18} /></span>
                 <p>
                   <b>Quản lý đặt phòng hiệu quả</b>
-                  <small>Theo dõi booking và hành trình lưu trú trong vài giây.</small>
+                  <small>Theo dõi đơn đặt phòng và hành trình lưu trú trong vài giây.</small>
                 </p>
               </div>
 

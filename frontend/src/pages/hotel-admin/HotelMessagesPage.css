@@ -62,6 +62,7 @@
   border: 1px solid #dce7ef;
   border-radius: 22px;
   box-shadow: 0 16px 42px rgba(30, 61, 85, 0.08);
+  isolation: isolate;
 }
 
 .hotel-chat-list-panel {
@@ -168,9 +169,56 @@
   color: #fff;
   background: linear-gradient(135deg, #149f92, #258ac1);
   border-radius: 13px;
+  overflow: visible;
 }
 
-.hotel-chat-conversation-avatar span {
+.hotel-chat-hotel-filter {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  margin: 0 12px 8px;
+  padding: 0 10px;
+  color: #197e77;
+  background: #eff9f7;
+  border: 1px solid #d5ebe7;
+  border-radius: 10px;
+}
+
+.hotel-chat-hotel-filter > span {
+  color: #64808e;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.hotel-chat-hotel-filter select {
+  min-width: 0;
+  width: 100%;
+  height: 34px;
+  color: #244a60;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.hotel-chat-conversation-avatar > img,
+.hotel-chat-conversation-avatar > span {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 13px;
+  object-fit: cover;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.hotel-chat-conversation-avatar > b {
   position: absolute;
   top: -5px;
   right: -5px;
@@ -220,6 +268,16 @@
   white-space: nowrap;
 }
 
+.hotel-chat-conversation-copy > small {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #168b80;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .hotel-chat-conversation-copy footer span,
 .hotel-chat-arrival-badge {
   font-size: 8px;
@@ -241,6 +299,7 @@
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   background: #f7fafc;
+  overflow: hidden;
 }
 
 .hotel-chat-thread-empty,
@@ -300,6 +359,20 @@
   color: #fff;
   background: linear-gradient(135deg, #0fa494, #1689c5);
   border-radius: 13px;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.hotel-chat-thread-hotel-icon > img,
+.hotel-chat-thread-hotel-icon > span {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  object-fit: cover;
+  font-size: 11px;
+  font-weight: 900;
 }
 
 .hotel-chat-thread-header > div:nth-child(2) > span {
@@ -404,6 +477,7 @@
   overflow-y: auto;
   padding: 18px;
   scroll-behavior: smooth;
+  overscroll-behavior: contain;
 }
 
 .hotel-chat-admin-message {
@@ -417,15 +491,31 @@
   justify-content: flex-end;
 }
 
-.hotel-chat-admin-message > span {
+.hotel-chat-message-avatar,
+.hotel-chat-message-avatar-spacer {
   width: 28px;
   height: 28px;
   flex: 0 0 auto;
+  border-radius: 9px;
+}
+
+.hotel-chat-message-avatar {
   display: grid;
   place-items: center;
   color: #fff;
   background: #159b91;
-  border-radius: 9px;
+  overflow: hidden;
+}
+
+.hotel-chat-message-avatar > img,
+.hotel-chat-message-avatar > span {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  object-fit: cover;
+  font-size: 8px;
+  font-weight: 900;
 }
 
 .hotel-chat-admin-message > div {
@@ -441,11 +531,6 @@
   background: linear-gradient(135deg, #109a91, #177fbc);
   border-color: transparent;
   border-radius: 14px 14px 4px 14px;
-}
-
-.hotel-chat-admin-message.system-message:not(.mine) > div {
-  background: #fffaf0;
-  border-color: #eedfbf;
 }
 
 .hotel-chat-admin-message header {
@@ -479,6 +564,33 @@
   white-space: pre-wrap;
 }
 
+.hotel-chat-admin-system-event {
+  width: min(86%, 620px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 14px auto;
+  text-align: center;
+}
+
+.hotel-chat-admin-system-event span {
+  padding: 7px 12px;
+  color: #60798b;
+  background: #eaf1f5;
+  border: 1px solid #d5e1e8;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.hotel-chat-admin-system-event time {
+  color: #9aabb6;
+  font-size: 8px;
+}
+
 .hotel-chat-admin-error {
   margin: 0 18px 9px;
   padding: 8px 10px;
@@ -490,6 +602,8 @@
 }
 
 .hotel-chat-admin-composer {
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 44px;
   gap: 8px;
@@ -510,6 +624,7 @@
   outline: none;
   font: inherit;
   font-size: 11px;
+  overflow-y: auto;
 }
 
 .hotel-chat-admin-composer button {

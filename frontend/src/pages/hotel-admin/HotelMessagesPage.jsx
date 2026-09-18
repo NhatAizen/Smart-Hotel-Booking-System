@@ -9,8 +9,6 @@ import {
   RefreshCw,
   Search,
   Send,
-  ShieldCheck,
-  UserRound,
 } from "lucide-react";
 import {
   useCallback,
@@ -26,6 +24,12 @@ import {
   PageHeader,
   StatusBadge,
 } from "../../components/ui";
+import AvatarImage from "../../components/ui/AvatarImage";
+import {
+  CHAT_MESSAGE_POSITION,
+  getChatMessagePosition,
+  isSameChatMessageRun,
+} from "../../components/chat/chatMessagePresentation";
 import { useRealtime } from "../../realtime/RealtimeContext";
 import {
   getHotelAdminChatConversations,
@@ -34,6 +38,8 @@ import {
   sendHotelAdminChatMessage,
   setHotelAdminHumanTakeover,
 } from "../../services/chatService";
+import { getHotelById } from "../../services/hotelService";
+import { getPublicProfile } from "../../services/profileService";
 import "./HotelMessagesPage.css";
 
 function formatDate(value) {
@@ -71,20 +77,6 @@ function errorText(error, fallback) {
   );
 }
 
-function senderLabel(type) {
-  if (type === "CUSTOMER") return "Khách hàng";
-  if (type === "HOTEL_ADMIN") return "Nhân viên khách sạn";
-  if (type === "HOTEL_BOT") return "Trợ lý tự động";
-  return "EnziuRooms";
-}
-
-function senderIcon(type) {
-  if (type === "CUSTOMER") return UserRound;
-  if (type === "HOTEL_ADMIN") return Headphones;
-  if (type === "HOTEL_BOT") return Bot;
-  return ShieldCheck;
-}
-
 function arrivalLabel(value, expectedArrivalTime) {
   if (value === "CONFIRMED") return "Khách xác nhận sẽ đến";
   if (value === "ARRIVING_LATE") {
@@ -103,12 +95,27 @@ function arrivalTone(value) {
   return "neutral";
 }
 
+function resolveHotelImage(hotel) {
+  if (!hotel) return null;
+  if (hotel.coverImageUrl) return hotel.coverImageUrl;
+  const images = Array.isArray(hotel.images) ? hotel.images : [];
+  const image = images.find((item) => item?.cover || item?.isCover) ?? images[0];
+  if (typeof image === "string") return image;
+  return image?.imageUrl ?? image?.url ?? image?.fileUrl ?? image?.publicUrl ?? null;
+}
+
+function initials(value) {
+  const words = String(value ?? "").trim().split(/\s+/).filter(Boolean);
+  return words.length ? words.slice(-2).map((word) => word[0]).join("").toUpperCase() : "KH";
+}
+
 export default function HotelMessagesPage() {
   const { subscribe, status: realtimeStatus } = useRealtime();
   const [conversations, setConversations] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [messages, setMessages] = useState([]);
   const [search, setSearch] = useState("");
+  const [hotelFilter, setHotelFilter] = useState("ALL");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -116,21 +123,37 @@ export default function HotelMessagesPage() {
   const [toggleBusy, setToggleBusy] = useState(false);
   const [error, setError] = useState("");
   const messagesRef = useRef(null);
+  const profileCacheRef = useRef(new Map());
+  const hotelCacheRef = useRef(new Map());
 
   const selected = useMemo(
     () => conversations.find((item) => String(item.id) === String(selectedId)) ?? null,
     [conversations, selectedId],
   );
 
+  const hotelOptions = useMemo(() => {
+    const unique = new Map();
+    conversations.forEach((item) => {
+      if (item.hotelId) unique.set(String(item.hotelId), item.hotelName ?? "Khách sạn");
+    });
+    return [...unique.entries()].map(([id, name]) => ({ id, name }));
+  }, [conversations]);
+
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    if (!needle) return conversations;
-    return conversations.filter((item) =>
-      [item.hotelName, item.bookingCode, item.lastMessage]
+    return conversations.filter((item) => {
+      if (hotelFilter !== "ALL" && String(item.hotelId) !== hotelFilter) return false;
+      if (!needle) return true;
+      return [item.customerName, item.hotelName, item.lastMessage]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
-    );
-  }, [conversations, search]);
+        .some((value) => String(value).toLowerCase().includes(needle));
+    });
+  }, [conversations, hotelFilter, search]);
+
+  useEffect(() => {
+    if (hotelFilter === "ALL") return;
+    if (!hotelOptions.some((hotel) => hotel.id === hotelFilter)) setHotelFilter("ALL");
+  }, [hotelFilter, hotelOptions]);
 
   const totalUnread = useMemo(
     () => conversations.reduce((total, item) => total + Number(item.unreadCount ?? 0), 0),
@@ -144,12 +167,34 @@ export default function HotelMessagesPage() {
     }
     try {
       const data = await getHotelAdminChatConversations();
-      setConversations(data);
+      const enriched = await Promise.all(data.map(async (item) => {
+        const customerKey = String(item.customerId ?? "");
+        const hotelKey = String(item.hotelId ?? "");
+        let customerProfile = profileCacheRef.current.get(customerKey) ?? null;
+        let hotel = hotelCacheRef.current.get(hotelKey) ?? null;
+
+        if (!customerProfile && customerKey) {
+          customerProfile = await getPublicProfile(customerKey).catch(() => null);
+          if (customerProfile) profileCacheRef.current.set(customerKey, customerProfile);
+        }
+        if (!hotel && hotelKey) {
+          hotel = await getHotelById(hotelKey).catch(() => null);
+          if (hotel) hotelCacheRef.current.set(hotelKey, hotel);
+        }
+
+        return {
+          ...item,
+          customerName: customerProfile?.fullName ?? "Khách hàng",
+          customerAvatarUrl: customerProfile?.avatarUrl ?? null,
+          hotelAvatarUrl: resolveHotelImage(hotel),
+        };
+      }));
+      setConversations(enriched);
       setSelectedId((current) => {
-        if (keepSelection && current && data.some((item) => String(item.id) === String(current))) {
+        if (keepSelection && current && enriched.some((item) => String(item.id) === String(current))) {
           return current;
         }
-        return data[0]?.id ?? "";
+        return enriched[0]?.id ?? "";
       });
     } catch (requestError) {
       if (!quiet) {
@@ -296,10 +341,23 @@ export default function HotelMessagesPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Tìm mã đặt phòng hoặc tin nhắn..."
+              placeholder="Tìm khách hàng hoặc tin nhắn..."
               aria-label="Tìm cuộc trò chuyện"
             />
           </label>
+
+          {hotelOptions.length > 1 ? (
+            <label className="hotel-chat-hotel-filter">
+              <Hotel size={16} />
+              <span>Lọc khách sạn</span>
+              <select value={hotelFilter} onChange={(event) => setHotelFilter(event.target.value)}>
+                <option value="ALL">Tất cả khách sạn</option>
+                {hotelOptions.map((hotel) => (
+                  <option value={hotel.id} key={hotel.id}>{hotel.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
           <div className="hotel-chat-conversations">
             {loading ? (
@@ -325,16 +383,21 @@ export default function HotelMessagesPage() {
                   aria-pressed={String(selectedId) === String(item.id)}
                 >
                   <div className="hotel-chat-conversation-avatar">
-                    <UserRound size={18} />
+                    <AvatarImage
+                      source={item.customerAvatarUrl}
+                      alt={`Ảnh ${item.customerName}`}
+                      fallback={<span>{initials(item.customerName)}</span>}
+                    />
                     {Number(item.unreadCount ?? 0) > 0 ? (
-                      <span>{Math.min(99, Number(item.unreadCount))}</span>
+                      <b>{Math.min(99, Number(item.unreadCount))}</b>
                     ) : null}
                   </div>
                   <div className="hotel-chat-conversation-copy">
                     <header>
-                      <strong>{item.bookingCode ?? "Hỏi trước khi đặt"}</strong>
+                      <strong>{item.customerName}</strong>
                       <time>{formatDateTime(item.lastMessageAt)}</time>
                     </header>
+                    <small>{item.hotelName}</small>
                     <p>{item.lastMessage || "Cuộc trò chuyện mới"}</p>
                     <footer>
                       <StatusBadge
@@ -362,10 +425,16 @@ export default function HotelMessagesPage() {
           ) : (
             <>
               <header className="hotel-chat-thread-header">
-                <div className="hotel-chat-thread-hotel-icon"><Hotel size={21} /></div>
+                <div className="hotel-chat-thread-hotel-icon">
+                  <AvatarImage
+                    source={selected.customerAvatarUrl}
+                    alt={`Ảnh ${selected.customerName}`}
+                    fallback={<span>{initials(selected.customerName)}</span>}
+                  />
+                </div>
                 <div>
                   <span>{selected.hotelName ?? "Khách sạn"}</span>
-                  <h2>{selected.bookingCode ?? "Hỏi trước khi đặt phòng"}</h2>
+                  <h2>{selected.customerName}</h2>
                   <p>
                     <CalendarDays size={14} />
                     {selected.bookingId ? (
@@ -404,7 +473,7 @@ export default function HotelMessagesPage() {
                     <span>
                       {selected.humanTakeover
                         ? "Bot tạm dừng cho đến khi bạn bật lại."
-                        : "Bot chỉ trả lời dữ liệu chắc chắn; yêu cầu ngoại lệ sẽ chuyển cho bạn."}
+                        : "Trợ lý tự động chỉ trả lời các thông tin cơ bản; trường hợp cần xử lý riêng sẽ chuyển cho bạn."}
                     </span>
                   </div>
                 </div>
@@ -444,20 +513,43 @@ export default function HotelMessagesPage() {
                     Chưa có tin nhắn nào.
                   </div>
                 ) : (
-                  messages.map((message) => {
-                    const mine = message.senderType === "HOTEL_ADMIN";
-                    const Icon = senderIcon(message.senderType);
-                    const system = ["SYSTEM", "REMINDER", "ACTION"].includes(message.messageType);
+                  messages.map((message, index) => {
+                    const position = getChatMessagePosition(message, "HOTEL_ADMIN");
+                    const mine = position === CHAT_MESSAGE_POSITION.OUTGOING;
+                    const systemEvent = position === CHAT_MESSAGE_POSITION.SYSTEM;
+                    const previous = messages[index - 1];
+                    const showAvatar = !mine && !isSameChatMessageRun(previous, message, "HOTEL_ADMIN");
+
+                    if (systemEvent) {
+                      return (
+                        <article className="hotel-chat-admin-system-event" key={message.id} role="note">
+                          <span>{message.content}</span>
+                          <time>{formatDateTime(message.createdAt)}</time>
+                        </article>
+                      );
+                    }
 
                     return (
                       <article
                         key={message.id}
-                        className={`hotel-chat-admin-message ${mine ? "mine" : "theirs"} ${system ? "system-message" : ""}`}
+                        className={`hotel-chat-admin-message ${mine ? "mine" : "theirs"}`}
                       >
-                        {!mine ? <span><Icon size={15} /></span> : null}
+                        {!mine ? (
+                          showAvatar ? (
+                            <span className="hotel-chat-message-avatar">
+                              <AvatarImage
+                                source={selected.customerAvatarUrl}
+                                alt={`Ảnh ${selected.customerName}`}
+                                fallback={<span>{initials(selected.customerName)}</span>}
+                              />
+                            </span>
+                          ) : <span className="hotel-chat-message-avatar-spacer" />
+                        ) : null}
                         <div>
                           <header>
-                            <strong>{senderLabel(message.senderType)}</strong>
+                            <strong>{mine
+                              ? (message.senderType === "HOTEL_BOT" ? "Trợ lý khách sạn" : "Phía khách sạn")
+                              : "Khách hàng"}</strong>
                             <time>{formatDateTime(message.createdAt)}</time>
                           </header>
                           <p>{message.content}</p>

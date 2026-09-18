@@ -22,6 +22,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
+import BookingTermsPanel from "../../components/booking/BookingTermsPanel";
 import {
   createBookingsBatch,
   createRoomHold,
@@ -44,6 +45,7 @@ import {
   getRoomsByHotel,
   getRoomTypesByHotel,
 } from "../../services/hotelService";
+import { getPlatformPolicy } from "../../services/policyService";
 import "./BookingCheckoutPage.css";
 
 function nightsBetween(checkIn, checkOut) {
@@ -183,6 +185,7 @@ export default function BookingCheckoutPage() {
   const [appliedPromotionCodes, setAppliedPromotionCodes] = useState({ hotel: "", platform: "" });
   const [promotionSuggestions, setPromotionSuggestions] = useState([]);
   const [promotionSuggestionsLoading, setPromotionSuggestionsLoading] = useState(false);
+  const [minimumBookingAge, setMinimumBookingAge] = useState(null);
 
   useEffect(() => {
     if (!user) return;
@@ -203,10 +206,11 @@ export default function BookingCheckoutPage() {
       }
 
       try {
-        const [hotelData, roomsData, roomTypeData] = await Promise.all([
+        const [hotelData, roomsData, roomTypeData, platformPolicyData] = await Promise.all([
           getHotelById(hotelId),
           getRoomsByHotel(hotelId),
           getRoomTypesByHotel(hotelId),
+          getPlatformPolicy(),
         ]);
 
         const rooms = Array.isArray(roomsData) ? roomsData : [];
@@ -222,6 +226,7 @@ export default function BookingCheckoutPage() {
         setHotel(hotelData);
         setSelectedRooms(pickedRooms);
         setRoomTypes(types);
+        setMinimumBookingAge(platformPolicyData.minimumBookingAge);
       } catch (requestError) {
         setError(
           requestError.response?.data?.message ??
@@ -634,7 +639,9 @@ export default function BookingCheckoutPage() {
     () => ageOn(form.bookerDateOfBirth),
     [form.bookerDateOfBirth],
   );
-  const bookerIsAdult = Number.isInteger(bookerAge) && bookerAge >= 18;
+  const bookerIsAdult = Number.isInteger(bookerAge)
+    && Number.isInteger(minimumBookingAge)
+    && bookerAge >= minimumBookingAge;
 
   function handleChange(event) {
     const { name, value, checked, type } = event.target;
@@ -658,7 +665,7 @@ export default function BookingCheckoutPage() {
       return;
     }
     if (!form.bookerLastName.trim() || !form.bookerFirstName.trim()) {
-      setError("Vui lòng nhập đầy đủ họ tên người đứng tên booking đúng theo CCCD/Hộ chiếu.");
+      setError("Vui lòng nhập đầy đủ họ tên người đứng tên đặt phòng đúng theo CCCD/Hộ chiếu.");
       return;
     }
     if (!form.bookerDateOfBirth) {
@@ -666,7 +673,7 @@ export default function BookingCheckoutPage() {
       return;
     }
     if (!bookerIsAdult) {
-      setError("Người đứng tên đặt phòng phải từ đủ 18 tuổi trở lên.");
+      setError(`Người đứng tên đặt phòng phải từ đủ ${minimumBookingAge} tuổi trở lên.`);
       return;
     }
     if (!form.ageConfirmed) {
@@ -841,7 +848,7 @@ export default function BookingCheckoutPage() {
               <div className="checkout-card-title">
                 <UserRound size={22} />
                 <div>
-                  <h2>Thông tin người đứng tên booking</h2>
+                  <h2>Thông tin người đứng tên đặt phòng</h2>
                   <p>Họ tên và ngày sinh phải đúng theo CCCD/Hộ chiếu. Tên hiển thị của tài khoản không được dùng để xác minh.</p>
                 </div>
               </div>
@@ -930,7 +937,9 @@ export default function BookingCheckoutPage() {
                   <span>
                     {bookerIsAdult
                       ? "Người đứng tên phải xuất trình giấy tờ tùy thân khi nhận phòng để khách sạn đối chiếu."
-                      : "Người đứng tên booking phải từ đủ 18 tuổi trở lên."}
+                      : minimumBookingAge == null
+                        ? "Đang kiểm tra điều kiện độ tuổi."
+                        : `Người đứng tên đặt phòng phải từ đủ ${minimumBookingAge} tuổi trở lên.`}
                   </span>
                 </div>
               </div>
@@ -1004,7 +1013,7 @@ export default function BookingCheckoutPage() {
                 <ReceiptText size={22} />
                 <div>
                   <h2>Thông tin xuất hóa đơn</h2>
-                  <p>Không bắt buộc cho booking cá nhân.</p>
+                  <p>Không bắt buộc với đơn đặt phòng cá nhân.</p>
                 </div>
               </div>
 
@@ -1056,6 +1065,7 @@ export default function BookingCheckoutPage() {
                       onChange={handleChange}
                       required
                     />
+                    <small>Thông tin hóa đơn sẽ được gửi đến email này sau khi đơn đặt phòng được xác nhận.</small>
                   </label>
                 </div>
               ) : null}
@@ -1181,7 +1191,7 @@ export default function BookingCheckoutPage() {
                       <strong>{fundingMethod === "WALLET" ? "Thanh toán bằng Ví Enziu" : "PayOS - chuyển khoản ngân hàng"}</strong>
                       <span>
                         {fundingMethod === "WALLET"
-                          ? "Tiền được trừ từ số dư ví và booking được xác nhận ngay, không chuyển sang PayOS."
+                          ? "Tiền được trừ từ số dư ví và đơn đặt phòng được xác nhận ngay, không chuyển sang PayOS."
                           : "Bạn sẽ được chuyển đến trang PayOS để quét VietQR."}
                       </span>
                     </div>
@@ -1189,6 +1199,22 @@ export default function BookingCheckoutPage() {
                 </>
               ) : null}
             </section>
+
+            <BookingTermsPanel
+              hotel={hotel}
+              roomTypes={selectedItems.map((item) => item.roomType)}
+              roomNames={selectedItems.map((item) => item.roomType?.name)}
+              checkIn={checkIn}
+              checkOut={checkOut}
+              adults={adults}
+              children={children}
+              totalAmount={totals.total}
+              depositAmount={effectivePaymentOption === "DEPOSIT" ? totals.payNow : null}
+              remainingAmount={totals.remaining}
+              paymentOption={effectivePaymentOption}
+              hotelPromotionCode={discountPreview?.hotelPromotionCode}
+              platformPromotionCode={discountPreview?.platformPromotionCode}
+            />
 
             <section className="checkout-card checkout-terms-card">
               <label className={`checkout-checkbox checkout-age-confirm ${bookerIsAdult ? "enabled" : "disabled"}`}>
@@ -1201,7 +1227,7 @@ export default function BookingCheckoutPage() {
                   required
                 />
                 <span>
-                  Tôi xác nhận họ tên và ngày sinh người đứng tên booking đúng với giấy tờ tùy thân, người này đã đủ 18 tuổi và đồng ý xuất trình giấy tờ khi nhận phòng.
+                  Tôi xác nhận họ tên và ngày sinh người đứng tên đặt phòng đúng với giấy tờ tùy thân, người này đã đủ {minimumBookingAge ?? "—"} tuổi và đồng ý xuất trình giấy tờ khi nhận phòng.
                 </span>
               </label>
 
@@ -1219,7 +1245,7 @@ export default function BookingCheckoutPage() {
               </label>
               <div>
                 <ShieldCheck size={19} />
-                Giá và tình trạng phòng sẽ được kiểm tra lại trước khi tạo booking.
+                Giá và tình trạng phòng sẽ được kiểm tra lại trước khi xác nhận đặt phòng.
               </div>
             </section>
           </div>
@@ -1290,7 +1316,7 @@ export default function BookingCheckoutPage() {
               {pricingLoading ? (
                 <span>Đang tính giá chính xác theo từng ngày...</span>
               ) : (
-                <span>Giá từng đêm và mọi khoản phụ thu được lấy từ báo giá hiện tại của hệ thống.</span>
+                <span>Giá từng đêm và các khoản phụ thu được cập nhật theo ngày bạn chọn.</span>
               )}
             </div>
 
@@ -1333,7 +1359,7 @@ export default function BookingCheckoutPage() {
 
               <div className="checkout-promo-suggestions">
                 <div className="checkout-promo-suggestions-title">
-                  <span>Mã phù hợp với booking này</span>
+                  <span>Mã phù hợp với đơn này</span>
                   {promotionSuggestionsLoading ? <small>Đang tìm ưu đãi...</small> : null}
                 </div>
                 {promotionSuggestions.length > 0 ? (
@@ -1380,7 +1406,7 @@ export default function BookingCheckoutPage() {
                   </div>
                 ) : !promotionSuggestionsLoading ? (
                   <small>
-                    Bạn chưa lưu voucher phù hợp với booking này. Hãy lưu mã ở trang khách sạn
+                    Bạn chưa lưu ưu đãi phù hợp với đơn này. Hãy lưu mã ở trang khách sạn
                     hoặc Hạng & ưu đãi trước khi thanh toán.
                   </small>
                 ) : null}
@@ -1417,7 +1443,7 @@ export default function BookingCheckoutPage() {
                 <div className="checkout-discount-line"><span>Tổng ưu đãi</span><strong>-{money(discountPreview.totalDiscount)}</strong></div>
               ) : null}
               <div className="checkout-grand-total">
-                <span>Tổng giá booking</span>
+                <span>Tổng tiền</span>
                 <strong>{money(totals.total)}</strong>
               </div>
               <div className="highlight">
@@ -1445,7 +1471,7 @@ export default function BookingCheckoutPage() {
               {pricingLoading
                 ? "Đang tính giá theo ngày..."
                 : submitting
-                  ? "Đang tạo booking..."
+                  ? "Đang tạo đơn đặt phòng..."
                 : effectivePaymentOption === "PAY_AT_HOTEL"
                   ? "Xác nhận đặt phòng"
                   : fundingMethod === "WALLET"

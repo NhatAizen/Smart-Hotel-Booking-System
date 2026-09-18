@@ -140,7 +140,7 @@ export default function AdminBookingsPage() {
         roomType: roomTypeMap[String(booking.roomTypeId)] ?? null,
       }])));
     } catch (requestError) {
-      setError(messageOf(requestError, "Không thể tải booking toàn hệ thống."));
+      setError(messageOf(requestError, "Không thể tải danh sách đơn đặt phòng."));
     } finally {
       setLoading(false);
     }
@@ -203,7 +203,7 @@ export default function AdminBookingsPage() {
     ? "Toàn bộ khách sạn"
     : hotelOptions.find((item) => item.id === hotelFilter)?.name ?? "Khách sạn đã chọn";
 
-  if (loading && bookings.length === 0) return <Loading message="Đang tải booking toàn hệ thống..." />;
+  if (loading && bookings.length === 0) return <Loading message="Đang tải đơn đặt phòng..." />;
 
   return (
     <section className="booking-management-page system-booking-management">
@@ -211,7 +211,7 @@ export default function AdminBookingsPage() {
         <div>
           <span className="booking-management-eyebrow">QUẢN TRỊ HỆ THỐNG</span>
           <h1>Đơn đặt phòng toàn hệ thống</h1>
-          <p>Theo dõi booking theo từng khách sạn, khách hàng, phòng và trạng thái thanh toán trên dữ liệu thật của EnziuRooms.</p>
+          <p>Theo dõi đơn đặt phòng theo khách sạn, khách hàng, phòng và trạng thái thanh toán trên toàn hệ thống.</p>
         </div>
         <div className="booking-management-hero-actions system-booking-hero-actions">
           <label className="system-booking-hotel-select">
@@ -228,15 +228,15 @@ export default function AdminBookingsPage() {
       <ErrorMessage message={error} onRetry={() => void load()} />
 
       <div className="booking-management-stats system-booking-stats">
-        <article><CalendarDays size={20} /><div><small>Booking đang xem</small><strong>{stats.total}</strong><span>{selectedHotelName}</span></div></article>
+        <article><CalendarDays size={20} /><div><small>Đơn đang xem</small><strong>{stats.total}</strong><span>{selectedHotelName}</span></div></article>
         <article><Hotel size={20} /><div><small>Đã xác nhận</small><strong>{stats.confirmed}</strong><span>Chờ khách tới lưu trú</span></div></article>
-        <article><BedDouble size={20} /><div><small>Đang lưu trú</small><strong>{stats.staying}</strong><span>Booking đã check-in</span></div></article>
+        <article><BedDouble size={20} /><div><small>Đang lưu trú</small><strong>{stats.staying}</strong><span>Đơn đã nhận phòng</span></div></article>
         <article><CircleDollarSign size={20} /><div><small>Tiền đã ghi nhận</small><strong>{money(stats.revenue)}</strong><span>Theo phạm vi đang lọc</span></div></article>
       </div>
 
       <section className="booking-management-panel system-booking-panel">
         <div className="booking-management-toolbar system-booking-toolbar">
-          <div className="booking-management-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mã booking, khách, khách sạn, số phòng..." /></div>
+          <div className="booking-management-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mã đặt phòng, khách, khách sạn, số phòng..." /></div>
           <div className="booking-management-filter-list">
             {FILTERS.map(([value, label]) => <button key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{label}</button>)}
           </div>
@@ -248,7 +248,7 @@ export default function AdminBookingsPage() {
         </div>
 
         {filtered.length === 0 ? (
-          <EmptyState icon={<CalendarDays size={30} />} title="Chưa có booking phù hợp" description="Thử đổi khách sạn, trạng thái hoặc từ khóa tìm kiếm." />
+          <EmptyState icon={<CalendarDays size={30} />} title="Chưa có đơn phù hợp" description="Thử đổi khách sạn, trạng thái hoặc từ khóa tìm kiếm." />
         ) : (
           <div className="system-booking-card-list">
             {filtered.map((booking) => {
@@ -309,7 +309,7 @@ export default function AdminBookingsPage() {
                   </div>
 
                   <footer className="system-booking-card-footer">
-                    <div><span>Mã booking</span><strong>{booking.bookingCode}</strong></div>
+                    <div><span>Mã đặt phòng</span><strong>{booking.bookingCode}</strong></div>
                     <button type="button" onClick={() => setSelected(booking)}><Eye size={16} /> Xem chi tiết</button>
                   </footer>
                 </article>
@@ -325,10 +325,10 @@ export default function AdminBookingsPage() {
           <div className="booking-management-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setSelected(null)}>
             <section className="booking-management-modal" role="dialog" aria-modal="true">
               <button className="booking-management-modal-close" onClick={() => setSelected(null)}><X size={20} /></button>
-              <span className="booking-management-eyebrow">CHI TIẾT BOOKING HỆ THỐNG</span>
+              <span className="booking-management-eyebrow">CHI TIẾT ĐƠN ĐẶT PHÒNG</span>
               <h2>{selected.bookingCode}</h2>
               <div className="booking-management-detail-grid">
-                <div><UserRound size={18} /><small>Customer</small><strong>{customerName(selected)}</strong><span>{selected.bookerEmail ?? selected.bookerPhone ?? "—"}</span></div>
+                <div><UserRound size={18} /><small>Khách đặt phòng</small><strong>{customerName(selected)}</strong><span>{selected.bookerEmail ?? selected.bookerPhone ?? "—"}</span></div>
                 <div><Hotel size={18} /><small>Khách sạn</small><strong>{meta.hotel?.name ?? "—"}</strong><span>{meta.hotel?.city ?? meta.hotel?.address ?? "—"}</span></div>
                 <div className="booking-management-detail-room">
                   {roomTypeCover(meta.roomType) ? <img src={roomTypeCover(meta.roomType)} alt="Ảnh phòng" /> : <BedDouble size={18} />}

@@ -84,6 +84,7 @@
 .admin-user-detail-modal { width: min(620px,100%); }
 .admin-user-detail-hero { display: flex; align-items: center; gap: 13px; padding: 20px 0 2px; }
 .admin-user-detail-avatar { width: 52px; height: 52px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg,#506fe2,#738cf0); border-radius: 15px; font-size: 19px; font-weight: 850; }
+.admin-user-detail-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 .admin-user-detail-hero > div { min-width: 0; flex: 1; }
 .admin-user-detail-hero h3 { margin: 0; color: #1b2f47; }
 .admin-user-detail-hero p { margin: 4px 0 0; color: #7d8c9e; font-size: 12px; }

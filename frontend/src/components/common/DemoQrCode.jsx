@@ -54,7 +54,7 @@ export default function DemoQrCode({ value, size = 210 }) {
       height={size}
       viewBox="0 0 25 25"
       role="img"
-      aria-label="Mã QR thanh toán demo"
+      aria-label="Mã QR thanh toán"
       shapeRendering="crispEdges"
     >
       <rect width="25" height="25" fill="white" />

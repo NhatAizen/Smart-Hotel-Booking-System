@@ -100,7 +100,11 @@ function compactHotelDescription(value, maxLength = 210) {
   return `${shortened.slice(0, lastSpace > 0 ? lastSpace : maxLength).trim()}…`;
 }
 
-export default function HotelsPage() {
+export default function HotelsPage({
+  browseBasePath = "/hotels",
+  browseHomePath = "/",
+  browseHomeLabel = "Trang chủ",
+}) {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const isCustomer = isAuthenticated
@@ -509,9 +513,9 @@ export default function HotelsPage() {
       });
 
     navigate(
-      `/hotels/${hotelId}?${params.toString()}`,
+      `${browseBasePath}/${hotelId}?${params.toString()}`,
     );
-  }, [navigate, searchValues]);
+  }, [browseBasePath, navigate, searchValues]);
 
   if (loading) {
     return (
@@ -526,6 +530,7 @@ export default function HotelsPage() {
           <HotelSearchBar
             hotels={hotels}
             variant="results"
+            resultsPath={browseBasePath}
             initialValues={
               searchValues
             }
@@ -535,13 +540,13 @@ export default function HotelsPage() {
 
       <div className="container customer-results-container">
         <nav className="customer-breadcrumb">
-          <Link to="/">
-            Trang chủ
+          <Link to={browseHomePath}>
+            {browseHomeLabel}
           </Link>
 
           <ChevronRight size={15} />
 
-          <Link to="/hotels">
+          <Link to={browseBasePath}>
             Khách sạn
           </Link>
 

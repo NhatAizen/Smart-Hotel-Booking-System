@@ -1,9 +1,10 @@
-import { BadgeCheck, BedDouble, Building2, CircleDollarSign, RefreshCw, XCircle } from "lucide-react";
+import { BadgeCheck, BedDouble, Building2, CircleDollarSign, RefreshCw, X, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
 import { approveRoom, getPendingRooms, rejectRoom } from "../../services/adminService";
+import { statusLabel } from "../../utils/presentation";
 
 function money(value) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(value ?? 0);
@@ -64,10 +65,10 @@ export default function ManageRoomsPage() {
                   <div className="admin-review-title-row"><h2>Phòng {room.roomNumber}</h2><span className="admin-status pending">Chờ duyệt</span></div>
                   <p>{room.note || "Không có ghi chú"}</p>
                   <div className="admin-review-meta">
-                    <span><Building2 size={15} /> Hotel ID: <strong>{room.hotelId}</strong></span>
+                    <span><Building2 size={15} /> Mã khách sạn: <strong>{room.hotelId}</strong></span>
                     <span>Tầng: <strong>{room.floor ?? "—"}</strong></span>
                     <span><CircleDollarSign size={15} /> {money(room.customPrice)}</span>
-                    <span>Trạng thái vận hành: <strong>{room.status}</strong></span>
+                    <span>Trạng thái vận hành: <strong>{statusLabel(room.status)}</strong></span>
                   </div>
                 </div>
               </div>
@@ -83,7 +84,7 @@ export default function ManageRoomsPage() {
       {rejecting ? (
         <div className="admin-modal-layer" role="presentation" onMouseDown={() => setRejecting(null)}>
           <section className="admin-modal small" role="dialog" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="admin-modal-header"><div><span>Từ chối phòng</span><h2>Phòng {rejecting.roomNumber}</h2></div><button type="button" onClick={() => setRejecting(null)}>×</button></div>
+            <div className="admin-modal-header"><div><span>Từ chối phòng</span><h2>Phòng {rejecting.roomNumber}</h2></div><button type="button" aria-label="Đóng" onClick={() => setRejecting(null)}><X size={19} /></button></div>
             <label className="admin-form-field"><span>Lý do từ chối</span><textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={5} placeholder="Ví dụ: Giá phòng hoặc thông tin mô tả chưa hợp lệ..." /></label>
             <div className="admin-modal-actions"><button type="button" className="admin-cancel-button" onClick={() => setRejecting(null)}>Hủy</button><button type="button" className="admin-reject-button" onClick={handleReject} disabled={busyId === rejecting.id}>{busyId === rejecting.id ? "Đang xử lý..." : "Xác nhận từ chối"}</button></div>
           </section>

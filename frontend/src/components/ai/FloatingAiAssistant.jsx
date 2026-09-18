@@ -428,7 +428,7 @@ function AssistantMessage({ message, onNavigate, onOpenTrip, onAsk }) {
 
         {message.copilot?.criteria?.length ? (
           <div className="enziu-fai-understood">
-            <strong><Sparkles size={12} /> AI đã hiểu</strong>
+            <strong><Sparkles size={12} /> Mình đã hiểu</strong>
             <div>
               {message.copilot.criteria.map((item) => (
                 <span key={item}>{item}</span>
@@ -457,7 +457,7 @@ function AssistantMessage({ message, onNavigate, onOpenTrip, onAsk }) {
             onClick={onOpenTrip}
           >
             <CalendarDays size={13} />
-            Thêm ngày để AI kiểm tra phòng trống chính xác
+            Thêm ngày để kiểm tra phòng trống
           </button>
         ) : null}
 
@@ -562,6 +562,12 @@ export default function FloatingAiAssistant() {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [closeAssistant, isOpen]);
 
+  useEffect(() => {
+    const handleChatOpen = () => closeAssistant();
+    window.addEventListener("enziu:ai-close", handleChatOpen);
+    return () => window.removeEventListener("enziu:ai-close", handleChatOpen);
+  }, [closeAssistant]);
+
   if (!isCustomer || hiddenForFlow) {
     return null;
   }
@@ -590,7 +596,7 @@ export default function FloatingAiAssistant() {
               <span className="enziu-fai-bot-mark"><Bot size={20} /></span>
               <div>
                 <strong id="enziu-ai-title">Enziu AI Copilot</strong>
-                <span><i /> Tìm · so sánh · kiểm tra phòng thật</span>
+                <span><i /> Tìm nơi ở · so sánh · kiểm tra phòng</span>
               </div>
             </div>
 
@@ -616,7 +622,7 @@ export default function FloatingAiAssistant() {
 
           <div className="enziu-fai-grounding">
             <ShieldCheck size={12} />
-            <span>Dữ liệu thật từ Hotel · Room · Availability · Pricing · Ưu đãi · Review</span>
+            <span>Gợi ý dựa trên phòng trống, mức giá, ưu đãi và đánh giá hiện có</span>
           </div>
 
           {contextualHotel ? (
@@ -628,7 +634,7 @@ export default function FloatingAiAssistant() {
               <button
                 type="button"
                 onClick={clearHotelContext}
-                aria-label="Bỏ khách sạn khỏi context AI"
+                aria-label="Bỏ khách sạn đang hỏi"
               >
                 <X size={14} />
               </button>
@@ -645,7 +651,7 @@ export default function FloatingAiAssistant() {
             >
               <span>
                 <CalendarDays size={14} />
-                Chuyến đi để kiểm tra giá & phòng
+                Thông tin chuyến đi
                 {trip.checkIn && trip.checkOut ? (
                   <em>{formatDate(trip.checkIn)} → {formatDate(trip.checkOut)}</em>
                 ) : (
@@ -717,7 +723,7 @@ export default function FloatingAiAssistant() {
                       }
                     >
                       <Sparkles size={12} />
-                      Kiểm tra với ngày đã chọn
+                      Cập nhật gợi ý
                     </button>
                   </div>
                 ) : null}
@@ -752,7 +758,7 @@ export default function FloatingAiAssistant() {
             {sending ? (
               <div className="enziu-fai-thinking">
                 <div className="enziu-fai-avatar"><Sparkles size={14} /></div>
-                <div><span /><span /><span /><em>Đang đối chiếu dữ liệu EnziuRooms...</em></div>
+                <div><span /><span /><span /><em>Đang tìm lựa chọn phù hợp...</em></div>
               </div>
             ) : null}
 
@@ -800,7 +806,7 @@ export default function FloatingAiAssistant() {
           </form>
 
           <p className="enziu-fai-disclaimer">
-            Gemini hiểu và giải thích; giá, phòng trống và booking do dữ liệu EnziuRooms quyết định.
+            Giá và tình trạng phòng có thể thay đổi theo ngày bạn chọn.
           </p>
         </section>
       ) : null}
@@ -808,7 +814,10 @@ export default function FloatingAiAssistant() {
       <button
         type="button"
         className={`enziu-fai-launcher ${isOpen ? "open" : ""}`}
-        onClick={toggleAssistant}
+        onClick={() => {
+          if (!isOpen) window.dispatchEvent(new CustomEvent("enziu:chat-close"));
+          toggleAssistant();
+        }}
         aria-label={isOpen ? "Đóng Enziu AI" : "Mở Enziu AI"}
         aria-expanded={isOpen}
         aria-controls="enziu-ai-panel"

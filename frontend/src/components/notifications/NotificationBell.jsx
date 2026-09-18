@@ -48,7 +48,7 @@ const ROLE_PAGE = {
 const FILTERS = [
   { key: "ALL", label: "Tất cả", icon: LayoutGrid },
   { key: "UNREAD", label: "Chưa đọc", dot: true },
-  { key: "BOOKING", label: "Booking", icon: CalendarCheck2 },
+  { key: "BOOKING", label: "Đặt phòng", icon: CalendarCheck2 },
   { key: "PROMOTION", label: "Khuyến mãi", icon: Gift },
 ];
 

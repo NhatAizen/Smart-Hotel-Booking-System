@@ -457,14 +457,14 @@ export default function HotelWalletPage() {
   ], [wallet]);
 
   if (loading && !wallet) {
-    return <Loading message="Đang tải ví và dữ liệu đối soát..." />;
+    return <Loading message="Đang tải ví và thông tin đối soát..." />;
   }
 
   const pageHeader = (
     <PageHeader
       eyebrow="Tài chính"
       title="Ví & đối soát khách sạn"
-      description="Theo dõi số dư, khoản đang giữ, yêu cầu hoàn của khách và lịch sử rút tiền từ dữ liệu giao dịch thực tế."
+      description="Theo dõi số dư, khoản đang giữ, yêu cầu hoàn của khách và lịch sử rút tiền."
       icon={<WalletCards size={22} />}
       actions={(
         <button className="wallet-refresh-button" type="button" onClick={load} disabled={loading}>
@@ -481,7 +481,7 @@ export default function HotelWalletPage() {
         <ErrorMessage message={error} onRetry={() => void load()} />
         <EmptyState
           icon={<WalletCards size={30} />}
-          title="Chưa thể hiển thị dữ liệu ví"
+          title="Chưa thể hiển thị thông tin ví"
           description="Hãy thử tải lại để nhận số dư và lịch sử giao dịch mới nhất."
         />
       </main>

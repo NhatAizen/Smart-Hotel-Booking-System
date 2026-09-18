@@ -279,7 +279,7 @@ export default function FavoritesPage() {
                                 ))}
                               </div>
                             ) : (
-                              <span className="favorite-stars-unavailable">Chưa có dữ liệu hạng sao</span>
+                              <span className="favorite-stars-unavailable">Chưa cập nhật hạng sao</span>
                             )}
                           </div>
                         </div>

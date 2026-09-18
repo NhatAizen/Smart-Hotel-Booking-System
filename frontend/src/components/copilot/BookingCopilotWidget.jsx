@@ -32,6 +32,7 @@ import {
   analyzeCopilotRequirement,
   explainCopilotResults,
 } from "../../services/copilotService";
+import { friendlyErrorMessage } from "../../utils/userFacingText";
 import "./BookingCopilotWidget.css";
 
 const AMENITY_OPTIONS = [
@@ -283,7 +284,7 @@ function candidateReasons({
   }
 
   if (rating != null && ((rating <= 5 && rating >= 4) || rating >= 8)) {
-    reasons.push(`Review tốt${reviewCount ? ` từ ${reviewCount} đánh giá` : ""}`);
+    reasons.push(`Được đánh giá tốt${reviewCount ? ` từ ${reviewCount} lượt đánh giá` : ""}`);
   }
 
   if (trip.datesSelected && availableRoomCount >= trip.rooms) {
@@ -291,7 +292,7 @@ function candidateReasons({
   }
 
   if (trip.datesSelected && pricingChecked) {
-    reasons.push("Tổng giá lấy từ Pricing API thật");
+    reasons.push("Tổng giá đã được tính theo ngày và số phòng bạn chọn");
   }
 
   return reasons.slice(0, 4);
@@ -600,7 +601,7 @@ export default function BookingCopilotWidget() {
         nights,
       };
 
-      setProgress("Đang lấy khách sạn và phòng thật...");
+      setProgress("Đang tìm khách sạn và phòng phù hợp...");
       const hotelResponse = await getHotels();
       let hotels = listOf(hotelResponse).filter((hotel) => {
         const status = String(hotel?.status ?? "").toUpperCase();
@@ -633,8 +634,8 @@ export default function BookingCopilotWidget() {
 
       setProgress(
         datesSelected
-          ? "Đang kiểm tra availability và tổng giá theo ngày..."
-          : "Đang đối chiếu phòng, giá niêm yết và review...",
+          ? "Đang kiểm tra phòng trống và tổng giá..."
+          : "Đang đối chiếu phòng, mức giá và đánh giá...",
       );
 
       const built = await Promise.all(
@@ -670,16 +671,17 @@ export default function BookingCopilotWidget() {
       }
 
       setResults(top);
-      setProgress("Đang tạo phần giải thích có grounding...");
+      setProgress("Đang hoàn thiện gợi ý cho bạn...");
       const explanation = await explainCopilotResults(requirement, top, {
         datesSelected,
       });
       setSummary(explanation);
     } catch (requestError) {
       setError(
-        requestError?.response?.data?.message ??
-          requestError?.message ??
-          "Booking Copilot chưa thể phân tích lúc này.",
+        friendlyErrorMessage(
+          requestError,
+          "Enziu AI chưa thể đưa ra gợi ý lúc này. Vui lòng thử lại.",
+        ),
       );
     } finally {
       setLoading(false);
@@ -693,17 +695,17 @@ export default function BookingCopilotWidget() {
         type="button"
         className="enziu-copilot-launcher"
         onClick={() => setOpen(true)}
-        aria-label="Mở Enziu Booking Copilot"
-        title="AI Booking Copilot"
+        aria-label="Mở gợi ý thông minh EnziuRooms"
+        title="Gợi ý thông minh"
       >
         <Sparkles size={20} />
-        <span>Smart Match</span>
+        <span>Gợi ý cho bạn</span>
       </button>
 
       {open ? (
         <section
           className="enziu-copilot-panel"
-          aria-label="Enziu Booking Copilot"
+          aria-label="Gợi ý thông minh EnziuRooms"
         >
           <header className="enziu-copilot-header">
             <div className="enziu-copilot-brand">
@@ -711,15 +713,15 @@ export default function BookingCopilotWidget() {
                 <Bot size={22} />
               </span>
               <div>
-                <strong>Enziu Booking Copilot</strong>
-                <small>AI hiểu nhu cầu · hệ thống kiểm chứng dữ liệu thật</small>
+                <strong>Enziu AI</strong>
+                <small>Gợi ý nơi ở phù hợp với chuyến đi của bạn</small>
               </div>
             </div>
             <button
               type="button"
               className="enziu-copilot-close"
               onClick={() => setOpen(false)}
-              aria-label="Đóng Booking Copilot"
+              aria-label="Đóng gợi ý thông minh"
             >
               <X size={20} />
             </button>
@@ -729,8 +731,8 @@ export default function BookingCopilotWidget() {
             <div className="enziu-copilot-proof">
               <ShieldCheck size={18} />
               <span>
-                Giá, phòng trống và review được đối chiếu qua API EnziuRooms;
-                AI không tự tạo khách sạn.
+                Giá, phòng trống và đánh giá được kiểm tra theo lựa chọn hiện có
+                trên EnziuRooms.
               </span>
             </div>
 
@@ -750,7 +752,7 @@ export default function BookingCopilotWidget() {
                 className="enziu-copilot-advanced-toggle"
                 onClick={() => setAdvancedOpen((current) => !current)}
               >
-                <span>Thông tin để xếp hạng chính xác hơn</span>
+                <span>Thêm thông tin chuyến đi</span>
                 <ChevronDown
                   size={18}
                   className={advancedOpen ? "open" : ""}
@@ -886,7 +888,7 @@ export default function BookingCopilotWidget() {
                 ) : (
                   <Search size={19} />
                 )}
-                {loading ? progress || "Đang phân tích..." : "Tìm Top 3 phù hợp"}
+                {loading ? progress || "Đang tìm lựa chọn phù hợp..." : "Tìm lựa chọn phù hợp"}
               </button>
             </form>
 
@@ -894,7 +896,7 @@ export default function BookingCopilotWidget() {
               <div className="enziu-copilot-understood">
                 <strong>
                   <Sparkles size={16} />
-                  Copilot đã hiểu
+                  Mình đã hiểu
                 </strong>
                 <div>
                   {analysis.destination ? (
@@ -911,19 +913,13 @@ export default function BookingCopilotWidget() {
                   {analysis.amenities?.length ? (
                     <span>✨ {analysis.amenities.join(", ")}</span>
                   ) : null}
-                  <span>
-                    {analysis.analysisSource === "GEMINI"
-                      ? "AI parser: Gemini"
-                      : "AI parser dự phòng: local"}
-                  </span>
                 </div>
               </div>
             ) : null}
 
             {locationFallback ? (
               <div className="enziu-copilot-warning">
-                Không tìm thấy địa danh trùng chính xác trong dữ liệu khách sạn.
-                Copilot vẫn xếp theo các tiêu chí còn lại để bạn tham khảo.
+                Chưa tìm thấy khách sạn đúng khu vực bạn nhập. Mình vẫn gợi ý theo các tiêu chí còn lại để bạn tham khảo.
               </div>
             ) : null}
 
@@ -933,7 +929,7 @@ export default function BookingCopilotWidget() {
               <div className="enziu-copilot-results">
                 <div className="enziu-copilot-result-heading">
                   <div>
-                    <span>SMART MATCH</span>
+                    <span>GỢI Ý CHO BẠN</span>
                     <h3>Top {results.length} phù hợp nhất</h3>
                   </div>
                   {budgetLabel ? <small>{budgetLabel}</small> : null}
@@ -964,7 +960,7 @@ export default function BookingCopilotWidget() {
                           #{candidate.rank}
                         </span>
                         <strong className="enziu-copilot-match">
-                          {candidate.matchPercent}% match
+                          {candidate.matchPercent}% phù hợp
                         </strong>
                       </div>
 
@@ -1010,7 +1006,7 @@ export default function BookingCopilotWidget() {
                                 {formatMoney(candidate.nightlyAmount)}
                               </strong>
                               <small>
-                                /phòng/đêm · chọn ngày để lấy tổng giá động
+                                /phòng/đêm · chọn ngày để xem tổng giá
                               </small>
                             </>
                           )}
@@ -1021,8 +1017,7 @@ export default function BookingCopilotWidget() {
                             <>
                               <ShieldCheck size={15} />
                               <span>
-                                Đã kiểm tra: {candidate.availableRoomCount} phòng
-                                phù hợp
+                                Còn {candidate.availableRoomCount} phòng phù hợp
                               </span>
                             </>
                           ) : (
@@ -1079,9 +1074,8 @@ export default function BookingCopilotWidget() {
                 <div className="enziu-copilot-method">
                   <ShieldCheck size={17} />
                   <span>
-                    Match % được tính từ vị trí, ngân sách, tiện nghi, review,
-                    sức chứa và availability. Gemini chỉ hiểu/giải thích yêu cầu;
-                    dữ liệu nghiệp vụ vẫn do API EnziuRooms quyết định.
+                    Mức độ phù hợp được tính từ vị trí, ngân sách, tiện nghi,
+                    đánh giá, sức chứa và tình trạng phòng theo ngày bạn chọn.
                   </span>
                 </div>
               </div>

@@ -6,7 +6,7 @@ export default function HotelNotificationsPage() {
       admin
       eyebrow="THÔNG BÁO"
       title="Thông báo vận hành"
-      description="Theo dõi các cập nhật về booking, thanh toán, lưu trú, phòng và tài chính."
+      description="Theo dõi các cập nhật về đơn đặt phòng, thanh toán, lưu trú, phòng và tài chính."
     />
   );
 }

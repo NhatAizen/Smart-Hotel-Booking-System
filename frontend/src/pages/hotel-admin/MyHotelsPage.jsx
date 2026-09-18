@@ -13,6 +13,7 @@ import {
   Save,
   Send,
   Star,
+  ScrollText,
   Trash2,
   X,
   XCircle,
@@ -470,7 +471,7 @@ export default function MyHotelsPage() {
 
       setMessage(
         "Đã đặt ảnh bìa. Ảnh này cũng được dùng làm "
-        + "logo/ảnh đại diện khách sạn trong khu Hotel Admin.",
+        + "logo/ảnh đại diện khách sạn trong khu quản lý.",
       );
     } catch (requestError) {
       setError(errorMessage(requestError));
@@ -849,6 +850,14 @@ export default function MyHotelsPage() {
                     <Clock3 size={16} />
                     Giờ nhận/trả
                   </button>
+
+                  <Link
+                    to={`/hotel-admin/policies?hotelId=${hotel.id}`}
+                    className="catalog-link-button"
+                  >
+                    <ScrollText size={16} />
+                    Chính sách & Quy định
+                  </Link>
 
                   <button
                     type="button"

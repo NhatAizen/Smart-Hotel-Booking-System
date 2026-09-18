@@ -1,0 +1,325 @@
+.hotel-stay-policies {
+  display: grid;
+  gap: 26px;
+}
+
+.hotel-policy-loading {
+  padding: 14px 16px;
+  color: #526b7a;
+  background: #f2f7f8;
+  border-radius: 14px;
+}
+
+.hotel-policy-layer {
+  display: grid;
+  gap: 16px;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid #dce7ed;
+  border-radius: 26px;
+}
+
+.hotel-policy-layer.is-hotel {
+  background: linear-gradient(145deg, #fbfefd, #f1faf7);
+}
+
+.hotel-policy-layer.is-platform {
+  background: linear-gradient(145deg, #fbfdff, #f1f7fd);
+  border-color: #d8e6f2;
+}
+
+.hotel-policy-layer-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+}
+
+.hotel-policy-layer-title > span {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: #087f72;
+  background: #e2f6f1;
+  border-radius: 14px;
+}
+
+.hotel-policy-layer.is-platform .hotel-policy-layer-title > span {
+  color: #1769a6;
+  background: #e7f2fc;
+}
+
+.hotel-policy-layer-title small {
+  color: #708692;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.hotel-policy-layer-title h3 {
+  margin: 3px 0 4px;
+  color: #15394c;
+  font-size: 21px;
+}
+
+.hotel-policy-layer-title p {
+  margin: 0;
+  color: #687e89;
+  font-size: 12px;
+}
+
+.hotel-policy-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #dfe9ef;
+}
+
+.hotel-policy-kicker,
+.hotel-policy-trust-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hotel-policy-kicker {
+  color: #087c91;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .11em;
+}
+
+.hotel-policy-intro h2 {
+  margin: 10px 0 9px;
+  color: #102f43;
+  font-size: clamp(30px, 3.2vw, 48px);
+  letter-spacing: -.045em;
+  line-height: 1;
+}
+
+.hotel-policy-intro p {
+  max-width: 760px;
+  margin: 0;
+  color: #526b7a;
+  line-height: 1.65;
+}
+
+.hotel-policy-trust-note {
+  padding: 11px 14px;
+  color: #166a5d;
+  background: #edf9f5;
+  border: 1px solid #ccece1;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.hotel-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+
+.hotel-policy-group {
+  overflow: hidden;
+  background: #fbfdfe;
+  border: 1px solid #dce7ed;
+  border-radius: 20px;
+  box-shadow: 0 12px 30px rgba(16, 62, 82, .06);
+}
+
+.hotel-policy-group.is-wide {
+  grid-column: 1 / -1;
+}
+
+.hotel-policy-group > summary {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  padding: 15px 18px;
+  color: #12384d;
+  cursor: pointer;
+  list-style: none;
+}
+
+.hotel-policy-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.hotel-policy-group > summary > span {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  color: #087f91;
+  background: linear-gradient(145deg, #e3f8f4, #e9f4fb);
+  border-radius: 13px;
+}
+
+.hotel-policy-group > summary > div {
+  display: grid;
+  gap: 3px;
+}
+
+.hotel-policy-group > summary small {
+  color: #78909d;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.hotel-policy-group > summary strong {
+  font-size: 16px;
+}
+
+.hotel-policy-chevron {
+  color: #78909d;
+  transition: transform .2s ease;
+}
+
+.hotel-policy-group[open] .hotel-policy-chevron {
+  transform: rotate(180deg);
+}
+
+.hotel-policy-group-body {
+  display: grid;
+  padding: 0 18px 8px;
+}
+
+.hotel-policy-group.is-wide .hotel-policy-group-body {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
+}
+
+.hotel-policy-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 11px;
+  padding: 15px 0;
+  border-top: 1px solid #e5edf1;
+}
+
+.hotel-policy-row-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: #087f91;
+  background: #eaf8f7;
+  border-radius: 10px;
+}
+
+.hotel-policy-row.is-missing .hotel-policy-row-icon {
+  color: #7a8993;
+  background: #f0f3f5;
+}
+
+.hotel-policy-row-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hotel-policy-row-heading strong {
+  color: #173a4c;
+  font-size: 13px;
+}
+
+.hotel-policy-row-heading small {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  color: #487381;
+  background: #edf7f8;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.hotel-policy-row.is-missing .hotel-policy-row-heading small {
+  color: #7b858d;
+  background: #f1f3f5;
+}
+
+.hotel-policy-row p {
+  margin: 6px 0 0;
+  color: #526b7a;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.hotel-policy-row.is-missing p {
+  color: #788892;
+}
+
+@media (max-width: 900px) {
+  .hotel-policy-intro {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 16px;
+  }
+
+  .hotel-policy-trust-note {
+    white-space: normal;
+  }
+
+  .hotel-policy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hotel-policy-group.is-wide {
+    grid-column: auto;
+  }
+
+  .hotel-policy-group.is-wide .hotel-policy-group-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .hotel-stay-policies {
+    gap: 20px;
+  }
+
+  .hotel-policy-intro h2 {
+    font-size: 34px;
+  }
+
+  .hotel-policy-group {
+    border-radius: 16px;
+  }
+
+  .hotel-policy-group > summary {
+    min-height: 68px;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    padding: 13px 14px;
+  }
+
+  .hotel-policy-group > summary > span {
+    width: 38px;
+    height: 38px;
+  }
+
+  .hotel-policy-group-body {
+    padding-inline: 14px;
+  }
+
+  .hotel-policy-row-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hotel-policy-chevron {
+    transition: none;
+  }
+}

@@ -180,7 +180,7 @@ function replaceStay(setStays, updated) {
   )));
 }
 
-export default function CurrentStaysPage() {
+export default function CurrentStaysPage({ embedded = false }) {
   const [stays, setStays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
@@ -482,13 +482,16 @@ export default function CurrentStaysPage() {
     return <Loading message="Đang tải khách lưu trú..." />;
   }
 
+  const PageContainer = embedded ? "div" : "main";
+
   return (
-    <main className="current-stays-page">
+    <PageContainer className="current-stays-page">
       <PageHeader
         className="current-stays-heading"
-        eyebrow="Vận hành lưu trú"
+        titleAs={embedded ? "h2" : "h1"}
+        eyebrow={embedded ? undefined : "Vận hành lưu trú"}
         title="Khách đang lưu trú"
-        description="Theo dõi khách đã nhận phòng, thời hạn trả phòng, phụ thu trả trễ và các khoản cần thu tại quầy."
+        description="Kiểm tra giờ trả phòng, thu tiền còn lại và xác nhận khách trả phòng."
         icon={<Users size={22} />}
         actions={(
           <button type="button" onClick={() => void loadStays()} disabled={loading}>
@@ -710,6 +713,6 @@ export default function CurrentStaysPage() {
           })}
         </section>
       )}
-    </main>
+    </PageContainer>
   );
 }

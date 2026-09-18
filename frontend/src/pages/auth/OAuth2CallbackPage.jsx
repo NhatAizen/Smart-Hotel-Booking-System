@@ -1,8 +1,5 @@
 import {
   AlertTriangle,
-  CheckCircle2,
-  Hotel,
-  LoaderCircle,
 } from "lucide-react";
 import {
   useEffect,
@@ -15,6 +12,7 @@ import {
 } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
+import EnziuPageLoader from "../../components/common/EnziuPageLoader";
 
 const oauthExchangeRequests = new Map();
 
@@ -114,7 +112,6 @@ export default function OAuth2CallbackPage() {
     }
 
     let active = true;
-    let redirectTimer;
 
     setState({
       status: "loading",
@@ -133,22 +130,12 @@ export default function OAuth2CallbackPage() {
 
         setState({
           status: "success",
-          message:
-            "Đăng nhập thành công.",
+          message: "Đang mở EnziuRooms...",
         });
 
-        redirectTimer = window.setTimeout(
-          () => {
-            navigate(
-              getDestination(
-                currentUser?.role,
-              ),
-              {
-                replace: true,
-              },
-            );
-          },
-          700,
+        navigate(
+          getDestination(currentUser?.role),
+          { replace: true },
         );
       })
       .catch((error) => {
@@ -165,11 +152,6 @@ export default function OAuth2CallbackPage() {
     return () => {
       active = false;
 
-      if (redirectTimer) {
-        window.clearTimeout(
-          redirectTimer,
-        );
-      }
     };
   }, [
     code,
@@ -178,11 +160,13 @@ export default function OAuth2CallbackPage() {
     navigate,
   ]);
 
-  const isLoading =
-    state.status === "loading";
-
-  const isSuccess =
-    state.status === "success";
+  if (state.status !== "error") {
+    return (
+      <EnziuPageLoader
+        label={state.message || "Đang hoàn tất đăng nhập..."}
+      />
+    );
+  }
 
   return (
     <main className="verify-email-page">
@@ -191,72 +175,29 @@ export default function OAuth2CallbackPage() {
           to="/"
           className="verify-email-brand"
         >
-          <span>
-            <Hotel size={25} />
-          </span>
-
           <strong>EnziuRooms</strong>
         </Link>
 
         <div
-          className={
-            `verify-email-icon ${state.status}`
-          }
+          className="verify-email-icon error"
           aria-hidden="true"
         >
-          {isLoading ? (
-            <LoaderCircle
-              size={43}
-              className="verify-spin"
-            />
-          ) : isSuccess ? (
-            <CheckCircle2 size={48} />
-          ) : (
-            <AlertTriangle size={46} />
-          )}
+          <AlertTriangle size={46} />
         </div>
 
-        <span
-          className={
-            `verify-email-eyebrow ${
-              isSuccess
-                ? "success"
-                : state.status === "error"
-                  ? "error"
-                  : ""
-            }`
-          }
-        >
-          {isLoading
-            ? "ĐANG ĐĂNG NHẬP"
-            : isSuccess
-              ? "ĐĂNG NHẬP THÀNH CÔNG"
-              : "ĐĂNG NHẬP THẤT BẠI"}
+        <span className="verify-email-eyebrow error">
+          ĐĂNG NHẬP THẤT BẠI
         </span>
 
-        <h1>
-          {isLoading
-            ? "Vui lòng chờ một chút"
-            : isSuccess
-              ? "Chào mừng đến EnziuRooms!"
-              : "Không thể đăng nhập"}
-        </h1>
-
+        <h1>Không thể đăng nhập</h1>
         <p>{state.message}</p>
 
-        {!isLoading && !isSuccess ? (
-          <Link
-            to="/login"
-            className="verify-primary-action"
-          >
-            Quay lại đăng nhập
-          </Link>
-        ) : null}
-
-        <footer className="verify-email-footer">
-          © EnziuRooms · Đặt phòng khách sạn
-          thông minh
-        </footer>
+        <Link
+          to="/login"
+          className="verify-primary-action"
+        >
+          Quay lại đăng nhập
+        </Link>
       </section>
     </main>
   );

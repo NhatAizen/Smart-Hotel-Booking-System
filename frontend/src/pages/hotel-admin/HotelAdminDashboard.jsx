@@ -539,7 +539,7 @@ export default function HotelAdminDashboard() {
     try {
       await loadHotel(nextHotelId);
     } catch (requestError) {
-      setError(requestError.response?.data?.message ?? "Không thể tải dữ liệu khách sạn đã chọn.");
+      setError(requestError.response?.data?.message ?? "Chưa thể tải thông tin của khách sạn đã chọn.");
     } finally {
       setRefreshing(false);
     }
@@ -726,8 +726,8 @@ export default function HotelAdminDashboard() {
       <section className="ha-dashboard-hero">
         <div>
           <span className="ha-dashboard-eyebrow">VẬN HÀNH KHÁCH SẠN</span>
-          <h1>Xin chào, {selectedHotel?.name || "Hotel Admin"}! <span aria-hidden="true">👋</span></h1>
-          <p>Đây là tổng quan hoạt động và doanh thu thực tế của khách sạn hôm nay.</p>
+          <h1>Xin chào, {selectedHotel?.name || "Đối tác khách sạn"}! <span aria-hidden="true">👋</span></h1>
+          <p>Đây là tổng quan hoạt động và doanh thu của khách sạn hôm nay.</p>
         </div>
         <div className="ha-dashboard-hero-actions">
           {hotels.length > 1 ? (
@@ -746,7 +746,7 @@ export default function HotelAdminDashboard() {
           </div>
           <button type="button" className="ha-dashboard-refresh" onClick={() => void refreshAll()} disabled={refreshing}>
             <RefreshCw size={17} className={refreshing ? "spin" : ""} />
-            Làm mới dữ liệu
+            Làm mới
           </button>
         </div>
       </section>
@@ -767,7 +767,7 @@ export default function HotelAdminDashboard() {
           tone="green"
           label="Đơn đặt phòng hôm nay"
           value={sourceAvailable.operations ? todayBookings.length : "—"}
-          helper={sourceAvailable.operations ? `${bookings.length} booking trong khách sạn` : "Chưa thể tải dữ liệu"}
+          helper={sourceAvailable.operations ? `${bookings.length} đơn tại khách sạn` : "Chưa thể tải thông tin"}
           trend={sourceAvailable.operations ? bookingTrend : null}
         />
         <DashboardMetric
@@ -775,14 +775,14 @@ export default function HotelAdminDashboard() {
           tone="violet"
           label="Khách nhận phòng"
           value={sourceAvailable.operations ? todayArrivals.length : "—"}
-          helper={sourceAvailable.stays ? `${selectedHotelStays.length} khách/phòng đang lưu trú` : "Dữ liệu lưu trú chưa sẵn sàng"}
+          helper={sourceAvailable.stays ? `${selectedHotelStays.length} khách/phòng đang lưu trú` : "Thông tin lưu trú chưa sẵn sàng"}
         />
         <DashboardMetric
           icon={DoorOpen}
           tone="orange"
           label="Tỷ lệ lấp đầy"
           value={sourceAvailable.operations ? `${occupancyRate}%` : "—"}
-          helper={sourceAvailable.operations ? `${roomStats.occupied}/${roomStats.total} phòng đang sử dụng` : "Chưa thể tải dữ liệu"}
+          helper={sourceAvailable.operations ? `${roomStats.occupied}/${roomStats.total} phòng đang sử dụng` : "Chưa thể tải thông tin"}
         />
       </section>
 
@@ -792,7 +792,7 @@ export default function HotelAdminDashboard() {
             <div>
               <div className="ha-dashboard-panel-title-row">
                 <h2>Doanh thu</h2>
-                <span className="ha-dashboard-info" title="Doanh thu được tổng hợp từ giao dịch ví thực tế.">i</span>
+                <span className="ha-dashboard-info" title="Doanh thu được tổng hợp từ các giao dịch đã ghi nhận.">i</span>
               </div>
               <p>{selectedTransactionState.accountLevel
                 ? "Doanh thu thuần 7 ngày gần nhất của tài khoản đối tác"
@@ -809,7 +809,7 @@ export default function HotelAdminDashboard() {
               <RevenueLineChart series={revenueSeries} />
             </>
           ) : (
-            <div className="ha-dashboard-inline-empty">Chưa thể tải dữ liệu doanh thu.</div>
+            <div className="ha-dashboard-inline-empty">Chưa thể tải thông tin doanh thu.</div>
           )}
         </article>
 
@@ -818,7 +818,7 @@ export default function HotelAdminDashboard() {
             <div>
               <div className="ha-dashboard-panel-title-row">
                 <h2>Tình trạng phòng</h2>
-                <span className="ha-dashboard-info" title="Tỷ lệ dựa trên trạng thái phòng thực tế.">i</span>
+                <span className="ha-dashboard-info" title="Tỷ lệ dựa trên trạng thái phòng hiện tại.">i</span>
               </div>
               <p>Cập nhật theo trạng thái phòng hiện tại</p>
             </div>
@@ -833,7 +833,7 @@ export default function HotelAdminDashboard() {
               inactive={roomStats.inactive}
             />
           ) : (
-            <div className="ha-dashboard-inline-empty">Chưa thể tải dữ liệu phòng.</div>
+            <div className="ha-dashboard-inline-empty">Chưa thể tải thông tin phòng.</div>
           )}
         </article>
       </section>
@@ -843,7 +843,7 @@ export default function HotelAdminDashboard() {
           <header className="ha-dashboard-panel-header">
             <div>
               <h2>Đơn đặt phòng mới nhất</h2>
-              <p>{sourceAvailable.operations ? `${bookings.length} đơn của ${selectedHotel?.name}` : "Chưa thể tải dữ liệu booking"}</p>
+              <p>{sourceAvailable.operations ? `${bookings.length} đơn của ${selectedHotel?.name}` : "Chưa thể tải danh sách đơn đặt phòng"}</p>
             </div>
             <Link to="/hotel-admin/bookings" className="ha-dashboard-text-link">
               Xem tất cả đơn đặt phòng <ChevronRight size={16} />
@@ -853,7 +853,7 @@ export default function HotelAdminDashboard() {
             <table className="ha-dashboard-booking-table">
               <thead>
                 <tr>
-                  <th>Mã booking</th>
+                  <th>Mã đặt phòng</th>
                   <th>Khách hàng</th>
                   <th>Phòng</th>
                   <th>Nhận phòng</th>
@@ -866,7 +866,7 @@ export default function HotelAdminDashboard() {
                 {!sourceAvailable.operations || recentBookings.length === 0 ? (
                   <tr>
                     <td colSpan="7" className="ha-dashboard-table-empty">
-                      {sourceAvailable.operations ? "Chưa có đơn đặt phòng để hiển thị." : "Chưa thể tải dữ liệu đơn đặt phòng."}
+                      {sourceAvailable.operations ? "Chưa có đơn đặt phòng để hiển thị." : "Chưa thể tải danh sách đơn đặt phòng."}
                     </td>
                   </tr>
                 ) : recentBookings.map((booking) => (

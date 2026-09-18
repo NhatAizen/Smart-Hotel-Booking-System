@@ -359,7 +359,7 @@ export default function MyReviewsPage() {
                             <span>
                               {Array.isArray(review.images)
                                 ? `${review.images.length} ảnh`
-                                : "Chưa có dữ liệu ảnh"}
+                                : "Chưa có ảnh"}
                             </span>
                           </div>
                         </div>
@@ -425,7 +425,7 @@ export default function MyReviewsPage() {
 
                       <div className="my-review-footer">
                         <span>
-                          Đánh giá được xác minh từ booking đã hoàn tất trên EnziuRooms.
+                          Đánh giá được gửi sau khi khách đã hoàn tất kỳ lưu trú trên EnziuRooms.
                         </span>
                         {review.hotelId ? (
                           <Link

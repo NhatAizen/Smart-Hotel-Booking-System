@@ -8,19 +8,20 @@ import {
 } from "react";
 
 import { askEnziuAssistant } from "../services/aiService";
+import { friendlyErrorMessage } from "../utils/userFacingText";
 
 export const AI_QUICK_PROMPTS = [
   "Tôi đi cùng gia đình, nên chọn phòng nào?",
   "Tìm khách sạn phù hợp ngân sách của tôi",
   "So sánh các lựa chọn vừa nói giúp tôi",
-  "Booking sắp tới của tôi thế nào?",
+  "Đơn đặt phòng sắp tới của tôi thế nào?",
 ];
 
 const INITIAL_MESSAGE = {
   role: "assistant",
   content:
-    "Chào bạn, mình là Enziu AI Booking Agent. Bạn cứ nói tự nhiên nhu cầu của mình; " +
-    "mình sẽ tự đối chiếu khách sạn, loại phòng, giá, phòng trống và ưu đãi từ EnziuRooms để hỗ trợ bạn chọn.",
+    "Chào bạn, mình là Enziu AI. Bạn cứ nói nhu cầu của mình; " +
+    "mình sẽ giúp tìm khách sạn, so sánh phòng, giá và các ưu đãi phù hợp.",
   hotels: [],
   bookings: [],
   suggestedPrompts: AI_QUICK_PROMPTS,
@@ -315,9 +316,10 @@ export function AiAssistantProvider({ children }) {
         ]);
       } catch (requestError) {
         setError(
-          requestError?.response?.data?.message ??
-            requestError?.response?.data?.error ??
-            "Không thể kết nối Enziu AI. Hãy kiểm tra AI Service và Gemini API.",
+          friendlyErrorMessage(
+            requestError,
+            "Enziu AI đang tạm thời gián đoạn. Vui lòng thử lại sau.",
+          ),
         );
       } finally {
         setSending(false);

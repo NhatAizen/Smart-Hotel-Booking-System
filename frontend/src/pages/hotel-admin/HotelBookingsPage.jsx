@@ -35,6 +35,7 @@ import {
   getRoomTypes,
 } from "../../services/hotelAdminService";
 import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
+import { statusLabel } from "../../utils/presentation";
 import "../shared/BookingManagementPage.css";
 
 const FILTERS = [
@@ -89,7 +90,7 @@ function paymentLabel(value) {
     PAID: "Đã thanh toán đủ",
     REFUNDED: "Đã hoàn tiền",
     FAILED: "Thanh toán thất bại",
-  }[value] ?? value ?? "—";
+  }[value] ?? statusLabel(value) ?? "—";
 }
 
 function requestStatusLabel(value) {
@@ -209,7 +210,7 @@ export default function HotelBookingsPage() {
       setRooms(Array.isArray(roomData) ? roomData : []);
       setRoomTypes(Array.isArray(roomTypeData) ? roomTypeData : []);
     } catch (requestError) {
-      setError(messageOf(requestError, "Không thể tải danh sách booking của khách sạn."));
+      setError(messageOf(requestError, "Chưa thể tải danh sách đơn đặt phòng của khách sạn."));
     } finally {
       setLoading(false);
     }
@@ -274,7 +275,7 @@ export default function HotelBookingsPage() {
     setQuote(null);
     setError("");
     if (!request.targetRoomId) {
-      setError("Yêu cầu cũ này chưa có phòng Customer lựa chọn. Hãy từ chối và yêu cầu Customer gửi lại.");
+      setError("Yêu cầu này chưa ghi nhận phòng khách đã chọn. Hãy từ chối và đề nghị khách gửi lại.");
       return;
     }
     setQuoteLoading(true);
@@ -283,7 +284,7 @@ export default function HotelBookingsPage() {
     } catch (requestError) {
       setError(messageOf(
         requestError,
-        "Phòng Customer chọn hiện không còn phù hợp hoặc không còn trống. Bạn có thể từ chối yêu cầu để Customer chọn lại phòng khác.",
+        "Phòng khách chọn hiện không còn phù hợp hoặc không còn trống. Bạn có thể từ chối để khách chọn lại phòng khác.",
       ));
     } finally {
       setQuoteLoading(false);
@@ -297,7 +298,7 @@ export default function HotelBookingsPage() {
     setMessage("");
     try {
       await approveRoomChangeRequest(reviewRequest.id, reviewNote);
-      setMessage("Đã duyệt đúng phòng Customer yêu cầu. Booking và số tiền cần thanh toán đã được cập nhật.");
+      setMessage("Đã duyệt phòng khách yêu cầu. Đơn đặt phòng và số tiền cần thanh toán đã được cập nhật.");
       setReviewRequest(null);
       await loadHotelData();
     } catch (requestError) {
@@ -325,7 +326,7 @@ export default function HotelBookingsPage() {
   }
 
   async function handleNoShow(booking) {
-    if (!window.confirm(`Đánh dấu booking ${booking.bookingCode} là khách không đến?`)) return;
+    if (!window.confirm(`Đánh dấu đơn ${booking.bookingCode} là khách không đến?`)) return;
     setBusy(true);
     setError("");
     try {
@@ -339,7 +340,7 @@ export default function HotelBookingsPage() {
     }
   }
 
-  if (loading && hotels.length === 0) return <Loading message="Đang tải quản lý booking..." />;
+  if (loading && hotels.length === 0) return <Loading message="Đang tải danh sách đơn đặt phòng..." />;
 
   const selectedHotel = hotels.find((hotel) => String(hotel.id) === String(hotelId));
   const reviewBooking = reviewRequest ? bookingMap[String(reviewRequest.bookingId)] : null;
@@ -350,7 +351,7 @@ export default function HotelBookingsPage() {
         <div>
           <span className="booking-management-eyebrow">VẬN HÀNH KHÁCH SẠN</span>
           <h1>Quản lý đơn đặt phòng</h1>
-          <p>Theo dõi booking của khách, thanh toán, no-show và xử lý yêu cầu đổi phòng trên dữ liệu thật.</p>
+          <p>Theo dõi đơn đặt phòng, thanh toán, khách không đến và các yêu cầu đổi phòng tại khách sạn.</p>
         </div>
         <div className="booking-management-hero-actions">
           <select value={hotelId} onChange={(event) => setHotelId(event.target.value)}>
@@ -394,7 +395,7 @@ export default function HotelBookingsPage() {
               return (
                 <article key={request.id} className="room-change-request-card">
                   <div className="room-change-request-head">
-                    <StatusBadge status="PENDING" label="Chờ xử lý" tone="warning" size="sm" />
+                    <StatusBadge status={request.status} label={requestStatusLabel(request.status)} tone={requestTone(request.status)} size="sm" />
                     <span>{dateTime(request.requestedAt)}</span>
                   </div>
                   <strong>{booking.bookingCode}</strong>
@@ -416,14 +417,14 @@ export default function HotelBookingsPage() {
 
       <section className="booking-management-panel">
         <div className="booking-management-toolbar">
-          <div className="booking-management-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mã booking, tên khách, phòng..." /></div>
+          <div className="booking-management-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mã đặt phòng, tên khách, phòng..." /></div>
           <div className="booking-management-filter-list">
             {FILTERS.map(([value, label]) => <button key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{label}</button>)}
           </div>
         </div>
 
         {filteredBookings.length === 0 ? (
-          <EmptyState icon={<CalendarDays size={30} />} title="Chưa có booking phù hợp" description={`Không có đơn phù hợp tại ${selectedHotel?.name ?? "khách sạn"}.`} />
+          <EmptyState icon={<CalendarDays size={30} />} title="Chưa có đơn đặt phòng phù hợp" description={`Không có đơn phù hợp tại ${selectedHotel?.name ?? "khách sạn"}.`} />
         ) : (
           <div className="hotel-booking-card-list">
             {filteredBookings.map((booking) => {
@@ -474,7 +475,7 @@ export default function HotelBookingsPage() {
                           <span><BedDouble size={14} /> Số phòng <b>{room?.roomNumber ?? "—"}</b></span>
                           {room?.floor != null ? <span>Tầng <b>{room.floor}</b></span> : null}
                         </div>
-                        <p>{room?.status ? String(room.status).replaceAll("_", " ") : "Thông tin phòng theo dữ liệu khách sạn"}</p>
+                        <p>{room?.status ? statusLabel(room.status) : "Chưa cập nhật trạng thái phòng"}</p>
                       </div>
                     </div>
                     <div className="hotel-booking-info-tile">
@@ -519,7 +520,7 @@ export default function HotelBookingsPage() {
         <div className="booking-management-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setSelectedBooking(null)}>
           <section className="booking-management-modal" role="dialog" aria-modal="true">
             <button className="booking-management-modal-close" onClick={() => setSelectedBooking(null)}><X size={20} /></button>
-            <span className="booking-management-eyebrow">CHI TIẾT BOOKING</span>
+            <span className="booking-management-eyebrow">CHI TIẾT ĐƠN ĐẶT PHÒNG</span>
             <h2>{selectedBooking.bookingCode}</h2>
             <div className="booking-management-detail-grid">
               <div><UserRound size={18} /><small>Khách hàng</small><strong>{customerName(selectedBooking)}</strong><span>{selectedBooking.bookerPhone ?? selectedBooking.bookerEmail ?? "—"}</span></div>
@@ -534,11 +535,11 @@ export default function HotelBookingsPage() {
               <div><CalendarDays size={18} /><small>Lưu trú</small><strong>{date(selectedBooking.checkIn)} → {date(selectedBooking.checkOut)}</strong></div>
               <div><CreditCard size={18} /><small>Thanh toán</small><strong>{paymentLabel(selectedBooking.paymentStatus)}</strong><span>Còn {money(selectedBooking.remainingAmount)}</span></div>
               <div><CircleDollarSign size={18} /><small>Tổng tiền</small><strong>{money(selectedBooking.totalPrice)}</strong><span>Đã trả {money(selectedBooking.paidAmount)}</span></div>
-              <div><ShieldCheck size={18} /><small>Trạng thái</small><strong>{selectedBooking.status}</strong></div>
+              <div><ShieldCheck size={18} /><small>Trạng thái</small><strong>{statusLabel(selectedBooking.status)}</strong></div>
             </div>
             <div className="booking-management-modal-actions">
-              <Link to="/hotel-admin/check-in">Mở quầy nhận phòng</Link>
-              <Link to="/hotel-admin/current-stays">Khách đang lưu trú</Link>
+              <Link to="/hotel-admin/stays?tab=check-in">Nhận phòng</Link>
+              <Link to="/hotel-admin/stays?tab=check-out">Trả phòng</Link>
             </div>
           </section>
         </div>
@@ -554,7 +555,7 @@ export default function HotelBookingsPage() {
 
             <div className="room-change-old-summary">
               <div><small>Phòng hiện tại</small><strong>{roomTypeMap[String(reviewBooking.roomTypeId)]?.name ?? "—"} · {roomMap[String(reviewBooking.roomId)]?.roomNumber ?? "—"}</strong></div>
-              <div><small>Giá booking hiện tại</small><strong>{money(reviewBooking.totalPrice)}</strong></div>
+              <div><small>Giá đơn hiện tại</small><strong>{money(reviewBooking.totalPrice)}</strong></div>
               <div><small>Đã thanh toán</small><strong>{money(reviewBooking.paidAmount)}</strong></div>
             </div>
 
@@ -564,14 +565,14 @@ export default function HotelBookingsPage() {
               const nightlyPrice = requestedRoom?.customPrice ?? requestedType?.basePrice;
               return (
                 <div className="room-change-customer-choice">
-                  <small>PHÒNG CUSTOMER YÊU CẦU</small>
+                  <small>PHÒNG KHÁCH YÊU CẦU</small>
                   <strong>{requestedType?.name ?? "Loại phòng"} · phòng {requestedRoom?.roomNumber ?? "—"}</strong>
-                  <span>{nightlyPrice != null ? `${money(nightlyPrice)}/đêm` : "Giá sẽ được hệ thống tính lại"}</span>
-                  <p>Hotel Admin chỉ duyệt hoặc từ chối đúng phòng này, không tự đổi sang phòng khác.</p>
+                  <span>{nightlyPrice != null ? `${money(nightlyPrice)}/đêm` : "Giá sẽ được tính lại khi xác nhận"}</span>
+                  <p>Bạn chỉ duyệt hoặc từ chối đúng phòng khách đã chọn, không tự chuyển sang phòng khác.</p>
                 </div>
               );
             })() : (
-              <div className="room-change-customer-choice is-error">Yêu cầu cũ chưa có phòng Customer lựa chọn.</div>
+              <div className="room-change-customer-choice is-error">Yêu cầu này chưa ghi nhận phòng khách đã chọn.</div>
             )}
 
             {quoteLoading ? <div className="room-change-quote-loading"><Clock3 size={17} /> Đang tính lại giá...</div> : null}
@@ -581,7 +582,7 @@ export default function HotelBookingsPage() {
                 <div><small>Tổng cũ</small><strong>{money(quote.oldTotalPrice)}</strong></div>
                 <div><small>Tổng mới</small><strong>{money(quote.newTotalPrice)}</strong></div>
                 <div><small>Chênh lệch</small><strong className={Number(quote.priceDifference) > 0 ? "danger" : "success"}>{money(quote.priceDifference)}</strong></div>
-                <div className="room-change-payment-due"><small>Khách cần thanh toán bổ sung ngay</small><strong>{money(quote.additionalPaymentDue)}</strong><span>{quote.paymentOption === "DEPOSIT" ? `Bù đến mức cọc ${quote.depositPercent ?? 0}% của phòng mới` : quote.paymentOption === "FULL_PAYMENT" ? "Thanh toán phần chênh lệch còn thiếu" : "Thanh toán tại khách sạn theo booking"}</span></div>
+                <div className="room-change-payment-due"><small>Khách cần thanh toán bổ sung ngay</small><strong>{money(quote.additionalPaymentDue)}</strong><span>{quote.paymentOption === "DEPOSIT" ? `Bù đến mức cọc ${quote.depositPercent ?? 0}% của phòng mới` : quote.paymentOption === "FULL_PAYMENT" ? "Thanh toán phần chênh lệch còn thiếu" : "Thanh toán phần còn lại tại khách sạn"}</span></div>
               </div>
             ) : null}
 

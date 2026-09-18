@@ -72,7 +72,7 @@ const ROOM_STATUS_META = {
 const UNKNOWN_ROOM_STATUS_META = {
   label: "Trạng thái chưa xác định",
   tone: "neutral",
-  nextAction: "Kiểm tra trạng thái với hệ thống",
+  nextAction: "Kiểm tra lại trạng thái",
   summaryIcon: Building2,
 };
 
@@ -460,7 +460,7 @@ export default function RoomsPage() {
           <span className="catalog-kicker">PHÒNG</span>
           <h1>Quản lý phòng dễ nhìn hơn</h1>
           <p>
-            Hiển thị toàn bộ phòng theo dữ liệu thật của khách sạn, giúp bạn nhìn nhanh số lượng phòng,
+            Hiển thị toàn bộ phòng của khách sạn, giúp bạn nhìn nhanh số lượng phòng,
             trạng thái vận hành và thao tác dọn phòng / bảo trì ngay trên một màn hình.
           </p>
         </div>
@@ -565,7 +565,7 @@ export default function RoomsPage() {
             <span className="catalog-kicker">LOẠI PHÒNG</span>
             <h2>Tổng quan theo loại phòng</h2>
           </div>
-          <small>Dữ liệu thật lấy từ các loại phòng hiện có của khách sạn.</small>
+          <small>Tổng hợp từ các loại phòng hiện có của khách sạn.</small>
         </div>
 
         {roomTypeSummary.length === 0 ? (

@@ -125,7 +125,7 @@ export default function PaymentsPage() {
               title={error ? "Chưa thể hiển thị giao dịch" : "Chưa có giao dịch"}
               description={error
                 ? "Dữ liệu thanh toán chưa tải được. Hãy thử lại khi kết nối ổn định."
-                : "Giao dịch online sẽ xuất hiện sau khi bạn tạo booking."}
+                : "Giao dịch trực tuyến sẽ xuất hiện sau khi bạn đặt phòng."}
             />
           ) : (
             visiblePayments.map((payment) => (

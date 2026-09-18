@@ -824,7 +824,7 @@ function buildConciseAnswer(hotels, criteria, context = {}) {
     }
 
     if (criteria.destination && criteria.destinationHard && !context.hadLocationCandidates) {
-      return `Mình chưa tìm thấy khách sạn nào được dữ liệu EnziuRooms xác nhận thuộc ${criteria.destination}. Mình không hiển thị khách sạn chỉ cùng thành phố để tránh gợi ý sai khu vực. Bạn có thể đổi khu vực hoặc nới tiêu chí tìm kiếm.`;
+      return `Mình chưa tìm thấy khách sạn đúng khu vực ${criteria.destination}. Bạn có thể thử một khu vực lân cận hoặc nới tiêu chí tìm kiếm.`;
     }
 
     if (criteria.datesSelected && context.hadLocationCandidates && !context.hadAvailabilityCandidates) {
@@ -853,7 +853,7 @@ function buildConciseAnswer(hotels, criteria, context = {}) {
 
   const firstSentence = facts.length
     ? `Mình ưu tiên ${top.name} vì ${facts.join(", ")}.`
-    : `Mình ưu tiên ${top.name} theo các dữ kiện hệ thống đang có.`;
+    : `Mình ưu tiên ${top.name} vì phù hợp nhất với những gì bạn vừa chọn.`;
 
   const detailParts = [];
   if (top.discountChecked && top.finalPayableAmount != null && criteria.nights > 0) {
@@ -982,7 +982,7 @@ export async function enhanceAssistantResponse({ question, response, trip }) {
         Boolean(criteria.destination && criteria.destinationHard) &&
         rankedHotels.length === 0,
       methodology:
-        "Mức phù hợp được EnziuRooms tính từ khu vực, ngân sách, tiện nghi, đánh giá và tình trạng phòng. Giá cuối chỉ được xác nhận sau khi hệ thống kiểm tra ngày ở và các ưu đãi hợp lệ.",
+        "Mức phù hợp dựa trên khu vực, ngân sách, tiện nghi, đánh giá và tình trạng phòng. Giá cuối cùng sẽ được cập nhật theo ngày ở và ưu đãi áp dụng.",
     },
   };
 }

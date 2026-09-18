@@ -104,6 +104,95 @@
   animation: ui-skeleton-pulse 1.4s ease-in-out infinite;
 }
 
+.system-state-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background:
+    radial-gradient(circle at 18% 14%, rgb(20 184 166 / 14%), transparent 32rem),
+    radial-gradient(circle at 88% 84%, rgb(37 99 235 / 13%), transparent 30rem),
+    var(--color-background, #f5f8fb);
+}
+
+.system-state-card {
+  width: min(100%, 42rem);
+  padding: clamp(2rem, 6vw, 4rem);
+  border: 1px solid var(--color-border, #dfe6ee);
+  border-radius: clamp(1.5rem, 4vw, 2.5rem);
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 30px 80px rgb(15 23 42 / 12%);
+  text-align: center;
+}
+
+.system-state-icon {
+  width: 4rem;
+  height: 4rem;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 1.25rem;
+  border-radius: 1.25rem;
+  background: var(--color-brand-50, #ecfeff);
+  color: var(--color-brand-600, #0f766e);
+}
+
+.system-state-icon.is-warning {
+  background: var(--color-warning-surface, #fff7ed);
+  color: var(--color-warning, #c2410c);
+}
+
+.system-state-icon svg {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.system-state-code {
+  margin: 0 0 0.45rem;
+  color: var(--color-brand-600, #0f766e);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.system-state-card h1 {
+  margin: 0;
+  color: var(--color-text-strong, #0f172a);
+  font-size: clamp(1.85rem, 5vw, 3rem);
+  line-height: 1.08;
+}
+
+.system-state-card > p:not(.system-state-code) {
+  max-width: 32rem;
+  margin: 1rem auto 0;
+  color: var(--color-text-muted, #64748b);
+  line-height: 1.7;
+}
+
+.system-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+
+.system-state-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 520px) {
+  .system-state-actions {
+    flex-direction: column;
+  }
+
+  .system-state-actions .btn {
+    width: 100%;
+  }
+}
+
 .ui-empty-state,
 .ui-loading-state,
 .ui-error-state {

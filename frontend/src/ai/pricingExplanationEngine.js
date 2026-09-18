@@ -157,11 +157,11 @@ function buildPriceExplanation(hotel, trip) {
     if (listedNightly != null) {
       return (
         `Giá ${money(listedNightly)}/đêm bạn đang thấy là giá niêm yết của phòng. ` +
-        "Để giải thích chính xác vì sao giá ở một ngày cụ thể tăng hoặc giảm, mình cần ngày nhận và trả phòng để hệ thống tính giá theo ngày."
+        "Để giải thích chính xác mức giá, mình cần ngày nhận và trả phòng của bạn."
       );
     }
 
-    return "Mình chưa có đủ dữ liệu giá theo ngày để giải thích chính xác khoản chênh lệch này.";
+    return "Mình chưa có đủ thông tin để giải thích chính xác khoản chênh lệch này.";
   }
 
   const effectiveBase = baseAmount ?? (nights === 1 ? listedNightly : null);
@@ -276,7 +276,7 @@ function buildAffordabilityAnswer(hotel, budget) {
     );
   }
 
-  return "Mình chưa có đủ dữ liệu giá để so với ngân sách của bạn.";
+  return "Mình chưa có đủ thông tin giá để so với ngân sách của bạn.";
 }
 
 export function resolvePricingFollowUp({ question, messages, trip }) {

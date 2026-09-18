@@ -253,7 +253,7 @@ export default function PromotionsPage() {
           <span className="promo-kicker">KHUYẾN MÃI</span>
           <h1>Ưu đãi của khách sạn</h1>
           <p>
-            Tạo và theo dõi mã giảm giá từ dữ liệu thật của khách sạn. Trạng thái và lượt sử dụng được cập nhật từ hệ thống.
+            Tạo và theo dõi mã giảm giá của khách sạn. Trạng thái và lượt sử dụng được cập nhật ngay trên trang này.
           </p>
         </div>
         <button className="promo-secondary hotel-admin-refresh-button" type="button" onClick={() => void load()} disabled={refreshing}>
@@ -423,7 +423,7 @@ export default function PromotionsPage() {
                       <dt>Lượt sử dụng</dt>
                       <dd>
                         {promotion.usedCount === null || promotion.usedCount === undefined
-                          ? "Chưa có dữ liệu"
+                          ? "Chưa có thông tin"
                           : `${promotion.usedCount}${promotion.usageLimit ? ` / ${promotion.usageLimit}` : " lượt"}`}
                       </dd>
                     </div>

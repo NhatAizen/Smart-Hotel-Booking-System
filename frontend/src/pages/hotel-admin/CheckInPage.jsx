@@ -26,7 +26,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { stayManagementUrl } from "./stayManagementNavigation";
 
 import ErrorMessage from "../../components/common/ErrorMessage";
 import {
@@ -132,7 +133,7 @@ function identityFailureLabel(reason) {
 }
 
 function identitySubjectLabel() {
-  return "Người đứng tên booking";
+  return "Người đứng tên đặt phòng";
 }
 
 const CHECKIN_PAYMENT_CONTEXT_KEY = "enziuroomsHotelCheckInPayment";
@@ -178,7 +179,7 @@ function clearCheckInPaymentContext() {
   }
 }
 
-export default function CheckInPage() {
+export default function CheckInPage({ embedded = false }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [code, setCode] = useState("");
   const [result, setResult] = useState(null);
@@ -397,11 +398,11 @@ export default function CheckInPage() {
   async function processIdentityQr(rawValue, { silent = false } = {}) {
     const normalized = String(rawValue ?? "").trim();
     if (!normalized) {
-      if (!silent) setIdentityError("Không đọc được dữ liệu QR CCCD.");
+      if (!silent) setIdentityError("Không đọc được thông tin từ mã QR CCCD.");
       return null;
     }
     if (!result?.booking?.id || !code) {
-      if (!silent) setIdentityError("Hãy xác minh QR booking trước khi quét CCCD.");
+      if (!silent) setIdentityError("Hãy xác minh mã QR đặt phòng trước khi quét CCCD.");
       return null;
     }
 
@@ -563,7 +564,7 @@ export default function CheckInPage() {
 
       let cameraMessage = cameraError?.message ?? "Không thể mở camera để quét QR.";
       if (cameraError?.name === "NotAllowedError" || cameraError?.name === "SecurityError") {
-        cameraMessage = "Chrome đang chặn camera. Hãy cho phép Camera cho localhost rồi bấm Mở camera lại.";
+        cameraMessage = "Trình duyệt đang chặn camera. Hãy cho phép quyền Camera cho trang này rồi bấm Mở camera lại.";
       } else if (cameraError?.name === "NotFoundError" || cameraError?.name === "DevicesNotFoundError") {
         cameraMessage = "Không tìm thấy camera trên thiết bị này.";
       } else if (cameraError?.name === "NotReadableError" || cameraError?.name === "TrackStartError") {
@@ -656,7 +657,7 @@ export default function CheckInPage() {
 
   async function handleManualIdentityConfirm() {
     if (!result?.booking?.id || !code) {
-      setIdentityError("Hãy xác minh QR booking trước khi kiểm tra giấy tờ.");
+      setIdentityError("Hãy xác minh mã QR đặt phòng trước khi kiểm tra giấy tờ.");
       return;
     }
 
@@ -670,7 +671,7 @@ export default function CheckInPage() {
       setResult(data);
       setManualConfirmOpen(false);
       setMessage(
-        "Đã ghi nhận Hotel Admin kiểm tra CCCD/Hộ chiếu trực tiếp tại quầy.",
+        "Đã ghi nhận nhân viên khách sạn kiểm tra CCCD/Hộ chiếu trực tiếp tại quầy.",
       );
     } catch (requestError) {
       setIdentityError(
@@ -779,26 +780,28 @@ export default function CheckInPage() {
   const identityVerifiedManually = identityVerified && identityMethod === "MANUAL";
   const isDone = booking?.status === "CHECKED_IN";
   const hasRemaining = Number(booking?.remainingAmount ?? 0) > 0;
+  const PageContainer = embedded ? "div" : "main";
 
   return (
-    <main className="hotel-checkin-page">
-      <PageHeader
+    <PageContainer className="hotel-checkin-page">
+      {!embedded ? <PageHeader
         className="hotel-checkin-heading"
         eyebrow="Vận hành lưu trú"
         title="Nhận phòng bằng QR"
         description="Quét mã của khách, đối chiếu thông tin và xác nhận nhận phòng ngay tại quầy."
         icon={<ScanLine size={22} />}
-      />
+      /> : null}
 
       <ErrorMessage message={error} onRetry={code ? () => void verify(code) : undefined} />
       {message ? <div className="checkin-success-message" role="status"><CheckCircle2 size={19} />{message}</div> : null}
+      {isDone ? <Link className="stay-management-next" to={stayManagementUrl("check-out")}>Xem khách đang lưu trú</Link> : null}
 
       <section className="checkin-scanner-card">
         <div className="checkin-scanner-copy">
           <span><ScanLine size={22} /></span>
           <div>
             <h2>Quét mã của khách</h2>
-            <p>Cho phép camera, tải ảnh QR hoặc dán mã nhận phòng thủ công.</p>
+            <p>Quét mã QR, tải ảnh mã hoặc nhập mã nhận phòng của khách.</p>
           </div>
         </div>
 
@@ -808,7 +811,7 @@ export default function CheckInPage() {
             <input
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              placeholder="ENZIU-CHECKIN:..."
+              placeholder="Nhập hoặc dán mã nhận phòng"
               aria-label="Mã QR nhận phòng"
               onKeyDown={(event) => {
                 if (event.key === "Enter") void verify(code);
@@ -817,7 +820,7 @@ export default function CheckInPage() {
           </div>
           <button type="button" onClick={() => void verify(code)} disabled={loading}>
             {loading ? <LoaderCircle className="spin" size={18} /> : <BadgeCheck size={18} />}
-            Xác minh
+            Tra cứu đặt phòng
           </button>
         </div>
 
@@ -847,7 +850,7 @@ export default function CheckInPage() {
           <video ref={videoRef} muted playsInline autoPlay aria-label="Camera quét mã QR" />
           <div className="checkin-camera-guide"><span /></div>
           <div className="checkin-camera-mode-label">
-            {cameraMode === "IDENTITY" ? "Đang quét QR trên CCCD" : "Đang quét QR booking"}
+            {cameraMode === "IDENTITY" ? "Đang quét QR trên CCCD" : "Đang quét mã QR đặt phòng"}
           </div>
         </div>
       </section>
@@ -938,12 +941,12 @@ export default function CheckInPage() {
                 <h3>CCCD/Hộ chiếu · {identitySubjectLabel()}</h3>
                 <p>
                   {identityVerifiedManually
-                    ? "Hotel Admin đã đối chiếu giấy tờ trực tiếp tại quầy và xác nhận thông tin hợp lệ."
+                    ? "Nhân viên khách sạn đã đối chiếu giấy tờ trực tiếp tại quầy và xác nhận thông tin hợp lệ."
                     : identityVerified
-                      ? "Hệ thống đã xác minh ngày sinh và điều kiện đủ 18 tuổi từ QR CCCD."
+                      ? "Ngày sinh và điều kiện đủ 18 tuổi đã được xác minh từ mã QR CCCD."
                       : identityFailed
                         ? identityFailureLabel(identity?.failureReason)
-                        : "Chọn quét QR CCCD để hệ thống kiểm tra ngày sinh/độ tuổi hoặc kiểm tra giấy tờ trực tiếp tại quầy. Họ tên không bắt buộc phải trùng với tên tài khoản."}
+                        : "Quét mã QR CCCD để kiểm tra ngày sinh, độ tuổi hoặc đối chiếu giấy tờ trực tiếp tại quầy. Họ tên không bắt buộc phải trùng với tên tài khoản."}
                 </p>
               </div>
               <strong className="checkin-identity-status">
@@ -974,7 +977,7 @@ export default function CheckInPage() {
 
             <div className="checkin-identity-details">
               <div>
-                <span>Người đứng tên booking</span>
+                <span>Người đứng tên đặt phòng</span>
                 <strong>{identity?.subjectName || guestName(booking)}</strong>
               </div>
               <div>
@@ -1012,7 +1015,7 @@ export default function CheckInPage() {
                 <strong className={identity?.ageEligible === false ? "bad" : identity?.ageEligible ? "good" : ""}>
                   {identity?.ageAtCheckIn == null
                     ? identityVerifiedManually
-                      ? "Hotel Admin xác nhận đủ 18+"
+                      ? "Đã xác nhận đủ 18 tuổi"
                       : "Chưa kiểm tra"
                     : `${identity.ageAtCheckIn} tuổi · ${identity.ageEligible ? "Đủ 18+" : "Chưa đủ 18"}`}
                 </strong>
@@ -1159,6 +1162,6 @@ export default function CheckInPage() {
           ) : null}
         </section>
       ) : null}
-    </main>
+    </PageContainer>
   );
 }

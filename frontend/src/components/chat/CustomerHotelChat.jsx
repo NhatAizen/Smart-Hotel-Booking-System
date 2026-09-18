@@ -411,7 +411,7 @@ export default function CustomerHotelChat({
       {linkedBooking ? (
         <div className="hotel-chat-booking-strip">
           <div>
-            <small>Booking</small>
+            <small>Đơn đặt phòng</small>
             <strong>{conversation?.bookingCode ?? booking?.bookingCode ?? "Chưa có mã"}</strong>
           </div>
           <div>

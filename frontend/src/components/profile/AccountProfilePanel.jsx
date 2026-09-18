@@ -24,7 +24,7 @@ import {
 } from "react";
 
 import { useAuth } from "../../auth/AuthContext";
-import { ErrorState, StatusBadge } from "../ui";
+import { AvatarImage, ErrorState, StatusBadge } from "../ui";
 import { getMyHotels } from "../../services/hotelAdminService";
 import {
   getMyPartnerRequest,
@@ -108,7 +108,7 @@ function partnerTypeLabel(type) {
 }
 
 function accountStatusLabel(status) {
-  return STATUS_LABELS[normalizeEnum(status)] ?? "Chưa có dữ liệu";
+  return STATUS_LABELS[normalizeEnum(status)] ?? "Chưa cập nhật";
 }
 
 export default function AccountProfilePanel({ mode = "customer" }) {
@@ -331,7 +331,7 @@ export default function AccountProfilePanel({ mode = "customer" }) {
       >
         <ErrorState
           title="Chưa thể hiển thị hồ sơ"
-          message={error || "Hệ thống chưa cung cấp dữ liệu hồ sơ cho tài khoản này."}
+          message={error || "Thông tin hồ sơ của tài khoản này hiện chưa sẵn sàng."}
           onRetry={() => setReloadKey((current) => current + 1)}
         />
       </section>
@@ -384,14 +384,11 @@ export default function AccountProfilePanel({ mode = "customer" }) {
           <article className="profile-card profile-identity-card">
             <div className="profile-avatar-wrap">
               <div className="profile-avatar-large">
-                {profile?.avatarUrl ? (
-                  <img
-                    src={profile.avatarUrl}
-                    alt={profile.fullName ?? "Ảnh đại diện"}
-                  />
-                ) : (
-                  <span>{avatarInitial}</span>
-                )}
+                <AvatarImage
+                  source={profile}
+                  alt={profile.fullName ?? "Ảnh đại diện"}
+                  fallback={<span>{avatarInitial}</span>}
+                />
               </div>
 
               <button

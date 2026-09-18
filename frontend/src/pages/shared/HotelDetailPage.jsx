@@ -11,7 +11,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   Coffee,
   Heart,
   Images,
@@ -20,7 +19,6 @@ import {
   Minus,
   Plus,
   Share2,
-  ShieldCheck,
   Star,
   Tag,
   Bookmark,
@@ -46,11 +44,13 @@ import {
 
 import { useAuth } from "../../auth/AuthContext";
 import { useAiAssistant } from "../../ai/AiAssistantContext";
+import { useFloatingChat } from "../../chat/FloatingChatContext";
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
 import ReviewExplorerModal from "../../components/review/ReviewExplorerModal";
-import CustomerHotelChat from "../../components/chat/CustomerHotelChat";
+import HotelStayPolicies from "../../components/hotel/HotelStayPolicies";
 import { HotelMapModal, HotelMiniMapCanvas } from "../../components/map/HotelMiniMap";
+import { AvatarImage } from "../../components/ui";
 import {
   getBookingPricingQuote,
   getHotelAvailability,
@@ -167,18 +167,6 @@ function holdCountdown(expiresAt, nowMs) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function dedupeImages(items) {
-  const seen = new Set();
-  return items.reduce((urls, item) => {
-    const url = resolveImageUrl(item);
-    if (!url || seen.has(url)) return urls;
-    seen.add(url);
-    urls.push(url);
-    return urls;
-  }, []);
-}
-
-
 function ratingLabel(average) {
   if (average == null) return "Chưa có đánh giá";
   if (average >= 9) return "Xuất sắc";
@@ -203,10 +191,11 @@ function amenityIcon(name) {
   return <CheckCircle2 size={18} />;
 }
 
-export default function HotelDetailPage() {
+export default function HotelDetailPage({ browseBasePath = "/hotels" }) {
   const { hotelId } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
+  const { openHotelConversation } = useFloatingChat();
   const { openAssistant } = useAiAssistant();
   const { subscribe } = useRealtime();
   const isCustomer =
@@ -260,7 +249,6 @@ export default function HotelDetailPage() {
   const [roomTypePricingLoading, setRoomTypePricingLoading] = useState(false);
   const [roomTypePricingError, setRoomTypePricingError] = useState("");
   const [mobileSelectionOpen, setMobileSelectionOpen] = useState(false);
-  const [hotelChatOpen, setHotelChatOpen] = useState(false);
 
   const [searchForm, setSearchForm] = useState(() => ({
     checkIn: searchParams.get("checkIn") || defaultDate(1),
@@ -943,7 +931,7 @@ export default function HotelDetailPage() {
       rooms: String(searchForm.rooms),
       guests: String(searchForm.adults + searchForm.children),
     });
-    navigate(`/hotels/${hotelId}?${params.toString()}`, { replace: true });
+    navigate(`${browseBasePath}/${hotelId}?${params.toString()}`, { replace: true });
     loadAvailability(searchForm);
   }
 
@@ -1056,7 +1044,7 @@ export default function HotelDetailPage() {
     ["overview", "Tổng quan"],
     ["rooms", "Thông tin & giá"],
     ["amenities", "Tiện nghi"],
-    ["rules", "Quy tắc chung"],
+    ["policies", "Chính sách lưu trú"],
     [
       "reviews",
       `Đánh giá của khách (${Number(reviewSummary.reviewCount ?? 0)})`,
@@ -1087,7 +1075,7 @@ export default function HotelDetailPage() {
       </nav>
 
       <div className="container hotel-detail-shell">
-        <Link to="/hotels" className="customer-back-link">
+        <Link to={browseBasePath} className="customer-back-link">
           <ArrowLeft size={17} />
           Quay lại kết quả tìm kiếm
         </Link>
@@ -1171,7 +1159,7 @@ export default function HotelDetailPage() {
                   <button
                     type="button"
                     className="hotel-chat-action"
-                    onClick={() => setHotelChatOpen(true)}
+                    onClick={() => openHotelConversation({ hotel })}
                     title="Chat trực tiếp với khách sạn"
                   >
                     <MessageCircle size={18} />
@@ -1242,6 +1230,8 @@ export default function HotelDetailPage() {
                           <img
                             src={image}
                             alt={`${galleryItemLabel(imageIndex)} - ảnh ${imageIndex + 1}`}
+                            loading="lazy"
+                            decoding="async"
                           />
                         </button>
                       );
@@ -1268,6 +1258,8 @@ export default function HotelDetailPage() {
                           <img
                             src={image}
                             alt={`${galleryItemLabel(imageIndex)} - ảnh ${imageIndex + 1}`}
+                            loading="lazy"
+                            decoding="async"
                           />
                           {isLast ? (
                             <span className="hotel-gallery-view-all">
@@ -1322,18 +1314,12 @@ export default function HotelDetailPage() {
                         ) : null}
                       <footer>
                         <span className="hotel-showcase-review-avatar">
-                          {reviews[0].customerAvatarUrl ? (
-                            <img
-                              src={reviews[0].customerAvatarUrl}
-                              alt={reviews[0].customerName ?? "Ảnh đại diện khách hàng"}
-                              loading="lazy"
-                              onError={(event) => {
-                                event.currentTarget.style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            String(reviews[0].customerName ?? "K").charAt(0).toUpperCase()
-                          )}
+                          <AvatarImage
+                            source={reviews[0].customerAvatarUrl}
+                            alt={reviews[0].customerName ?? "Ảnh đại diện khách hàng"}
+                            loading="lazy"
+                            fallback={String(reviews[0].customerName ?? "K").charAt(0).toUpperCase()}
+                          />
                         </span>
                         <div>
                           <b>{reviews[0].customerName ?? "Khách lưu trú"}</b>
@@ -1716,7 +1702,7 @@ export default function HotelDetailPage() {
                           aria-label={`Xem chi tiết ${type.name}`}
                         >
                           {roomImage ? (
-                            <img src={roomImage} alt={type.name} />
+                            <img src={roomImage} alt={type.name} loading="lazy" decoding="async" />
                           ) : (
                             <span className="hotel-room-type-image-empty" aria-hidden="true">
                               <Images size={25} />
@@ -1982,53 +1968,11 @@ export default function HotelDetailPage() {
         </section>
 
         <section
-          ref={(element) => setSectionRef("rules", element)}
-          data-section="rules"
-          className="hotel-content-section detail-scroll-section"
+          ref={(element) => setSectionRef("policies", element)}
+          data-section="policies"
+          className="hotel-content-section hotel-policy-section detail-scroll-section"
         >
-          <div className="hotel-section-heading">
-            <span>QUY TẮC CHUNG</span>
-            <h2>Thông tin quan trọng trước khi đặt</h2>
-          </div>
-          <div className="hotel-rules-grid">
-            <article>
-              <Clock3 size={23} />
-              <div>
-                <h3>Nhận và trả phòng</h3>
-                <p>
-                  Nhận phòng từ {formatTime(hotel.checkInTime, "Chưa cập nhật")} · Trả phòng trước{" "}
-                  {formatTime(hotel.checkOutTime, "Chưa cập nhật")}
-                </p>
-              </div>
-            </article>
-            <article>
-              <ShieldCheck size={23} />
-              <div>
-                <h3>Hoàn tiền</h3>
-                <p>
-                  Chính sách phụ thuộc từng loại phòng. Kiểm tra mục “Các lựa chọn” trước khi đặt.
-                </p>
-              </div>
-            </article>
-            <article>
-              <Ban size={23} />
-              <div>
-                <h3>Hút thuốc</h3>
-                <p>
-                  Quy định hút thuốc được hiển thị riêng trên từng loại phòng.
-                </p>
-              </div>
-            </article>
-            <article>
-              <Users size={23} />
-              <div>
-                <h3>Trẻ em và giường phụ</h3>
-                <p>
-                  Sức chứa tối đa được tính theo thông tin mà khách sạn khai báo cho từng loại phòng.
-                </p>
-              </div>
-            </article>
-          </div>
+          <HotelStayPolicies hotel={hotel} roomTypes={roomTypes} />
         </section>
 
         <section
@@ -2102,19 +2046,12 @@ export default function HotelDetailPage() {
                 {reviews.slice(0, 2).map((review) => (
                   <article key={review.id}>
                     <div className="hotel-review-avatar">
-                      <span>
-                        {String(review.customerName ?? "K").charAt(0).toUpperCase()}
-                      </span>
-                      {review.customerAvatarUrl ? (
-                        <img
-                          src={review.customerAvatarUrl}
-                          alt={review.customerName ?? "Ảnh đại diện khách hàng"}
-                          loading="lazy"
-                          onError={(event) => {
-                            event.currentTarget.style.display = "none";
-                          }}
-                        />
-                      ) : null}
+                      <AvatarImage
+                        source={review.customerAvatarUrl}
+                        alt={review.customerName ?? "Ảnh đại diện khách hàng"}
+                        loading="lazy"
+                        fallback={<span>{String(review.customerName ?? "K").charAt(0).toUpperCase()}</span>}
+                      />
                     </div>
                     <div>
                       <header>
@@ -2343,7 +2280,7 @@ export default function HotelDetailPage() {
                         className={index === safeIndex ? "active" : ""}
                         onClick={() => setRoomTypeDetailImageIndex(index)}
                       >
-                        <img src={image} alt={`Ảnh ${index + 1} của ${roomTypeDetail.name}`} />
+                        <img src={image} alt={`Ảnh ${index + 1} của ${roomTypeDetail.name}`} loading="lazy" decoding="async" />
                       </button>
                     ))}
                   </div>
@@ -2499,18 +2436,12 @@ export default function HotelDetailPage() {
                           ) : null}
                         <footer>
                           <span className="hotel-gallery-review-avatar">
-                            {review.customerAvatarUrl ? (
-                              <img
-                                src={review.customerAvatarUrl}
-                                alt={review.customerName ?? "Ảnh đại diện khách hàng"}
-                                loading="lazy"
-                                onError={(event) => {
-                                  event.currentTarget.style.display = "none";
-                                }}
-                              />
-                            ) : (
-                              String(review.customerName ?? "K").charAt(0).toUpperCase()
-                            )}
+                            <AvatarImage
+                              source={review.customerAvatarUrl}
+                              alt={review.customerName ?? "Ảnh đại diện khách hàng"}
+                              loading="lazy"
+                              fallback={String(review.customerName ?? "K").charAt(0).toUpperCase()}
+                            />
                           </span>
                           <div>
                             <strong>{review.customerName ?? "Khách lưu trú"}</strong>
@@ -2681,13 +2612,6 @@ export default function HotelDetailPage() {
         />
       ) : null}
 
-      {isCustomer ? (
-        <CustomerHotelChat
-          open={hotelChatOpen}
-          hotel={hotel}
-          onClose={() => setHotelChatOpen(false)}
-        />
-      ) : null}
     </main>
   );
 }

@@ -46,7 +46,7 @@ function BookingQrImage({ booking }) {
   return src ? (
     <img
       src={src}
-      alt={`QR check-in ${booking.bookingCode}`}
+      alt={`Mã QR nhận phòng ${booking.bookingCode}`}
       width="116"
       height="116"
     />
@@ -77,7 +77,7 @@ export default function BookingSuccessPage() {
       } catch (requestError) {
         setError(
           requestError.response?.data?.message ??
-            "Không thể tải thông tin booking vừa tạo.",
+            "Chưa thể tải thông tin đơn đặt phòng vừa tạo.",
         );
       } finally {
         setLoading(false);
@@ -103,7 +103,7 @@ export default function BookingSuccessPage() {
     }
   }, []);
 
-  if (loading) return <Loading message="Đang xác nhận booking..." />;
+  if (loading) return <Loading message="Đang xác nhận đơn đặt phòng..." />;
 
   return (
     <main className="booking-success-page">
@@ -125,7 +125,7 @@ export default function BookingSuccessPage() {
           <div className="booking-success-totals">
             <div>
               <ReceiptText size={21} />
-              <span>Tổng booking</span>
+              <span>Tổng đơn</span>
               <strong>{money(totals.total)}</strong>
             </div>
             <div>
@@ -144,7 +144,7 @@ export default function BookingSuccessPage() {
             {bookings.map((booking) => (
               <article key={booking.id}>
                 <div>
-                  <small>Mã booking</small>
+                  <small>Mã đặt phòng</small>
                   <strong>{booking.bookingCode}</strong>
                   <div className="booking-success-booking-meta">
                     <span className="booking-success-stay-dates">

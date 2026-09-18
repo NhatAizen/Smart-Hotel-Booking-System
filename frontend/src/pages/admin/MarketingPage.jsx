@@ -198,7 +198,7 @@ function validateTier(tier) {
   const discount = finiteNumber(tier.discountPercent);
 
   if (bookings === null || !Number.isInteger(bookings) || bookings < 0) {
-    return "Số booking tối thiểu phải là số nguyên không âm.";
+    return "Số đơn đặt phòng tối thiểu phải là số nguyên không âm.";
   }
   if (discount === null || discount < 0 || discount > 30) {
     return "Mức giảm thành viên phải nằm trong khoảng 0–30%.";
@@ -420,7 +420,7 @@ export default function MarketingPage() {
           <h1>Ưu đãi & thành viên</h1>
           <p>
             Quản lý hạng thành viên, mã giảm giá và sự kiện hiển thị trên
-            EnziuRooms bằng dữ liệu vận hành thực tế.
+            EnziuRooms từ một không gian quản trị thống nhất.
           </p>
         </div>
         <button
@@ -447,7 +447,7 @@ export default function MarketingPage() {
         <div className="system-marketing-page__section-heading">
           <div>
             <h2><Award size={20} aria-hidden="true" /> Cấp thành viên</h2>
-            <p>Ngưỡng booking và quyền lợi đang áp dụng từ hệ thống.</p>
+            <p>Ngưỡng đơn hoàn tất và quyền lợi đang áp dụng cho từng hạng.</p>
           </div>
         </div>
 
@@ -456,7 +456,7 @@ export default function MarketingPage() {
             compact
             icon={<Award size={24} />}
             title="Chưa có cấp thành viên"
-            description="Dữ liệu cấp thành viên từ hệ thống sẽ hiển thị tại đây."
+            description="Các hạng thành viên sẽ hiển thị tại đây sau khi được thiết lập."
           />
         ) : (
           <div className="system-marketing-page__tier-list">
@@ -660,7 +660,7 @@ export default function MarketingPage() {
                 compact
                 icon={<Gift size={23} />}
                 title="Chưa có mã toàn hệ thống"
-                description="Mã được tạo từ API sẽ hiển thị tại đây."
+                description="Tạo mã ưu đãi đầu tiên để bắt đầu chương trình khuyến mãi toàn hệ thống."
               />
             ) : promos.map((promotion) => {
               const status = promotionStatus(promotion);
@@ -817,7 +817,7 @@ export default function MarketingPage() {
                 compact
                 icon={<CalendarDays size={23} />}
                 title="Chưa có sự kiện"
-                description="Sự kiện được tạo từ API sẽ hiển thị tại đây."
+                description="Tạo sự kiện đầu tiên để hiển thị nội dung theo lịch trên EnziuRooms."
               />
             ) : campaigns.map((item) => {
               const itemBusy = busyKey === `campaign-${item.id}`;

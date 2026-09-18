@@ -463,7 +463,7 @@ async function resolveFamilyRoom(
         return {
           answer:
             `${hotel.name ?? "Khách sạn này"} chưa có loại phòng nào đủ sức chứa ` +
-            `${requestedAdults} người lớn và ${requestedChildren} trẻ em theo dữ liệu hiện tại.`,
+            `${requestedAdults} người lớn và ${requestedChildren} trẻ em. `,
 
           hotels: [],
           bookings: [],
@@ -481,7 +481,7 @@ async function resolveFamilyRoom(
 
       return {
         answer:
-          `${hotel.name ?? "Khách sạn này"} chưa có loại phòng nào được dữ liệu hiện tại xác nhận phù hợp rõ cho gia đình có trẻ em.`,
+          `${hotel.name ?? "Khách sạn này"} hiện chưa có loại phòng nào phù hợp rõ ràng cho gia đình có trẻ em.`,
 
         hotels: [],
         bookings: [],
@@ -998,7 +998,7 @@ async function resolveLargestRoom(
     if (!sorted.length) {
       return {
         answer:
-          "Các loại phòng hiện chưa có dữ liệu diện tích để so sánh.",
+          "Khách sạn chưa cập nhật diện tích phòng để mình so sánh phần này.",
 
         hotels: [],
         bookings: [],

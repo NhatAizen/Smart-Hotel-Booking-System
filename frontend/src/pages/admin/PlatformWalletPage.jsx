@@ -305,7 +305,7 @@ export default function PlatformWalletPage() {
         refunds: false,
       });
       const fallbackMessage = requestError.response?.data?.message
-        ?? "Không thể tải dữ liệu tài chính nền tảng.";
+        ?? "Chưa thể tải thông tin tài chính lúc này.";
       setSourceErrors({
         wallet: fallbackMessage,
         transactions: fallbackMessage,
@@ -609,15 +609,15 @@ export default function PlatformWalletPage() {
   }
 
   if (loading && !wallet) {
-    return <Loading message="Đang tải ví nền tảng và dữ liệu đối soát..." />;
+    return <Loading message="Đang tải ví EnziuRooms và thông tin đối soát..." />;
   }
 
   return (
-    <main className="wallet-page system-wallet-page">
+    <div className="wallet-page system-wallet-page">
       <PageHeader
         eyebrow="Tài chính nền tảng"
         title="Ví EnziuRooms & đối soát"
-        description="Theo dõi hoa hồng, xử lý rút tiền, hoàn tiền và giải ngân từ dữ liệu giao dịch thực tế."
+        description="Theo dõi hoa hồng, xử lý rút tiền, hoàn tiền và giải ngân trong cùng một luồng đối soát."
         icon={<WalletCards size={22} />}
         actions={(
           <button className="wallet-refresh-button" type="button" onClick={load} disabled={loading}>
@@ -1079,7 +1079,7 @@ export default function PlatformWalletPage() {
                 />
               </label>
             ) : (
-              <p>Khoản tiền này sẽ được hoàn vào Ví Enziu của khách theo dữ liệu yêu cầu.</p>
+              <p>Khoản tiền này sẽ được hoàn vào Ví Enziu của khách theo thông tin yêu cầu.</p>
             )}
           </div>
         ) : null}
@@ -1119,6 +1119,6 @@ export default function PlatformWalletPage() {
       >
         <p>Mã giao dịch và ảnh chứng từ sẽ được lưu cùng yêu cầu này.</p>
       </ConfirmDialog>
-    </main>
+    </div>
   );
 }

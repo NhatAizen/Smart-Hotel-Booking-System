@@ -171,7 +171,7 @@ export default function CustomerWalletPage() {
         className="wallet-page-heading"
         eyebrow="Ví khách hàng"
         title="Ví Enziu"
-        description="Tiền hoàn được cộng vào đây. Bạn có thể dùng ví để thanh toán booking hoặc yêu cầu rút về ngân hàng."
+        description="Tiền hoàn được cộng vào đây. Bạn có thể dùng ví để thanh toán đơn đặt phòng hoặc yêu cầu rút về ngân hàng."
         icon={<WalletCards size={22} />}
         actions={(
           <button className="wallet-refresh-button" type="button" onClick={load} disabled={loading}>
@@ -186,7 +186,7 @@ export default function CustomerWalletPage() {
       {!wallet ? (
         <EmptyState
           icon={<WalletCards size={28} />}
-          title="Chưa có dữ liệu ví"
+          title="Ví chưa có giao dịch"
           description="Số dư chưa thể hiển thị. Hãy thử làm mới sau ít phút."
         />
       ) : (

@@ -225,7 +225,7 @@ async function fetchLegacyHoChiMinhBoundary(regionName, cityName) {
       headers: { Accept: "application/json" },
     })
       .then((response) => {
-        if (!response.ok) throw new Error("Không tải được dữ liệu ranh giới TP.HCM.");
+        if (!response.ok) throw new Error("Chưa thể hiển thị ranh giới khu vực TP.HCM.");
         return response.json();
       })
       .catch((error) => {

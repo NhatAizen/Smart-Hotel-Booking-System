@@ -8,6 +8,10 @@ export async function getMyProfile() {
   return data(await apiClient.get("/users/me"));
 }
 
+export async function getPublicProfile(userId) {
+  return data(await apiClient.get(`/users/${userId}/public-profile`));
+}
+
 export async function updateMyProfile(payload) {
   return data(await apiClient.put("/users/me", payload));
 }
@@ -72,6 +76,7 @@ export async function submitPartnerRequest(
   cccdFront,
   cccdBack,
   ekycCapture,
+  supportingDocuments = {},
 ) {
   const formData = new FormData();
   formData.append(
@@ -81,9 +86,23 @@ export async function submitPartnerRequest(
   formData.append("cccdFront", cccdFront);
   formData.append("cccdBack", cccdBack);
   formData.append("ekycReceipt", ekycCapture.verificationReceipt);
+  if (supportingDocuments.managementProof) {
+    formData.append("managementProof", supportingDocuments.managementProof);
+  }
+  if (supportingDocuments.businessLicense) {
+    formData.append("businessLicense", supportingDocuments.businessLicense);
+  }
 
   return data(
     await apiClient.post("/partner-requests", formData, { timeout: 90000 }),
+  );
+}
+
+export async function getMyPartnerSupportingDocument(documentType) {
+  return data(
+    await apiClient.get(`/partner-requests/me/documents/${documentType}`, {
+      responseType: "blob",
+    }),
   );
 }
 

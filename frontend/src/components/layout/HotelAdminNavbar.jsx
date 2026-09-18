@@ -20,6 +20,8 @@ import {
   Tags,
   UserRound,
   WalletCards,
+  ScrollText,
+  LifeBuoy,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -68,13 +70,8 @@ const items = [
     icon: ClipboardList,
   },
   {
-    to: "/hotel-admin/check-in",
-    label: "Nhận phòng QR",
-    icon: ScanLine,
-  },
-  {
-    to: "/hotel-admin/current-stays",
-    label: "Khách đang lưu trú",
+    to: "/hotel-admin/stays",
+    label: "Quản lý check-in và check-out",
     icon: DoorOpen,
   },
   {
@@ -107,6 +104,16 @@ const items = [
     label: "Đánh giá",
     icon: Star,
   },
+  {
+    to: "/hotel-admin/policies",
+    label: "Chính sách & Quy định",
+    icon: ScrollText,
+  },
+  {
+    to: "/hotel-admin/complaints",
+    label: "Khiếu nại",
+    icon: LifeBuoy,
+  },
 ];
 
 const desktopNavigation = [
@@ -115,21 +122,21 @@ const desktopNavigation = [
     type: "group",
     label: "Khách sạn",
     icon: Building2,
-    items: [items[1], items[2], items[3], items[4]],
+    items: [items[1], items[2], items[3], items[4], items[13]],
   },
   {
     type: "group",
     label: "Vận hành",
     icon: ScanLine,
-    items: [items[5], items[6], items[7], items[12], items[13]],
+    items: [items[5], items[6], items[11], items[12], items[14]],
   },
   {
     type: "group",
     label: "Kinh doanh",
     icon: WalletCards,
-    items: [items[9], items[10]],
+    items: [items[8], items[9]],
   },
-  { type: "link", item: items[11] },
+  { type: "link", item: items[10] },
 ];
 
 const ELIGIBILITY_CHECKS = [

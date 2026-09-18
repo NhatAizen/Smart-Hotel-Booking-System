@@ -12,6 +12,7 @@ import {
   Eye,
   Hotel,
   ImageOff,
+  LifeBuoy,
   MapPin,
   MessageCircle,
   QrCode,
@@ -31,9 +32,11 @@ import {
   useMemo,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
+import { useFloatingChat } from "../../chat/FloatingChatContext";
 import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
@@ -44,7 +47,8 @@ import {
   StatusBadge,
 } from "../../components/ui";
 import ReviewFormModal from "../../components/review/ReviewFormModal";
-import CustomerHotelChat from "../../components/chat/CustomerHotelChat";
+import BookingTermsPanel from "../../components/booking/BookingTermsPanel";
+import ComplaintCreateModal from "../../components/complaint/ComplaintCreateModal";
 import {
   cancelBooking,
   createRoomChangeRequest,
@@ -68,7 +72,7 @@ import {
   getMyRefundRequests,
   getRefundHotelProof,
 } from "../../services/paymentService";
-import { getCustomerConversations } from "../../services/chatService";
+import { getMyComplaints } from "../../services/complaintService";
 import { scrollToHashTarget } from "../../utils/notificationNavigation";
 import { normalizeEnum, STATUS_LABELS } from "../../utils/presentation";
 import "./CustomerAccountExperience.css";
@@ -299,9 +303,19 @@ function guestSummary(adults, children) {
   return parts.length ? parts.join(" · ") : "Chưa cập nhật";
 }
 
+function parsePolicySnapshot(value) {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
 export default function BookingsPage() {
   const location = useLocation();
   const { user } = useAuth();
+  const { openHotelConversation } = useFloatingChat();
   const customerId = user?.id;
 
   const [bookings, setBookings] = useState([]);
@@ -315,8 +329,9 @@ export default function BookingsPage() {
   const [modalLoading, setModalLoading] = useState(false);
   const [reviewsByBooking, setReviewsByBooking] = useState({});
   const [reviewBooking, setReviewBooking] = useState(null);
-  const [chatBooking, setChatBooking] = useState(null);
-  const [chatByBooking, setChatByBooking] = useState({});
+  const [complaintBooking, setComplaintBooking] = useState(null);
+  const [complaintByBooking, setComplaintByBooking] = useState({});
+  const [complaintsStatus, setComplaintsStatus] = useState("loading");
   const [refundByBooking, setRefundByBooking] = useState({});
   const [refundBooking, setRefundBooking] = useState(null);
   const [refundBusy, setRefundBusy] = useState(false);
@@ -344,6 +359,10 @@ export default function BookingsPage() {
     accountNumber: "",
     accountName: "",
   });
+  const selectedPolicySnapshot = useMemo(
+    () => parsePolicySnapshot(selectedBooking?.hotelPolicySnapshot),
+    [selectedBooking?.hotelPolicySnapshot],
+  );
 
   const loadMetadata = useCallback(async (items) => {
     const entries = await Promise.all(
@@ -371,22 +390,6 @@ export default function BookingsPage() {
     setMetadata(Object.fromEntries(entries));
   }, []);
 
-  const loadChatSummaries = useCallback(async () => {
-    try {
-      const conversations = await getCustomerConversations();
-      setChatByBooking(
-        Object.fromEntries(
-          conversations
-            .filter((conversation) => conversation?.bookingId)
-            .map((conversation) => [String(conversation.bookingId), conversation]),
-        ),
-      );
-    } catch {
-      // Chat service có thể chưa khởi động; không được làm hỏng trang booking.
-      setChatByBooking({});
-    }
-  }, []);
-
   const loadBookings = useCallback(async () => {
     if (!customerId) {
       setLoading(false);
@@ -395,19 +398,22 @@ export default function BookingsPage() {
     }
 
     setLoading(true);
+    setComplaintsStatus("loading");
     setError("");
 
     try {
-      const [data, reviewData, refundData, roomChangeData] = await Promise.all([
+      const [data, reviewData, refundData, roomChangeData, complaintData] = await Promise.all([
         getMyBookings(customerId),
         getMyReviews().catch(() => []),
         getMyRefundRequests().catch(() => []),
         getMyRoomChangeRequests().catch(() => []),
+        getMyComplaints().catch(() => null),
       ]);
       const normalized = Array.isArray(data) ? data : [];
       const normalizedReviews = Array.isArray(reviewData) ? reviewData : [];
       const normalizedRefunds = Array.isArray(refundData) ? refundData : [];
       const normalizedRoomChanges = Array.isArray(roomChangeData) ? roomChangeData : [];
+      const normalizedComplaints = Array.isArray(complaintData) ? complaintData : [];
 
       setBookings(normalized);
       setReviewsByBooking(
@@ -420,16 +426,21 @@ export default function BookingsPage() {
           normalizedRefunds.map((item) => [String(item.bookingId), item]),
         ),
       );
+      setComplaintByBooking(
+        Object.fromEntries(
+          normalizedComplaints
+            .filter((item) => !["RESOLVED", "REJECTED", "CANCELLED"].includes(item.status))
+            .map((item) => [String(item.bookingId), item]),
+        ),
+      );
+      setComplaintsStatus(Array.isArray(complaintData) ? "ready" : "error");
       const latestRoomChangeByBooking = {};
       normalizedRoomChanges.forEach((item) => {
         const key = String(item.bookingId);
         if (!latestRoomChangeByBooking[key]) latestRoomChangeByBooking[key] = item;
       });
       setRoomChangeByBooking(latestRoomChangeByBooking);
-      await Promise.all([
-        loadMetadata(normalized),
-        loadChatSummaries(),
-      ]);
+      await loadMetadata(normalized);
     } catch (requestError) {
       setError(
         requestError.response?.data?.message
@@ -438,7 +449,7 @@ export default function BookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [customerId, loadChatSummaries, loadMetadata]);
+  }, [customerId, loadMetadata]);
 
   useEffect(() => {
     void loadBookings();
@@ -467,11 +478,12 @@ export default function BookingsPage() {
       if (event.key === "Escape") setSelectedBooking(null);
     }
 
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", handleEscape);
 
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleEscape);
     };
   }, [selectedBooking]);
@@ -742,35 +754,6 @@ export default function BookingsPage() {
     }
   }
 
-  const handleConversationUpdated = useCallback((conversation) => {
-    if (!conversation?.bookingId) return;
-
-    const bookingId = String(conversation.bookingId);
-
-    setChatByBooking((current) => {
-      const previous = current[bookingId];
-
-      if (
-        previous?.id === conversation.id &&
-        previous?.unreadCount === conversation.unreadCount &&
-        previous?.arrivalStatus === conversation.arrivalStatus &&
-        previous?.expectedArrivalTime === conversation.expectedArrivalTime &&
-        previous?.humanTakeover === conversation.humanTakeover &&
-        previous?.lastMessageAt === conversation.lastMessageAt
-      ) {
-        return current;
-      }
-
-      return {
-        ...current,
-        [bookingId]: {
-          ...(previous ?? {}),
-          ...conversation,
-        },
-      };
-    });
-  }, []);
-
   const filteredBookings = useMemo(
     () => bookings.filter((booking) => bookingMatchesFilter(booking, filter)),
     [bookings, filter],
@@ -857,7 +840,7 @@ export default function BookingsPage() {
       setPendingAction(null);
     } catch (requestError) {
       setError(
-        requestError.response?.data?.message ?? "Không thể hủy booking.",
+        requestError.response?.data?.message ?? "Không thể hủy đơn đặt phòng.",
       );
     } finally {
       setWorkingId("");
@@ -881,7 +864,7 @@ export default function BookingsPage() {
       setError(
         requestError.response?.data?.message
           ?? requestError.response?.data?.error
-          ?? "Không thể ẩn booking khỏi danh sách.",
+          ?? "Không thể ẩn đơn khỏi danh sách.",
       );
     } finally {
       setWorkingId("");
@@ -927,9 +910,9 @@ export default function BookingsPage() {
         <section className="booking-v2-heading">
           <div>
             <span>ĐƠN ĐẶT PHÒNG</span>
-            <h1>Booking của tôi</h1>
+            <h1>Đơn đặt phòng của tôi</h1>
             <p>
-              Theo dõi chuyến đi, thanh toán, nhận QR check-in và quản lý các đơn đã đặt.
+              Theo dõi chuyến đi, thanh toán, mã nhận phòng và các đơn bạn đã đặt.
             </p>
           </div>
 
@@ -942,7 +925,7 @@ export default function BookingsPage() {
         {!error || bookings.length > 0 ? <section className="booking-v2-summary">
           <article>
             <span><ReceiptText size={21} /></span>
-            <div><small>Tổng booking</small><strong>{summary.total}</strong></div>
+            <div><small>Tổng đơn</small><strong>{summary.total}</strong></div>
           </article>
           <article>
             <span><CalendarDays size={21} /></span>
@@ -1115,16 +1098,14 @@ export default function BookingsPage() {
                         <button
                           type="button"
                           className="booking-v2-chat-action"
-                          onClick={() => setChatBooking(booking)}
+                          onClick={() => openHotelConversation({
+                            booking,
+                            hotel: metadata[booking.id]?.hotel,
+                          })}
                         >
                           <MessageCircle size={17} />
                           <span>
                             Chat với khách sạn
-                            {Number(chatByBooking[String(booking.id)]?.unreadCount ?? 0) > 0 ? (
-                              <b className="booking-v2-chat-unread">
-                                {Math.min(99, Number(chatByBooking[String(booking.id)]?.unreadCount))}
-                              </b>
-                            ) : null}
                           </span>
                         </button>
                       ) : null}
@@ -1172,7 +1153,7 @@ export default function BookingsPage() {
                           onClick={() => setPendingAction({ type: "cancel", booking })}
                         >
                           <XCircle size={17} />
-                          Hủy booking
+                          Hủy đặt phòng
                         </button>
                       ) : null}
 
@@ -1240,9 +1221,9 @@ export default function BookingsPage() {
         </section>
       </div>
 
-      {selectedBooking ? (
+      {selectedBooking && typeof document !== "undefined" ? createPortal((
         <div
-          className="booking-v2-modal-backdrop"
+          className="booking-v2-modal-backdrop booking-v2-detail-backdrop"
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeDetails();
@@ -1252,7 +1233,7 @@ export default function BookingsPage() {
             className="booking-v2-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Chi tiết booking"
+            aria-label="Chi tiết đơn đặt phòng"
           >
             <button
               type="button"
@@ -1330,7 +1311,7 @@ export default function BookingsPage() {
                 </div>
 
                 <div className="booking-v2-modal-payment">
-                  <div><span>Tổng booking</span><strong>{money(selectedBooking.totalPrice)}</strong></div>
+                  <div><span>Tổng tiền</span><strong>{money(selectedBooking.totalPrice)}</strong></div>
                   <div><span>Đã thanh toán</span><strong className="paid">{money(selectedBooking.paidAmount)}</strong></div>
                   <div><span>Còn phải thanh toán</span><strong className="remaining">{money(selectedBooking.remainingAmount)}</strong></div>
                 </div>
@@ -1359,6 +1340,27 @@ export default function BookingsPage() {
                     <p>{selectedBooking.specialRequest}</p>
                   </div>
                 ) : null}
+
+                <BookingTermsPanel
+                  mode="detail"
+                  hotel={metadata[selectedBooking.id]?.hotel}
+                  roomTypes={[metadata[selectedBooking.id]?.roomType].filter(Boolean)}
+                  roomNames={[metadata[selectedBooking.id]?.roomType?.name].filter(Boolean)}
+                  checkIn={selectedBooking.checkIn}
+                  checkOut={selectedBooking.checkOut}
+                  adults={selectedBooking.adults}
+                  children={selectedBooking.children}
+                  totalAmount={selectedBooking.totalPrice}
+                  depositAmount={selectedBooking.paymentOption === "DEPOSIT" ? selectedBooking.paymentDueAmount : null}
+                  paidAmount={selectedBooking.paidAmount}
+                  remainingAmount={selectedBooking.remainingAmount}
+                  paymentOption={paymentOptionLabel(selectedBooking.paymentOption, selectedBooking.depositPercent)}
+                  hotelPromotionCode={selectedBooking.hotelPromotionCode}
+                  platformPromotionCode={selectedBooking.platformPromotionCode}
+                  hotelPolicyOverride={selectedPolicySnapshot}
+                  minimumAgeOverride={selectedBooking.minimumAgeSnapshot}
+                  refundableOverride={selectedBooking.roomRefundableSnapshot}
+                />
               </div>
 
               <aside className="booking-v2-qr-panel">
@@ -1406,6 +1408,30 @@ export default function BookingsPage() {
                   )
                 ) : null}
 
+                <button
+                  type="button"
+                  className={`booking-v2-complaint-action${complaintByBooking[String(selectedBooking.id)] ? " is-view" : ""}`}
+                  disabled={complaintsStatus !== "ready"}
+                  onClick={() => {
+                    const existingComplaint = complaintByBooking[String(selectedBooking.id)];
+                    if (existingComplaint) {
+                      window.location.assign(`/customer/complaints?case=${encodeURIComponent(existingComplaint.id)}`);
+                      return;
+                    }
+                    setComplaintBooking(selectedBooking);
+                    closeDetails();
+                  }}
+                >
+                  <LifeBuoy size={17} />
+                  {complaintsStatus === "loading"
+                    ? "Đang kiểm tra khiếu nại..."
+                    : complaintsStatus === "error"
+                      ? "Chưa thể kiểm tra khiếu nại"
+                    : complaintByBooking[String(selectedBooking.id)]
+                      ? "Xem khiếu nại"
+                      : "Khiếu nại / Báo cáo sự cố"}
+                </button>
+
                 <Link to={`/hotels/${selectedBooking.hotelId}`} onClick={closeDetails}>
                   Xem khách sạn
                   <ChevronRight size={16} />
@@ -1414,7 +1440,7 @@ export default function BookingsPage() {
             </div>
           </section>
         </div>
-      ) : null}
+      ), document.body) : null}
 
       {roomChangeBooking ? (() => {
         const latest = roomChangeByBooking[String(roomChangeBooking.id)];
@@ -1453,11 +1479,11 @@ export default function BookingsPage() {
                     : "Yêu cầu đã được gửi đến khách sạn";
                 const resultDescription = isApproved
                   ? Number(latest.additionalPaymentDue ?? 0) > 0
-                    ? `Booking đã chuyển sang phòng bạn chọn. Bạn cần thanh toán thêm ${money(latest.additionalPaymentDue)} theo phương thức của booking.`
-                    : "Booking đã được cập nhật sang phòng bạn chọn và không phát sinh khoản cần bù tại thời điểm duyệt."
+                    ? `Đơn đặt phòng đã chuyển sang phòng bạn chọn. Bạn cần thanh toán thêm ${money(latest.additionalPaymentDue)} theo phương thức thanh toán hiện tại.`
+                    : "Đơn đặt phòng đã được cập nhật sang phòng bạn chọn và không phát sinh khoản thanh toán thêm."
                   : isRejected
-                    ? "Khách sạn đã phản hồi yêu cầu này. Bạn có thể chọn một phòng khác nếu booking vẫn còn đủ điều kiện đổi phòng."
-                    : "Khách sạn đang kiểm tra tình trạng phòng thực tế. Bạn không cần gửi lại yêu cầu trong lúc đang chờ xử lý.";
+                    ? "Khách sạn đã phản hồi yêu cầu này. Bạn có thể chọn phòng khác nếu đơn vẫn còn đủ điều kiện đổi phòng."
+                    : "Khách sạn đang kiểm tra tình trạng phòng. Bạn không cần gửi lại yêu cầu khi đang chờ xử lý.";
 
                 return (
                   <div className={`booking-v2-room-change-result is-${String(latest.status ?? "pending").toLowerCase()}`}>
@@ -1500,7 +1526,7 @@ export default function BookingsPage() {
 
                     {isApproved ? (
                       <div className="booking-v2-room-change-result-money">
-                        <div><small>Giá booking cũ</small><strong>{money(latest.oldTotalPrice)}</strong></div>
+                        <div><small>Giá trước khi đổi</small><strong>{money(latest.oldTotalPrice)}</strong></div>
                         <div><small>Giá sau đổi</small><strong>{money(latest.newTotalPrice)}</strong></div>
                         <div><small>Chênh lệch</small><strong className={Number(latest.priceDifference ?? 0) > 0 ? "is-up" : Number(latest.priceDifference ?? 0) < 0 ? "is-down" : ""}>{money(latest.priceDifference)}</strong></div>
                         <div className="is-important"><small>Cần thanh toán thêm</small><strong>{money(latest.additionalPaymentDue)}</strong></div>
@@ -1587,7 +1613,7 @@ export default function BookingsPage() {
                       <strong>Nguyên tắc xử lý</strong>
                       <ul>
                         <li>Chỉ hiển thị các phòng đang trống và phù hợp với toàn bộ kỳ lưu trú của bạn.</li>
-                        <li>Yêu cầu sẽ được Hotel Admin kiểm tra lại tình trạng phòng trước khi duyệt.</li>
+                        <li>Khách sạn sẽ kiểm tra lại tình trạng phòng trước khi duyệt yêu cầu.</li>
                         <li>Nếu phòng mới đắt hơn, hệ thống sẽ tính khoản cọc/thanh toán cần bù sau khi được duyệt.</li>
                       </ul>
                     </div>
@@ -1686,7 +1712,7 @@ export default function BookingsPage() {
                                       {type?.name ?? "Loại phòng"}
                                       <Eye size={15} />
                                     </button>
-                                    <span className="booking-v2-room-change-type-hint">Hover hoặc bấm để xem chi tiết</span>
+                                    <span className="booking-v2-room-change-type-hint">Di chuột hoặc bấm để xem chi tiết</span>
                                   </div>
                                   <span className="booking-v2-room-change-available-count">Còn {rooms.length} phòng</span>
                                 </div>
@@ -1782,7 +1808,7 @@ export default function BookingsPage() {
                             ? "0 ₫"
                             : `${roomChangeNightlyDifference > 0 ? "+" : ""}${money(roomChangeNightlyDifference)}`}
                       </strong>
-                      <span>Khoản phải bù chính xác sẽ được hệ thống tính khi khách sạn duyệt.</span>
+                      <span>Khoản cần thanh toán thêm sẽ được xác định khi khách sạn duyệt yêu cầu.</span>
                     </div>
                     <div className="booking-v2-room-change-footer-actions">
                       <button type="button" onClick={closeRoomChangeRequest}>Hủy</button>
@@ -1888,7 +1914,7 @@ export default function BookingsPage() {
             className="booking-v2-refund-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Yêu cầu hoàn tiền booking"
+            aria-label="Yêu cầu hoàn tiền đơn đặt phòng"
           >
             <button
               type="button"
@@ -1985,7 +2011,7 @@ export default function BookingsPage() {
         title={pendingAction?.type === "cancel" ? "Hủy đơn đặt phòng?" : "Ẩn đơn khỏi danh sách?"}
         description={pendingAction?.type === "cancel"
           ? `Bạn sắp hủy ${pendingAction?.booking?.bookingCode ? `đơn ${pendingAction.booking.bookingCode}` : "đơn đặt phòng này"}. Chính sách hủy hiện tại vẫn được áp dụng.`
-          : "Đơn sẽ được ẩn khỏi danh sách của bạn nhưng vẫn được lưu trong hệ thống để tra cứu khi cần."}
+          : "Đơn sẽ được ẩn khỏi danh sách của bạn và vẫn có thể được tra cứu lại khi cần."}
         confirmLabel={pendingAction?.type === "cancel" ? "Xác nhận hủy" : "Ẩn đơn"}
         busy={workingId === pendingAction?.booking?.id}
         onCancel={() => setPendingAction(null)}
@@ -1999,19 +2025,6 @@ export default function BookingsPage() {
         }}
       />
 
-      {chatBooking ? (
-        <CustomerHotelChat
-          open
-          booking={chatBooking}
-          hotel={metadata[chatBooking.id]?.hotel}
-          onClose={() => {
-            setChatBooking(null);
-            void loadChatSummaries();
-          }}
-          onConversationUpdated={handleConversationUpdated}
-        />
-      ) : null}
-
       {reviewBooking ? (
         <ReviewFormModal
           booking={reviewBooking}
@@ -2021,6 +2034,18 @@ export default function BookingsPage() {
           onSubmitted={handleReviewSubmitted}
         />
       ) : null}
+
+      <ComplaintCreateModal
+        open={Boolean(complaintBooking)}
+        booking={complaintBooking}
+        hotel={complaintBooking ? metadata[complaintBooking.id]?.hotel : null}
+        roomType={complaintBooking ? metadata[complaintBooking.id]?.roomType : null}
+        onClose={() => setComplaintBooking(null)}
+        onCreated={(created) => {
+          setComplaintBooking(null);
+          window.location.assign(`/customer/complaints?case=${encodeURIComponent(created.id)}`);
+        }}
+      />
     </main>
   );
 }

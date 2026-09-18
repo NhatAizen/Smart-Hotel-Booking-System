@@ -15,6 +15,7 @@ import {
 
 import { useAuth } from "../../auth/AuthContext";
 import NotificationBell from "../notifications/NotificationBell";
+import { AvatarImage } from "../ui";
 import "./AdminNavbarEnhancements.css";
 
 function itemMatchesPath(item, pathname) {
@@ -73,7 +74,7 @@ export default function AdminNavbar({
   const accountMenuId = `${baseId}-account-menu`;
   const accountButtonId = `${baseId}-account-button`;
 
-  const avatarUrl = accountAvatarUrl ?? user?.avatarUrl ?? user?.avatar ?? null;
+  const avatarSource = accountAvatarUrl ?? user;
   const avatarText = user?.fullName?.trim()?.charAt(0)?.toUpperCase() ??
     (variant === "hotel" ? "H" : "A");
 
@@ -171,9 +172,10 @@ export default function AdminNavbar({
         >
           <span className={`admin-navbar-brand-icon ${brandImageUrl ? `has-image fit-${brandImageFit}` : ""}`}>
             {brandImageUrl ? (
-              <img
-                src={brandImageUrl}
+              <AvatarImage
+                source={brandImageUrl}
                 alt={brandImageAlt ?? roleLabel ?? "Ảnh khách sạn"}
+                fallback={BrandIcon ? <BrandIcon size={24} aria-hidden="true" /> : <span aria-hidden="true">E</span>}
               />
             ) : BrandIcon ? (
               <BrandIcon size={24} aria-hidden="true" />
@@ -279,14 +281,11 @@ export default function AdminNavbar({
           <div className="admin-navbar-mobile-account">
             <div className="admin-navbar-user-summary">
               <span className="admin-navbar-avatar">
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt={user?.fullName ?? "Ảnh đại diện"}
-                  />
-                ) : (
-                  avatarText
-                )}
+                <AvatarImage
+                  source={avatarSource}
+                  alt={user?.fullName ?? "Ảnh đại diện"}
+                  fallback={avatarText}
+                />
               </span>
               <span>
                 <strong>{user?.fullName ?? roleLabel}</strong>
@@ -347,14 +346,11 @@ export default function AdminNavbar({
               aria-controls={accountMenuId}
             >
               <span className="admin-navbar-avatar">
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt={user?.fullName ?? "Ảnh đại diện"}
-                  />
-                ) : (
-                  avatarText
-                )}
+                <AvatarImage
+                  source={avatarSource}
+                  alt={user?.fullName ?? "Ảnh đại diện"}
+                  fallback={avatarText}
+                />
               </span>
               <span className="admin-navbar-account-copy">
                 <strong>{user?.fullName ?? roleLabel}</strong>
@@ -376,14 +372,11 @@ export default function AdminNavbar({
               >
                 <div className="admin-navbar-account-header">
                   <span className="admin-navbar-avatar large">
-                    {avatarUrl ? (
-                      <img
-                        src={avatarUrl}
-                        alt={user?.fullName ?? "Ảnh đại diện"}
-                      />
-                    ) : (
-                      avatarText
-                    )}
+                    <AvatarImage
+                      source={avatarSource}
+                      alt={user?.fullName ?? "Ảnh đại diện"}
+                      fallback={avatarText}
+                    />
                   </span>
                   <span>
                     <strong>{user?.fullName ?? roleLabel}</strong>

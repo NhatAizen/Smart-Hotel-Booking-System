@@ -77,7 +77,7 @@ export default function CustomerDashboard() {
           >
             <Bell size={25} />
             <strong>Thông báo</strong>
-            <span>Nhận cập nhật về booking và thanh toán</span>
+            <span>Nhận cập nhật về đơn đặt phòng và thanh toán</span>
           </Link>
 
           <Link

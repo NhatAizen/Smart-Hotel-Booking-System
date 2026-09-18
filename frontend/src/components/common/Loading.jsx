@@ -1,16 +1,16 @@
-import LoadingState from "../ui/LoadingState";
+import EnziuPageLoader from "./EnziuPageLoader";
 
 export default function Loading({
-  label = "Đang tải dữ liệu...",
+  label = "Đang tải...",
   message,
   className = "",
   ...props
 }) {
   return (
-    <LoadingState
-      message={message ?? label}
-      className={`admin-loading ${className}`.trim()}
-      spinnerClassName="admin-spinner"
+    <EnziuPageLoader
+      label={message ?? label}
+      fullscreen={false}
+      className={className}
       {...props}
     />
   );

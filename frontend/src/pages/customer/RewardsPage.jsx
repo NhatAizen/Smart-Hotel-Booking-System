@@ -225,10 +225,10 @@ export default function RewardsPage() {
               <h2>{firstName} ơi, bạn đang ở {profile.name || `Cấp ${currentLevel}`}!</h2>
               <p>
                 {tiers.length === 0
-                  ? "Chưa có dữ liệu để xác định hạng tiếp theo."
+                  ? "Chưa xác định được hạng tiếp theo."
                   : nextTier
                   ? (profile.bookingsToNextLevel != null
-                    ? `Hoàn tất ${Number(profile.bookingsToNextLevel)} booking nữa để mở khóa ${profile.nextName || nextTier.name}.`
+                    ? `Hoàn tất thêm ${Number(profile.bookingsToNextLevel)} đơn đặt phòng để mở khóa ${profile.nextName || nextTier.name}.`
                     : `Tiếp tục hoàn tất chuyến đi để mở khóa ${profile.nextName || nextTier.name}.`)
                   : "Bạn đã đạt cấp thành viên cao nhất hiện tại."}
               </p>
@@ -238,7 +238,7 @@ export default function RewardsPage() {
           {tiers.length === 0 ? (
             <div className="enziu-highest-level">
               <Award size={22} />
-              Tiến độ chưa thể hiển thị vì dữ liệu hạng chưa được cung cấp.
+              Tiến độ hạng thành viên hiện chưa sẵn sàng.
             </div>
           ) : nextTier ? (
             <>
@@ -279,10 +279,10 @@ export default function RewardsPage() {
         ) : (
           <EmptyState
             icon={<Award size={28} />}
-            title={error ? "Chưa thể hiển thị hạng thành viên" : "Chưa có dữ liệu hạng thành viên"}
+            title={error ? "Chưa thể hiển thị hạng thành viên" : "Chưa có thông tin hạng thành viên"}
             description={error
               ? "Dữ liệu thành viên chưa tải được. Hãy thử lại khi kết nối ổn định."
-              : "EnziuRooms chưa nhận được thông tin hạng từ hệ thống."}
+              : "Thông tin hạng thành viên chưa sẵn sàng. Vui lòng thử lại sau."}
           />
         )}
 
@@ -320,11 +320,11 @@ export default function RewardsPage() {
                       ? "Quyền lợi bắt đầu ngay khi bạn là thành viên EnziuRooms."
                       : (tier.minCompletedBookings == null
                         ? "Điều kiện mở khóa chưa được cập nhật."
-                        : `Mở khóa từ ${Number(tier.minCompletedBookings)} booking đã hoàn tất.`)}
+                        : `Mở khóa từ ${Number(tier.minCompletedBookings)} đơn đặt phòng đã hoàn tất.`)}
                   </p>
                   <div className="enziu-tier-rule">
                     <Check size={17} />
-                    Tự động áp dụng cho booking đủ điều kiện
+                    Tự động áp dụng cho đơn đủ điều kiện
                   </div>
                   {current ? <span className="enziu-current-tier-label">Cấp của bạn</span> : null}
                 </article>
@@ -336,7 +336,7 @@ export default function RewardsPage() {
               title={error ? "Chưa thể hiển thị quyền lợi" : "Chưa có thông tin quyền lợi"}
               description={error
                 ? "Dữ liệu quyền lợi chưa tải được. Hãy thử lại khi kết nối ổn định."
-                : "Các hạng và quyền lợi chưa được hệ thống cung cấp."}
+                : "Các hạng và quyền lợi hiện chưa được thiết lập."}
               compact
             />
           )}

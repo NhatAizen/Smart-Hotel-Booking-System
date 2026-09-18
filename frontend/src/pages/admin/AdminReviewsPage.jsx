@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { EmptyState, ErrorState, LoadingState, Modal, StatusBadge } from "../../components/ui";
+import { AvatarImage, ConfirmDialog, EmptyState, ErrorState, LoadingState, Modal, StatusBadge } from "../../components/ui";
 import {
   getSystemAdminReviews,
   hideSystemAdminReview,
@@ -61,6 +61,7 @@ export default function AdminReviewsPage() {
   const [busyId, setBusyId] = useState("");
   const [hideTarget, setHideTarget] = useState(null);
   const [hideReason, setHideReason] = useState("");
+  const [restoreTarget, setRestoreTarget] = useState(null);
 
   const load = useCallback(async ({ quiet = false } = {}) => {
     if (quiet) setRefreshing(true);
@@ -160,8 +161,6 @@ export default function AdminReviewsPage() {
   }
 
   async function restore(review) {
-    if (!window.confirm("Khôi phục đánh giá này để hiển thị lại trên hệ thống?")) return;
-
     setBusyId(review.id);
     setError("");
     setMessage("");
@@ -172,6 +171,7 @@ export default function AdminReviewsPage() {
           ? { ...item, ...(updated && typeof updated === "object" ? updated : {}), moderationStatus: "VISIBLE", hiddenReason: null, hiddenAt: null, hiddenBy: null }
           : item
       )));
+      setRestoreTarget(null);
       setMessage("Đã khôi phục đánh giá.");
       await load({ quiet: true });
     } catch (requestError) {
@@ -190,13 +190,13 @@ export default function AdminReviewsPage() {
   }
 
   return (
-    <main className="review-management-page">
+    <div className="review-management-page">
       <section className="review-management-hero">
         <div>
           <span className="review-management-kicker"><ShieldCheck size={15} /> KIỂM DUYỆT NỘI DUNG</span>
           <h1>Quản lý đánh giá</h1>
           <p>
-            Xem review trên toàn EnziuRooms, ẩn nội dung vi phạm và khôi phục khi cần. Quản trị không chỉnh sửa lời khách hoặc phản hồi thay khách sạn.
+            Kiểm duyệt đánh giá trên toàn EnziuRooms, ẩn nội dung vi phạm và khôi phục khi cần. Quản trị viên không chỉnh sửa lời khách hoặc phản hồi thay khách sạn.
           </p>
         </div>
         <button type="button" className="review-management-refresh" onClick={() => void load({ quiet: true })} disabled={refreshing}>
@@ -226,8 +226,8 @@ export default function AdminReviewsPage() {
         </select>
         <select value={replyFilter} onChange={(event) => setReplyFilter(event.target.value)}>
           <option value="ALL">Tất cả phản hồi</option>
-          <option value="WAITING">Chưa được hotel phản hồi</option>
-          <option value="REPLIED">Hotel đã phản hồi</option>
+          <option value="WAITING">Khách sạn chưa phản hồi</option>
+          <option value="REPLIED">Khách sạn đã phản hồi</option>
         </select>
         <select value={scoreFilter} onChange={(event) => setScoreFilter(event.target.value)}>
           <option value="ALL">Tất cả điểm</option>
@@ -247,7 +247,11 @@ export default function AdminReviewsPage() {
                 <header className="review-management-card-head">
                   <div className="review-management-author">
                     <span className="review-management-avatar">
-                      {review.customerAvatarUrl ? <img src={review.customerAvatarUrl} alt="" /> : String(review.customerName ?? "K").charAt(0).toUpperCase()}
+                      <AvatarImage
+                        source={review.customerAvatarUrl}
+                        alt=""
+                        fallback={String(review.customerName ?? "K").charAt(0).toUpperCase()}
+                      />
                     </span>
                     <div>
                       <strong>{review.customerName ?? "Khách EnziuRooms"}</strong>
@@ -256,7 +260,7 @@ export default function AdminReviewsPage() {
                   </div>
                   <div className="review-management-head-right">
                     <StatusBadge label={hidden ? "Đã ẩn" : "Đang hiển thị"} tone={hidden ? "warning" : "success"} icon={hidden ? <EyeOff size={14} /> : <Eye size={14} />} dot={false} />
-                    {reply ? <StatusBadge label="Hotel đã phản hồi" tone="info" /> : null}
+                    {reply ? <StatusBadge label="Khách sạn đã phản hồi" tone="info" /> : null}
                     <strong className="review-management-score">{Number.isFinite(Number(review.rating)) ? Number(review.rating).toFixed(1) : "—"}</strong>
                   </div>
                 </header>
@@ -265,7 +269,7 @@ export default function AdminReviewsPage() {
                   <aside className="review-management-meta">
                     <p><strong>Ngày đánh giá</strong>{formatDate(review.createdAt)}</p>
                     <p><strong>Booking</strong>{review.bookingCode ?? review.bookingId ?? "Đã xác minh"}</p>
-                    <p><strong>Review ID</strong>{review.id}</p>
+                    <p><strong>Mã đánh giá</strong>{review.id}</p>
                   </aside>
                   <div className="review-management-copy">
                     <h3>{review.title || "Trải nghiệm lưu trú"}</h3>
@@ -294,7 +298,7 @@ export default function AdminReviewsPage() {
 
                 <footer className="review-management-actions">
                   {hidden ? (
-                    <button type="button" className="review-management-button primary" disabled={Boolean(busyId)} onClick={() => void restore(review)}><Eye size={16} /> {busyId === review.id ? "Đang khôi phục..." : "Khôi phục"}</button>
+                    <button type="button" className="review-management-button primary" disabled={Boolean(busyId)} onClick={() => setRestoreTarget(review)}><Eye size={16} /> {busyId === review.id ? "Đang khôi phục..." : "Khôi phục"}</button>
                   ) : (
                     <button type="button" className="review-management-button warning" disabled={Boolean(busyId)} onClick={() => openHide(review)}><EyeOff size={16} /> Ẩn đánh giá</button>
                   )}
@@ -306,7 +310,7 @@ export default function AdminReviewsPage() {
       )}
 
       <p className="review-management-footer-note">
-        Review bị ẩn phải được backend loại khỏi endpoint public và khỏi phép tính averageRating/reviewCount, nhưng vẫn giữ trong cơ sở dữ liệu để System Admin có thể khôi phục.
+        Đánh giá bị ẩn sẽ không xuất hiện công khai và không được tính vào điểm trung bình. Quản trị viên vẫn có thể xem và khôi phục khi cần.
       </p>
 
       <Modal
@@ -337,6 +341,17 @@ export default function AdminReviewsPage() {
           <button type="button" className="review-management-button warning" disabled={Boolean(busyId) || !hideReason.trim()} onClick={() => void confirmHide()}>{busyId ? "Đang xử lý..." : "Xác nhận ẩn"}</button>
         </div>
       </Modal>
-    </main>
+
+      <ConfirmDialog
+        open={Boolean(restoreTarget)}
+        title="Khôi phục đánh giá"
+        description="Đánh giá sẽ hiển thị trở lại trên trang khách sạn và được tính vào điểm trung bình."
+        confirmLabel="Khôi phục"
+        confirmTone="primary"
+        busy={Boolean(restoreTarget && busyId === restoreTarget.id)}
+        onCancel={() => setRestoreTarget(null)}
+        onConfirm={() => void restore(restoreTarget)}
+      />
+    </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   Clock3,
   Eye,
   FileWarning,
+  FileText,
   Power,
   RefreshCw,
   ScanLine,
@@ -15,7 +16,7 @@ import {
   UserRound,
   XCircle,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   ConfirmDialog,
@@ -31,10 +32,12 @@ import {
   getAdminUserDemotionEligibility,
   getPartnerRequestDocument,
   getPartnerRequestEkycEvidence,
+  getPartnerRequestSupportingDocument,
+  getPartnerRequests,
   getPendingPartnerDeactivationRequests,
-  getPendingPartnerRequests,
   rejectPartnerDeactivationRequest,
   rejectPartnerRequest,
+  requestMorePartnerInfo,
 } from "../../services/adminService";
 import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 
@@ -82,6 +85,15 @@ function applicantTypeLabel(value) {
   return "Loại hồ sơ chưa xác định";
 }
 
+function partnerStatusLabel(value) {
+  const normalized = String(value ?? "").toUpperCase();
+  if (normalized === "PENDING") return "Chờ duyệt";
+  if (normalized === "NEED_MORE_INFO") return "Cần bổ sung";
+  if (normalized === "APPROVED") return "Đã duyệt";
+  if (normalized === "REJECTED") return "Từ chối";
+  return "Chưa xác định";
+}
+
 function partnerName(item) {
   return textOrFallback(
     item?.legalName ?? item?.representativeName ?? item?.fullName ?? item?.userFullName ?? item?.requesterName,
@@ -126,11 +138,13 @@ function formatSimilarity(value) {
 
 export default function PartnerRequestsPage() {
   const [items, setItems] = useState([]);
+  const [reviewFilter, setReviewFilter] = useState("ACTIVE");
   const [deactivationItems, setDeactivationItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
   const [rejecting, setRejecting] = useState(null);
+  const [moreInfoTarget, setMoreInfoTarget] = useState(null);
   const [approvalTarget, setApprovalTarget] = useState(null);
   const [reason, setReason] = useState("");
   const [busyId, setBusyId] = useState(null);
@@ -140,6 +154,9 @@ export default function PartnerRequestsPage() {
   const [evidenceUrl, setEvidenceUrl] = useState("");
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [evidenceError, setEvidenceError] = useState("");
+  const [supportingDocumentUrl, setSupportingDocumentUrl] = useState("");
+  const [supportingDocumentError, setSupportingDocumentError] = useState("");
+  const [supportingDocumentLoading, setSupportingDocumentLoading] = useState(false);
   const [deactivationReview, setDeactivationReview] = useState(null);
   const [deactivationAction, setDeactivationAction] = useState("approve");
   const [deactivationReason, setDeactivationReason] = useState("");
@@ -151,15 +168,21 @@ export default function PartnerRequestsPage() {
     setLoading(true);
     setError("");
     try {
-      const [partnerResult, deactivationResult] = await Promise.allSettled([
-        getPendingPartnerRequests(),
+      const [pendingResult, needsInfoResult, approvedResult, rejectedResult, deactivationResult] = await Promise.allSettled([
+        getPartnerRequests("PENDING"),
+        getPartnerRequests("NEED_MORE_INFO"),
+        getPartnerRequests("APPROVED"),
+        getPartnerRequests("REJECTED"),
         getPendingPartnerDeactivationRequests(),
       ]);
 
       setItems(
-        partnerResult.status === "fulfilled"
-          ? arrayFrom(partnerResult.value)
-          : [],
+        [
+          ...(pendingResult.status === "fulfilled" ? arrayFrom(pendingResult.value) : []),
+          ...(needsInfoResult.status === "fulfilled" ? arrayFrom(needsInfoResult.value) : []),
+          ...(approvedResult.status === "fulfilled" ? arrayFrom(approvedResult.value) : []),
+          ...(rejectedResult.status === "fulfilled" ? arrayFrom(rejectedResult.value) : []),
+        ],
       );
       setDeactivationItems(
         deactivationResult.status === "fulfilled"
@@ -167,8 +190,14 @@ export default function PartnerRequestsPage() {
           : [],
       );
 
-      if (partnerResult.status === "rejected") {
-        throw partnerResult.reason;
+      if (pendingResult.status === "rejected") {
+        throw pendingResult.reason;
+      }
+      if (needsInfoResult.status === "rejected") {
+        setError(
+          needsInfoResult.reason?.response?.data?.message ??
+            "Không thể tải hồ sơ đang chờ bổ sung.",
+        );
       }
       if (deactivationResult.status === "rejected") {
         setError(
@@ -185,6 +214,14 @@ export default function PartnerRequestsPage() {
       setLoading(false);
     }
   }, []);
+
+  const visibleItems = useMemo(() => {
+    if (reviewFilter === "ALL") return items;
+    if (reviewFilter === "ACTIVE") {
+      return items.filter((item) => ["PENDING", "NEED_MORE_INFO"].includes(item.status));
+    }
+    return items.filter((item) => item.status === reviewFilter);
+  }, [items, reviewFilter]);
 
   useEffect(() => {
     loadItems();
@@ -236,6 +273,50 @@ export default function PartnerRequestsPage() {
       if (frontUrl) URL.revokeObjectURL(frontUrl);
       if (backUrl) URL.revokeObjectURL(backUrl);
       setDocumentUrls({ front: "", back: "" });
+    };
+  }, [selected]);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl = "";
+
+    async function loadSupportingDocument() {
+      setSupportingDocumentUrl("");
+      setSupportingDocumentError("");
+      const documentType = selected?.applicantType === "BUSINESS"
+        ? "business-license"
+        : "management-proof";
+      const available = selected?.applicantType === "BUSINESS"
+        ? selected?.businessLicenseAvailable
+        : selected?.managementProofAvailable;
+
+      if (!selected?.id || !available) {
+        setSupportingDocumentLoading(false);
+        return;
+      }
+
+      setSupportingDocumentLoading(true);
+      try {
+        const blob = await getPartnerRequestSupportingDocument(selected.id, documentType);
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSupportingDocumentUrl(objectUrl);
+      } catch (requestError) {
+        if (active) {
+          setSupportingDocumentError(
+            requestError.response?.data?.message ?? "Không thể tải giấy tờ hồ sơ.",
+          );
+        }
+      } finally {
+        if (active) setSupportingDocumentLoading(false);
+      }
+    }
+
+    void loadSupportingDocument();
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setSupportingDocumentUrl("");
     };
   }, [selected]);
 
@@ -303,6 +384,14 @@ export default function PartnerRequestsPage() {
       );
       return;
     }
+    if (!item.contactEmail) {
+      setError("Hồ sơ chưa có email liên hệ. Hãy yêu cầu khách hàng bổ sung trước khi duyệt.");
+      return;
+    }
+    if (item.applicantType === "BUSINESS" && !item.businessLicenseAvailable) {
+      setError("Hồ sơ doanh nghiệp chưa có giấy chứng nhận đăng ký.");
+      return;
+    }
     setError("");
     setApprovalTarget(item);
   }
@@ -339,6 +428,25 @@ export default function PartnerRequestsPage() {
       setSelected(null);
     } catch (requestError) {
       setError(requestError.response?.data?.message ?? "Từ chối hồ sơ thất bại.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleRequestMoreInfo() {
+    if (!reason.trim()) {
+      setError("Vui lòng nhập nội dung cần bổ sung.");
+      return;
+    }
+    setBusyId(moreInfoTarget.id);
+    try {
+      const updated = await requestMorePartnerInfo(moreInfoTarget.id, reason.trim());
+      setItems((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setMoreInfoTarget(null);
+      setReason("");
+      setSelected(null);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message ?? "Không thể gửi yêu cầu bổ sung.");
     } finally {
       setBusyId(null);
     }
@@ -457,12 +565,27 @@ export default function PartnerRequestsPage() {
           <h2>Hồ sơ đăng ký đối tác</h2>
           <p>Kiểm tra thông tin CCCD và kết quả xác minh trước khi duyệt.</p>
         </div>
-        <strong>{items.length}</strong>
+        <strong>{visibleItems.length}</strong>
+      </div>
+
+      <div className="admin-partner-status-filters" role="group" aria-label="Lọc trạng thái hồ sơ">
+        {[
+          ["ACTIVE", "Cần xử lý"],
+          ["PENDING", "Chờ duyệt"],
+          ["NEED_MORE_INFO", "Cần bổ sung"],
+          ["APPROVED", "Đã duyệt"],
+          ["REJECTED", "Từ chối"],
+          ["ALL", "Tất cả"],
+        ].map(([value, label]) => (
+          <button type="button" className={reviewFilter === value ? "active" : ""} onClick={() => setReviewFilter(value)} key={value}>
+            {label}
+          </button>
+        ))}
       </div>
 
       {loading ? (
         <LoadingState message="Đang tải hồ sơ đối tác..." />
-      ) : items.length === 0 ? (
+      ) : visibleItems.length === 0 ? (
         <EmptyState
           icon={<BadgeCheck size={42} />}
           title="Không có yêu cầu đối tác chờ duyệt"
@@ -470,7 +593,7 @@ export default function PartnerRequestsPage() {
         />
       ) : (
         <div className="admin-card-list">
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <article key={item.id} className="admin-review-card">
               <div className="admin-review-main">
                 <div className="admin-review-icon">
@@ -483,7 +606,18 @@ export default function PartnerRequestsPage() {
                 <div>
                   <div className="admin-review-title-row">
                     <h2>{partnerName(item)}</h2>
-                    {item.ekycVerified ? (
+                    {item.status === "APPROVED" ? (
+                      <StatusBadge status="APPROVED" label="Đã duyệt" icon={<BadgeCheck size={13} />} size="sm" />
+                    ) : item.status === "REJECTED" ? (
+                      <StatusBadge status="REJECTED" label="Từ chối" icon={<XCircle size={13} />} size="sm" />
+                    ) : item.status === "NEED_MORE_INFO" ? (
+                      <StatusBadge
+                        status="PENDING"
+                        label="Đang chờ bổ sung"
+                        icon={<Clock3 size={13} />}
+                        size="sm"
+                      />
+                    ) : item.ekycVerified ? (
                       <StatusBadge
                         status="APPROVED"
                         label="Danh tính đã xác minh"
@@ -505,6 +639,9 @@ export default function PartnerRequestsPage() {
                     <span>Đại diện: <strong>{textOrFallback(item.representativeName ?? item.legalName, "Chưa cập nhật tên")}</strong></span>
                     <span>Độ tương đồng khuôn mặt: <strong>{formatSimilarity(item.faceSimilarity)}</strong></span>
                     <span>Ảnh xác minh: <strong>{item.ekycEvidenceAvailable ? "Đã có" : "Còn thiếu"}</strong></span>
+                    <span>Giấy tờ hồ sơ: <strong>{item.applicantType === "BUSINESS"
+                      ? item.businessLicenseAvailable ? "Đã có" : "Còn thiếu"
+                      : item.managementProofAvailable ? "Đã có" : "Không cung cấp"}</strong></span>
                   </div>
                 </div>
               </div>
@@ -513,22 +650,29 @@ export default function PartnerRequestsPage() {
                 <button type="button" className="admin-detail-button" onClick={() => setSelected(item)} aria-label={`Xem chi tiết hồ sơ ${partnerName(item)}`}>
                   <Eye size={17} /> Chi tiết
                 </button>
-                <button type="button" className="admin-reject-button" onClick={() => setRejecting(item)}>
-                  <XCircle size={17} /> Từ chối
-                </button>
-                <button
-                  type="button"
-                  className="admin-approve-button"
-                  onClick={() => requestApprove(item)}
-                  disabled={
-                    busyId === item.id ||
-                    !item.ocrVerified ||
-                    !item.ekycVerified ||
-                    !item.ekycEvidenceAvailable
-                  }
-                >
-                  <BadgeCheck size={17} /> {busyId === item.id ? "Đang xử lý..." : "Phê duyệt"}
-                </button>
+                {item.status === "PENDING" ? <>
+                  <button type="button" className="admin-more-info-button" onClick={() => { setMoreInfoTarget(item); setReason(""); }}>
+                    <FileText size={17} /> Yêu cầu bổ sung
+                  </button>
+                  <button type="button" className="admin-reject-button" onClick={() => { setRejecting(item); setReason(""); }}>
+                    <XCircle size={17} /> Từ chối
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-approve-button"
+                    onClick={() => requestApprove(item)}
+                    disabled={
+                      busyId === item.id ||
+                      !item.ocrVerified ||
+                      !item.ekycVerified ||
+                      !item.ekycEvidenceAvailable ||
+                      !item.contactEmail ||
+                      (item.applicantType === "BUSINESS" && !item.businessLicenseAvailable)
+                    }
+                  >
+                    <BadgeCheck size={17} /> {busyId === item.id ? "Đang xử lý..." : "Phê duyệt"}
+                  </button>
+                </> : null}
               </div>
             </article>
           ))}
@@ -637,31 +781,31 @@ export default function PartnerRequestsPage() {
               {selected.ocrVerified ? <ScanLine size={22} /> : <FileWarning size={22} />}
               <div>
                 <strong>{selected.ocrVerified ? "Thông tin trên CCCD đã được xác minh" : "Thông tin trên CCCD chưa hợp lệ"}</strong>
-                <small>{selected.ocrVerified ? "Số CCCD, họ tên và ngày sinh khớp dữ liệu khai báo." : "Hồ sơ không được phép phê duyệt."}</small>
+                <small>{selected.ocrVerified ? "Số CCCD, họ tên và ngày sinh khớp với thông tin đã khai." : "Hồ sơ không được phép phê duyệt."}</small>
               </div>
             </div>
 
             <div className={`partner-admin-ocr-status ${selected.ekycVerified ? "verified" : "failed"}`}>
               {selected.ekycVerified ? <ShieldCheck size={22} /> : <FileWarning size={22} />}
               <div>
-                <strong>{selected.ekycVerified ? "Danh tính điện tử đã được xác minh" : "Xác minh danh tính điện tử chưa hợp lệ"}</strong>
+                <strong>{selected.ekycVerified ? "Xác minh danh tính đã hoàn tất" : "Xác minh danh tính chưa hoàn tất"}</strong>
                 <small>
-                  Người thật: {selected.livenessVerified ? "Đạt" : "Chưa đạt"} · Khuôn mặt: {selected.faceVerified ? "Khớp" : "Chưa khớp"} · Độ tương đồng: {formatSimilarity(selected.faceSimilarity)} · Ảnh đối chiếu: {selected.ekycEvidenceAvailable ? "Có" : "Thiếu"}
+                  Kiểm tra trực tiếp: {selected.livenessVerified ? "Đạt" : "Chưa đạt"} · Đối chiếu khuôn mặt: {selected.faceVerified ? "Khớp" : "Chưa khớp"} · Mức khớp: {formatSimilarity(selected.faceSimilarity)} · Ảnh xác minh: {selected.ekycEvidenceAvailable ? "Đã có" : "Chưa có"}
                 </small>
               </div>
             </div>
 
             <div className="partner-admin-identity-compare">
               <div className="partner-admin-documents-heading">
-                <span>ĐỐI CHIẾU DANH TÍNH ĐIỆN TỬ</span>
-                <small>Ảnh camera được lấy từ lần xác minh thành công để đối chiếu với CCCD.</small>
+                <span>ĐỐI CHIẾU DANH TÍNH</span>
+                <small>Ảnh chụp trong bước xác minh được dùng để đối chiếu với ảnh trên CCCD.</small>
               </div>
 
               <div className="partner-admin-compare-status">
                 <ShieldCheck size={18} />
                 <div>
                   <strong>Kiểm tra thủ công trước khi duyệt</strong>
-                  <small>So sánh khuôn mặt trên CCCD với ảnh camera từ lần xác minh thành công bên dưới.</small>
+                  <small>So sánh ảnh chân dung trên CCCD với ảnh chụp trong bước xác minh bên dưới.</small>
                 </div>
               </div>
 
@@ -723,8 +867,38 @@ export default function PartnerRequestsPage() {
               <div><span>Độ tương đồng khuôn mặt</span><strong>{formatSimilarity(selected.faceSimilarity)}</strong></div>
               <div><span>Thời điểm xác minh danh tính</span><strong>{formatDateTime(selected.ekycProcessedAt)}</strong></div>
               <div><span>Số điện thoại</span><strong>{textOrFallback(selected.businessPhone)}</strong></div>
-              <div><span>Địa chỉ</span><strong>{textOrFallback(selected.businessAddress)}</strong></div>
+              <div><span>Email</span><strong>{textOrFallback(selected.contactEmail)}</strong></div>
+              {selected.applicantType === "BUSINESS" ? <div><span>Mã số thuế</span><strong>{textOrFallback(selected.businessTaxCode)}</strong></div> : null}
+              <div><span>{selected.applicantType === "BUSINESS" ? "Địa chỉ trụ sở" : "Địa chỉ liên hệ"}</span><strong>{textOrFallback(selected.businessAddress)}</strong></div>
+              <div><span>Thời gian gửi</span><strong>{formatDateTime(selected.createdAt)}</strong></div>
+              <div><span>Trạng thái</span><strong>{partnerStatusLabel(selected.status)}</strong></div>
+              {selected.rejectionReason ? <div className="wide"><span>{selected.status === "REJECTED" ? "Lý do từ chối" : "Nội dung đã yêu cầu bổ sung"}</span><strong>{selected.rejectionReason}</strong></div> : null}
               <div className="wide"><span>Ghi chú</span><strong>{textOrFallback(selected.note, "Không có ghi chú")}</strong></div>
+            </div>
+
+            <div className="partner-admin-documents partner-admin-supporting-document">
+              <div className="partner-admin-documents-heading">
+                <span>{selected.applicantType === "BUSINESS" ? "GIẤY CHỨNG NHẬN ĐĂNG KÝ" : "TÀI LIỆU QUYỀN QUẢN LÝ"}</span>
+                <small>{selected.applicantType === "BUSINESS" ? "Bắt buộc với doanh nghiệp / hộ kinh doanh." : "Tài liệu tùy chọn của hồ sơ cá nhân."}</small>
+              </div>
+              {supportingDocumentLoading ? (
+                <div className="partner-admin-doc-loading"><LoadingState message="Đang tải giấy tờ..." /></div>
+              ) : supportingDocumentError ? (
+                <div className="partner-admin-doc-error">{supportingDocumentError}</div>
+              ) : supportingDocumentUrl ? (
+                <div className="partner-admin-file-row">
+                  <FileText size={22} />
+                  <span>
+                    <strong>{selected.applicantType === "BUSINESS" ? selected.businessLicenseName : selected.managementProofName}</strong>
+                    <small>{selected.applicantType === "BUSINESS" ? selected.businessLicenseContentType : selected.managementProofContentType}</small>
+                  </span>
+                  <a href={supportingDocumentUrl} target="_blank" rel="noreferrer">Xem tài liệu</a>
+                </div>
+              ) : (
+                <div className="partner-admin-doc-empty">
+                  {selected.applicantType === "BUSINESS" ? "Chưa có giấy chứng nhận đăng ký." : "Người đăng ký không cung cấp tài liệu tùy chọn."}
+                </div>
+              )}
             </div>
 
             <div className="partner-admin-documents">
@@ -744,6 +918,27 @@ export default function PartnerRequestsPage() {
               ) : (
                 <div className="partner-admin-doc-error">Hồ sơ cũ chưa có ảnh CCCD để đối chiếu.</div>
               )}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {moreInfoTarget ? (
+        <div className="admin-modal-layer" role="presentation" onMouseDown={() => setMoreInfoTarget(null)}>
+          <section className="admin-modal small" role="dialog" aria-modal="true" aria-labelledby="partner-more-info-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="admin-modal-header">
+              <div><span>YÊU CẦU BỔ SUNG</span><h2 id="partner-more-info-title">{partnerName(moreInfoTarget)}</h2></div>
+              <button type="button" onClick={() => setMoreInfoTarget(null)} aria-label="Đóng hộp thoại yêu cầu bổ sung">×</button>
+            </div>
+            <label className="admin-form-field">
+              <span>Nội dung cần bổ sung *</span>
+              <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={5} maxLength={500} placeholder="Nêu rõ thông tin hoặc giấy tờ cần bổ sung..." />
+            </label>
+            <div className="admin-modal-actions">
+              <button type="button" className="admin-cancel-button" onClick={() => setMoreInfoTarget(null)}>Hủy</button>
+              <button type="button" className="admin-more-info-button" onClick={handleRequestMoreInfo} disabled={busyId === moreInfoTarget.id || !reason.trim()}>
+                {busyId === moreInfoTarget.id ? "Đang gửi..." : "Gửi yêu cầu bổ sung"}
+              </button>
             </div>
           </section>
         </div>

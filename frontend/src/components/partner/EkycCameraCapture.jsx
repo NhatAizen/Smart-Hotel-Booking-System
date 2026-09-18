@@ -13,6 +13,7 @@ import {
   createPartnerEkycChallenge,
   verifyPartnerEkyc,
 } from "../../services/profileService";
+import { humanizeUserMessage } from "../../utils/userFacingText";
 
 const SAMPLE_GAP_MS = 520;
 const RETRY_GAP_MS = 850;
@@ -56,7 +57,7 @@ async function captureVideoFrame(video, index) {
   });
 }
 
-function extractServerMessage(error) {
+function rawServerMessage(error) {
   const payload = error?.response?.data;
   if (typeof payload?.message === "string" && payload.message.trim()) {
     return payload.message;
@@ -73,6 +74,13 @@ function extractServerMessage(error) {
   return error?.message || "Không thể xác minh khuôn mặt.";
 }
 
+function extractServerMessage(error) {
+  return humanizeUserMessage(rawServerMessage(error), {
+    status: Number(error?.response?.status ?? 0),
+    fallback: "Chưa thể xác minh khuôn mặt. Vui lòng thử lại.",
+  });
+}
+
 function similarityPercent(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return null;
@@ -86,7 +94,7 @@ function isChallengeExpired(message) {
 
 function isRetryableCameraError(error) {
   const status = Number(error?.response?.status || 0);
-  const message = extractServerMessage(error).toLowerCase();
+  const message = rawServerMessage(error).toLowerCase();
 
   if (status === 401 || status === 403 || status === 429 || status >= 500) return false;
   if (message.includes("api key") || message.includes("bảo mật giữa")) return false;
@@ -180,7 +188,7 @@ export default function EkycCameraCapture({
 
     try {
       if (!window.isSecureContext && window.location.hostname !== "localhost") {
-        throw new Error("Camera yêu cầu HTTPS khi website được deploy.");
+        throw new Error("Vui lòng mở EnziuRooms bằng kết nối an toàn (HTTPS) để sử dụng camera.");
       }
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("Trình duyệt này không hỗ trợ truy cập camera.");
@@ -235,7 +243,7 @@ export default function EkycCameraCapture({
     setVerificationResult(verification);
     setVerificationState("success");
     setCompleted(true);
-    setScanFeedback("Khuôn mặt đã đạt. eKYC đã được xác nhận.");
+    setScanFeedback("Khuôn mặt đã được xác minh thành công.");
     onReady?.({
       verified: true,
       verificationReceipt: verification.verificationReceipt,
@@ -254,7 +262,7 @@ export default function EkycCameraCapture({
     try {
       const created = await createPartnerEkycChallenge();
       if (!created?.challengeToken || created?.challenges?.length !== 3) {
-        throw new Error("Không nhận được phiên eKYC hợp lệ từ máy chủ.");
+        throw new Error("Chưa thể bắt đầu bước xác minh. Vui lòng thử lại.");
       }
       if (scanRunRef.current !== runId) return null;
       setChallenge(created);
@@ -272,14 +280,14 @@ export default function EkycCameraCapture({
       try {
         setAttemptNumber((value) => value + 1);
         setError("");
-        setScanFeedback("Giữ mặt chính diện trong vòng. Hệ thống đang tự động lấy mẫu...");
+        setScanFeedback("Giữ khuôn mặt chính diện trong vòng. EnziuRooms đang tự động kiểm tra...");
 
         const nextFrames = await captureFrameBatch(runId);
         if (!nextFrames || scanRunRef.current !== runId || !streamRef.current) return;
 
         setVerifying(true);
         setVerificationState("verifying");
-        setScanFeedback("Đang kiểm tra liveness và đối chiếu khuôn mặt với CCCD...");
+        setScanFeedback("Đang đối chiếu khuôn mặt với ảnh trên CCCD...");
 
         const verification = await verifyPartnerEkyc(cccdFront, {
           challengeToken: activeChallenge.challengeToken,
@@ -306,7 +314,7 @@ export default function EkycCameraCapture({
         setVerificationState("retrying");
         setScanFeedback(
           verification?.guidance ||
-            "Chưa đạt. Hãy giữ mặt chính diện và đủ sáng, hệ thống sẽ tự quét lại.",
+            "Chưa nhận diện rõ. Hãy nhìn thẳng, giữ đủ sáng và chờ hệ thống kiểm tra lại.",
         );
         await sleep(RETRY_GAP_MS);
       } catch (scanError) {
@@ -314,11 +322,12 @@ export default function EkycCameraCapture({
         setCapturing(false);
         setVerifying(false);
 
+        const rawMessage = rawServerMessage(scanError);
         const message = extractServerMessage(scanError);
-        if (isChallengeExpired(message)) {
+        if (isChallengeExpired(rawMessage)) {
           try {
             setVerificationState("verifying");
-            setScanFeedback("Phiên quét đã kéo dài. Hệ thống đang làm mới phiên xác minh...");
+            setScanFeedback("Bước xác minh đang được làm mới. Vui lòng giữ nguyên khuôn mặt trong khung...");
             const renewed = await createFreshChallenge(runId);
             if (!renewed) return;
             activeChallenge = renewed;
@@ -334,7 +343,7 @@ export default function EkycCameraCapture({
 
         if (isRetryableCameraError(scanError)) {
           setVerificationState("retrying");
-          setScanFeedback(`${message} Hệ thống sẽ tự quét lại, bạn không cần bấm thêm.`);
+          setScanFeedback(`${message} EnziuRooms sẽ tự kiểm tra lại, bạn không cần bấm thêm.`);
           await sleep(RETRY_GAP_MS + 250);
           continue;
         }
@@ -342,7 +351,7 @@ export default function EkycCameraCapture({
         infrastructureFailures += 1;
         if (infrastructureFailures < 3 && Number(scanError?.response?.status || 0) === 0) {
           setVerificationState("retrying");
-          setScanFeedback("Kết nối xác minh chưa ổn định. Đang tự thử lại...");
+          setScanFeedback("Kết nối chưa ổn định. EnziuRooms đang thử lại...");
           await sleep(1400);
           continue;
         }
@@ -363,7 +372,7 @@ export default function EkycCameraCapture({
     scanRunRef.current = runId;
     setAutoScanning(true);
     setError("");
-    setScanFeedback("Đang tạo phiên xác minh. Sau bước này bạn chỉ cần giữ mặt trong vòng đến khi vòng chuyển xanh.");
+    setScanFeedback("Đang chuẩn bị camera. Sau đó bạn chỉ cần giữ khuôn mặt trong vòng đến khi vòng chuyển xanh.");
     setVerificationState("scanning");
     setChallenge(null);
     setCurrentIndex(0);
@@ -394,10 +403,10 @@ export default function EkycCameraCapture({
           {completed ? <ShieldCheck size={23} /> : <Camera size={23} />}
         </div>
         <div>
-          <span>BƯỚC 2 · XÁC MINH NGƯỜI THẬT</span>
-          <h3>{completed ? "eKYC đã xác minh thành công" : "Selfie chính diện + face match"}</h3>
+          <span>BƯỚC 2 · XÁC MINH KHUÔN MẶT</span>
+          <h3>{completed ? "Xác minh khuôn mặt thành công" : "Xác minh khuôn mặt bằng camera"}</h3>
           <p>
-            Bấm “Tôi đã sẵn sàng” đúng một lần rồi giữ mặt trong vòng. Hệ thống tự quét lại
+            Bấm “Tôi đã sẵn sàng” một lần rồi nhìn thẳng vào camera. EnziuRooms sẽ tự kiểm tra
             cho đến khi xác minh hoàn tất và vòng chuyển xanh.
           </p>
         </div>
@@ -405,7 +414,7 @@ export default function EkycCameraCapture({
 
       {error ? (
         <div className="partner-ekyc-error" role="alert">
-          <strong>Không thể tiếp tục phiên eKYC</strong>
+          <strong>Chưa thể tiếp tục xác minh</strong>
           <span>{error}</span>
         </div>
       ) : null}
@@ -432,13 +441,13 @@ export default function EkycCameraCapture({
                 {verificationState === "success"
                   ? "Xác minh thành công"
                   : verificationState === "error"
-                    ? "Phiên quét đã dừng"
+                    ? "Xác minh đã dừng"
                     : verificationState === "retrying"
-                      ? "Chưa đạt - đang tự quét lại..."
+                      ? "Chưa rõ - đang kiểm tra lại..."
                       : verificationState === "verifying"
                         ? "Đang đối chiếu với CCCD..."
                         : verificationState === "scanning"
-                          ? "Đang quét tự động..."
+                          ? "Đang kiểm tra..."
                           : cameraReady
                             ? "Đưa mặt vào giữa vòng"
                             : "Đang mở camera..."}
@@ -458,7 +467,7 @@ export default function EkycCameraCapture({
                 <small>
                   {verificationState === "success"
                     ? "ĐÃ XÁC MINH"
-                    : `QUÉT TỰ ĐỘNG${attemptNumber ? ` · LƯỢT ${attemptNumber}` : ""}`}
+                    : `ĐANG XÁC MINH${attemptNumber ? ` · LẦN ${attemptNumber}` : ""}`}
                 </small>
                 <strong>
                   {verificationState === "success"
@@ -469,8 +478,8 @@ export default function EkycCameraCapture({
                 </strong>
                 <span>
                   {verificationState === "success"
-                    ? `Liveness và face match đã đạt${percent == null ? "." : ` (${percent.toFixed(1)}%).`}`
-                    : scanFeedback || "Hãy nhìn thẳng, giữ đủ sáng. Hệ thống sẽ tự lấy mẫu cho đến khi đạt."}
+                    ? `Khuôn mặt đã khớp với ảnh trên CCCD${percent == null ? "." : ` (${percent.toFixed(1)}%).`}`
+                    : scanFeedback || "Hãy nhìn thẳng và giữ đủ sáng. EnziuRooms sẽ tự kiểm tra lại nếu cần."}
                 </span>
                 <div className="partner-camera-progress" aria-hidden="true">
                   {[0, 1, 2].map((step) => (
@@ -489,12 +498,12 @@ export default function EkycCameraCapture({
                 <div className="partner-camera-precheck">
                   <i className={verificationState === "success" ? "ready" : ""} />
                   {verificationState === "success"
-                    ? "Vòng xanh = eKYC đã PASS. Bạn có thể gửi hồ sơ."
-                    : "Camera sẽ tiếp tục quét. Chỉ đóng camera nếu bạn muốn hủy."}
+                    ? "Vòng xanh nghĩa là đã xác minh. Bạn có thể tiếp tục hồ sơ."
+                    : "Camera sẽ tiếp tục kiểm tra. Chỉ đóng camera nếu bạn muốn dừng."}
                 </div>
                 {verificationState !== "success" ? (
                   <button type="button" className="partner-camera-cancel-button" onClick={resetCapture}>
-                    Dừng quét và đóng camera
+                    Dừng xác minh và đóng camera
                   </button>
                 ) : null}
               </>
@@ -504,7 +513,7 @@ export default function EkycCameraCapture({
                 <strong>Đưa khuôn mặt vào giữa vòng</strong>
                 <span>
                   Nhìn thẳng và giữ đủ sáng. Sau khi bấm “Tôi đã sẵn sàng”, bạn không cần
-                  bấm thêm lần nào; hệ thống tự quét đến khi vòng chuyển xanh.
+                  bấm thêm lần nào; EnziuRooms sẽ tự kiểm tra đến khi vòng chuyển xanh.
                 </span>
                 <div className="partner-camera-precheck">
                   <i className={cameraReady ? "ready" : ""} />
@@ -517,7 +526,7 @@ export default function EkycCameraCapture({
                   onClick={beginChallenge}
                 >
                   <ShieldCheck size={18} />
-                  {loadingChallenge ? "Đang tạo phiên xác minh..." : "Tôi đã sẵn sàng"}
+                  {loadingChallenge ? "Đang chuẩn bị..." : "Tôi đã sẵn sàng"}
                 </button>
                 <button type="button" className="partner-camera-cancel-button" onClick={resetCapture}>
                   Đóng camera
@@ -530,11 +539,11 @@ export default function EkycCameraCapture({
         <div className="partner-ekyc-ready partner-ekyc-ready-confirmed">
           <CheckCircle2 size={28} />
           <div>
-            <strong>Xác minh eKYC thành công</strong>
+            <strong>Xác minh khuôn mặt thành công</strong>
             <span>
               Khuôn mặt đã được xác minh trước khi gửi hồ sơ
               {percent == null ? "." : ` · độ tương đồng ${percent.toFixed(1)}%.`}
-              {verificationResult?.expiresAt ? " Biên nhận xác minh có hiệu lực 10 phút." : ""}
+              {verificationResult?.expiresAt ? " Kết quả được giữ trong 10 phút để bạn hoàn tất hồ sơ." : ""}
             </span>
           </div>
           <button type="button" onClick={resetCapture}>
@@ -546,14 +555,14 @@ export default function EkycCameraCapture({
           <div>
             <Video size={23} />
             <span>
-              Kết quả được kiểm tra <strong>ngay trong camera</strong>. Một lần bấm bắt đầu,
-              hệ thống tự quét đến khi vòng xanh hoặc bạn chủ động dừng.
+              Sau khi bắt đầu, hãy giữ khuôn mặt trong khung. EnziuRooms sẽ tự kiểm tra
+              đến khi vòng chuyển xanh hoặc bạn chủ động dừng.
             </span>
           </div>
           <div className="partner-ekyc-start-actions">
             {disabled ? (
               <small className="partner-ekyc-disabled-hint">
-                Vui lòng kiểm tra OCR CCCD thành công trước khi mở camera.
+                Vui lòng hoàn tất bước kiểm tra CCCD trước khi mở camera.
               </small>
             ) : null}
             <button type="button" disabled={disabled || openingCamera} onClick={openCamera}>

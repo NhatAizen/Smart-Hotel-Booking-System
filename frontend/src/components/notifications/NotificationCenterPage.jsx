@@ -166,7 +166,7 @@ export default function NotificationCenterPage({
   if (loading) return <Loading message="Đang tải trung tâm thông báo..." />;
 
   return (
-    <main className={admin ? "notification-center admin-notification-center" : "notification-center customer-notification-center"}>
+    <div className={admin ? "notification-center admin-notification-center" : "notification-center customer-notification-center"}>
       <section className="notification-center-heading">
         <div>
           <span>{eyebrow}</span>
@@ -276,6 +276,6 @@ export default function NotificationCenterPage({
         onPageChange={setPage}
         ariaLabel="Phân trang thông báo"
       />
-    </main>
+    </div>
   );
 }

@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
+import EnziuPageLoader from "../../components/common/EnziuPageLoader";
 import enziuLogo from "../../assets/enziu-logo.png";
 import authAccountResort from "../../assets/auth-account-resort.jpg";
 import "../../styles/pages/auth-enziu-login.css";
@@ -37,7 +38,8 @@ export default function EnziuLoginPage() {
     return message;
   });
   const [lockUntil, setLockUntil] = useState(0);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
+  const [redirecting, setRedirecting] = useState(false);
 
   const lockSeconds = useMemo(
     () => Math.max(0, Math.ceil((lockUntil - now) / 1000)),
@@ -73,24 +75,27 @@ export default function EnziuLoginPage() {
         { rememberMe },
       );
 
+      setRedirecting(true);
+
+      let destination = "/";
+
       if (user.role === "SYSTEM_ADMIN") {
-        navigate("/admin", { replace: true });
-        return;
+        destination = "/admin";
+      } else if (user.role === "HOTEL_ADMIN") {
+        destination = "/hotel-admin";
+      } else {
+        const pendingBookingUrl = localStorage.getItem("enziuroomsPendingBookingUrl");
+        if (pendingBookingUrl) {
+          localStorage.removeItem("enziuroomsPendingBookingUrl");
+          destination = pendingBookingUrl;
+        }
       }
 
-      if (user.role === "HOTEL_ADMIN") {
-        navigate("/hotel-admin", { replace: true });
-        return;
-      }
+      await new Promise((resolve) => {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(resolve));
+      });
 
-      const pendingBookingUrl = localStorage.getItem("enziuroomsPendingBookingUrl");
-      if (pendingBookingUrl) {
-        localStorage.removeItem("enziuroomsPendingBookingUrl");
-        navigate(pendingBookingUrl, { replace: true });
-        return;
-      }
-
-      navigate("/", { replace: true });
+      navigate(destination, { replace: true });
     } catch (requestError) {
       const data = requestError.response?.data;
 
@@ -112,6 +117,10 @@ export default function EnziuLoginPage() {
           ?? "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.",
       );
     }
+  }
+
+  if (redirecting) {
+    return <EnziuPageLoader label="Đang mở EnziuRooms..." />;
   }
 
   return (
