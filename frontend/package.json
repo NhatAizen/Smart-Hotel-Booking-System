@@ -6,10 +6,18 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "lint": "eslint src",
+    "preview": "vite preview",
+    "build:mobile": "vite build --mode mobile",
+    "mobile:sync": "npm run build:mobile && npx cap sync",
+    "mobile:android": "npm run mobile:sync && npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
     "axios": "^1.19.0",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^1.28.0",

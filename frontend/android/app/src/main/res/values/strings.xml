@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">EnziuRooms</string>
+    <string name="title_activity_main">EnziuRooms</string>
+    <string name="package_name">com.enziu.rooms</string>
+    <string name="custom_url_scheme">com.enziu.rooms</string>
+</resources>
