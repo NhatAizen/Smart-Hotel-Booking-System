@@ -1,0 +1,31 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: maven
+    directories:
+      - /services/ai-service
+      - /services/api-gateway
+      - /services/booking-service
+      - /services/chat-service
+      - /services/hotel-service
+      - /services/identity-service
+      - /services/notification-service
+      - /services/payment-service
+      - /services/realtime-service
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+  - package-ecosystem: pip
+    directory: /services/ekyc-service
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
