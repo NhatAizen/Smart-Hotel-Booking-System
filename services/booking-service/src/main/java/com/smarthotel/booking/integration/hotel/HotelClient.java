@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -79,6 +80,43 @@ public class HotelClient {
         return response == null ? List.of() : response;
     }
 
+    public HotelDetails getManagedHotel(UUID hotelId, String bearerToken) {
+        requireBearerToken(bearerToken);
+        HotelDetails response = restClient.get()
+                .uri("/api/hotels/mine/{hotelId}", hotelId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + bearerToken)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (request, httpResponse) -> {
+                    if (httpResponse.getStatusCode().value() == 403) {
+                        throw new AccessDeniedException("Bạn không có quyền xem lịch của khách sạn này");
+                    }
+                    throw new IllegalArgumentException(
+                            "Không thể truy cập khách sạn cần quản lý: " + hotelId
+                    );
+                })
+                .body(HotelDetails.class);
+
+        if (response == null) {
+            throw new IllegalStateException("Hotel Service không trả về thông tin khách sạn quản lý");
+        }
+        return response;
+    }
+
+    public List<RoomDetails> getManagedRooms(UUID hotelId, String bearerToken) {
+        requireBearerToken(bearerToken);
+        List<RoomDetails> response = restClient.get()
+                .uri("/api/hotels/{hotelId}/rooms/manage", hotelId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + bearerToken)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (request, httpResponse) -> {
+                    throw new IllegalStateException(
+                            "Không thể tải danh sách phòng của khách sạn: " + hotelId
+                    );
+                })
+                .body(new ParameterizedTypeReference<List<RoomDetails>>() {});
+        return response == null ? List.of() : response;
+    }
+
     public RoomDetails getRoom(UUID roomId) {
         RoomDetails response = restClient.get()
                 .uri("/api/rooms/{roomId}", roomId)
@@ -137,6 +175,12 @@ public class HotelClient {
                     );
                 })
                 .toBodilessEntity();
+    }
+
+    private void requireBearerToken(String bearerToken) {
+        if (bearerToken == null || bearerToken.isBlank()) {
+            throw new IllegalStateException("Thiếu token Hotel Admin để kiểm tra quyền khách sạn");
+        }
     }
 
     public record HotelDetails(

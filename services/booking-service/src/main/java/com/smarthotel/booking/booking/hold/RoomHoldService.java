@@ -194,6 +194,59 @@ public class RoomHoldService {
         return findActiveHolds(hotelId, checkIn, checkOut, null);
     }
 
+    public List<CalendarHold> findActiveCalendarHolds(
+            UUID hotelId,
+            LocalDate rangeStart,
+            LocalDate rangeEndExclusive
+    ) {
+        String indexKey = hotelIndexKey(hotelId);
+        long now = Instant.now().toEpochMilli();
+        try {
+            redis.opsForZSet().removeRangeByScore(indexKey, 0, now);
+            Set<String> tokens = redis.opsForZSet().rangeByScore(
+                    indexKey,
+                    now + 1,
+                    Double.POSITIVE_INFINITY
+            );
+            if (tokens == null || tokens.isEmpty()) return List.of();
+
+            List<CalendarHold> result = new ArrayList<>();
+            for (String token : tokens) {
+                HoldMetadata metadata = readCalendarMetadata(token);
+                if (metadata == null) {
+                    redis.opsForZSet().remove(indexKey, token);
+                    continue;
+                }
+                if (!hotelId.equals(metadata.hotelId()) || !metadata.expiresAt().isAfter(Instant.now())) {
+                    redis.opsForZSet().remove(indexKey, token);
+                    continue;
+                }
+                if (!overlaps(
+                        metadata.checkIn(), metadata.checkOut(),
+                        rangeStart, rangeEndExclusive
+                )) {
+                    continue;
+                }
+                for (UUID roomId : metadata.roomIds()) {
+                    result.add(new CalendarHold(
+                            roomId,
+                            metadata.checkIn(),
+                            metadata.checkOut(),
+                            metadata.expiresAt()
+                    ));
+                }
+            }
+            return List.copyOf(result);
+        } catch (Exception exception) {
+            log.warn(
+                    "Không đọc được Redis room holds cho lịch khách sạn {}: {}",
+                    hotelId,
+                    exception.getMessage()
+            );
+            throw new IllegalStateException("Không thể đọc room holds cho lịch phòng", exception);
+        }
+    }
+
     public List<RoomHoldResponse> findActiveHolds(
             UUID hotelId,
             LocalDate checkIn,
@@ -252,6 +305,17 @@ public class RoomHoldService {
         } catch (Exception exception) {
             log.warn("Không đọc được room hold metadata {}: {}", token, exception.getMessage());
             return null;
+        }
+    }
+
+    private HoldMetadata readCalendarMetadata(String token) {
+        try {
+            String json = redis.opsForValue().get(metadataKey(token));
+            return json == null || json.isBlank()
+                    ? null
+                    : objectMapper.readValue(json, HoldMetadata.class);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Không thể đọc room hold metadata cho lịch phòng", exception);
         }
     }
 
@@ -316,6 +380,14 @@ public class RoomHoldService {
             UUID customerId,
             UUID hotelId,
             List<UUID> roomIds,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            Instant expiresAt
+    ) {
+    }
+
+    public record CalendarHold(
+            UUID roomId,
             LocalDate checkIn,
             LocalDate checkOut,
             Instant expiresAt

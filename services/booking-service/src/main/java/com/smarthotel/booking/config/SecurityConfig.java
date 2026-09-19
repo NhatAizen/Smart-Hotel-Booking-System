@@ -134,7 +134,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/hotel-admin/promotions/**",
                                 "/api/hotel-admin/reviews/**",
-                                "/api/hotel-admin/complaints/**"
+                                "/api/hotel-admin/complaints/**",
+                                "/api/hotel-admin/hotels/*/availability-calendar"
                         )
                         .hasRole("HOTEL_ADMIN")
                         .requestMatchers(
