@@ -8,6 +8,7 @@ import com.smarthotel.payment.wallet.repository.HotelCustomerTransferRepository;
 import com.smarthotel.payment.wallet.repository.WalletRepository;
 import com.smarthotel.payment.wallet.repository.WalletTransactionRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -18,6 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -106,6 +112,27 @@ class HotelCustomerWalletTransferServiceTest {
     }
 
     @Test
+    void oneAdminWithTwoHotelsKeepsThreeWalletsSeparate() {
+        UUID adminId = UUID.randomUUID();
+        UUID firstHotelId = UUID.randomUUID();
+        UUID secondHotelId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        Wallet legacy = new Wallet(WalletOwnerType.HOTEL_ADMIN, adminId);
+        legacy.creditAvailable(new BigDecimal("700"));
+        wallets.save(legacy);
+        fundHotel(firstHotelId, "200");
+        fundHotel(secondHotelId, "300");
+
+        service.transfer(UUID.randomUUID(), UUID.randomUUID(), firstHotelId,
+                customerId, new BigDecimal("50"));
+
+        assertThat(balance(WalletOwnerType.HOTEL, firstHotelId)).isEqualByComparingTo("150");
+        assertThat(balance(WalletOwnerType.HOTEL, secondHotelId)).isEqualByComparingTo("300");
+        assertThat(balance(WalletOwnerType.HOTEL_ADMIN, adminId)).isEqualByComparingTo("700");
+        assertThat(balance(WalletOwnerType.CUSTOMER, customerId)).isEqualByComparingTo("50");
+    }
+
+    @Test
     void failureAfterWalletChangesRollsBackBothWalletsAndTransferLedger() {
         UUID hotelId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
@@ -145,6 +172,98 @@ class HotelCustomerWalletTransferServiceTest {
                 .isInstanceOf(IllegalStateException.class);
         assertThat(balance(WalletOwnerType.HOTEL, hotelId)).isEqualByComparingTo("300");
         assertThat(balance(WalletOwnerType.CUSTOMER, customerId)).isEqualByComparingTo("200");
+    }
+
+    @RepeatedTest(3)
+    void concurrentDifferentRequestsCannotOverdrawOneHotelWallet() throws Exception {
+        UUID hotelId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        UUID bookingId = UUID.randomUUID();
+        UUID firstId = UUID.randomUUID();
+        UUID secondId = UUID.randomUUID();
+        fundHotel(hotelId, "100");
+
+        var outcomes = concurrentCalls(
+                () -> service.transfer(firstId, bookingId, hotelId, customerId, new BigDecimal("80")),
+                () -> service.transfer(secondId, bookingId, hotelId, customerId, new BigDecimal("80"))
+        );
+
+        assertThat(outcomes).filteredOn(item -> item == null).hasSize(1);
+        assertThat(balance(WalletOwnerType.HOTEL, hotelId)).isEqualByComparingTo("20");
+        assertThat(balance(WalletOwnerType.CUSTOMER, customerId)).isEqualByComparingTo("80");
+        long completed = java.util.stream.Stream.of(firstId, secondId)
+                .filter(id -> transfers.findById(id).isPresent()).count();
+        assertThat(completed).isEqualTo(1);
+        assertThat(transactions.findAllByTransferIdOrderByCreatedAtAsc(firstId).size()
+                + transactions.findAllByTransferIdOrderByCreatedAtAsc(secondId).size()).isEqualTo(2);
+    }
+
+    @RepeatedTest(3)
+    void concurrentDifferentRequestsWithSufficientFundsBothCommit() throws Exception {
+        UUID hotelId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        UUID bookingId = UUID.randomUUID();
+        UUID firstId = UUID.randomUUID();
+        UUID secondId = UUID.randomUUID();
+        fundHotel(hotelId, "200");
+
+        var outcomes = concurrentCalls(
+                () -> service.transfer(firstId, bookingId, hotelId, customerId, new BigDecimal("80")),
+                () -> service.transfer(secondId, bookingId, hotelId, customerId, new BigDecimal("80"))
+        );
+
+        assertThat(outcomes).containsExactly(null, null);
+        assertThat(balance(WalletOwnerType.HOTEL, hotelId)).isEqualByComparingTo("40");
+        assertThat(balance(WalletOwnerType.CUSTOMER, customerId)).isEqualByComparingTo("160");
+        assertThat(transactions.findAllByTransferIdOrderByCreatedAtAsc(firstId)).hasSize(2);
+        assertThat(transactions.findAllByTransferIdOrderByCreatedAtAsc(secondId)).hasSize(2);
+    }
+
+    @RepeatedTest(3)
+    void concurrentSameRequestIdNeverTransfersTwice() throws Exception {
+        UUID hotelId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        UUID bookingId = UUID.randomUUID();
+        UUID operationId = UUID.randomUUID();
+        fundHotel(hotelId, "100");
+
+        var outcomes = concurrentCalls(
+                () -> service.transfer(operationId, bookingId, hotelId, customerId, new BigDecimal("40")),
+                () -> service.transfer(operationId, bookingId, hotelId, customerId, new BigDecimal("40"))
+        );
+
+        assertThat(outcomes).containsNull();
+        assertThat(balance(WalletOwnerType.HOTEL, hotelId)).isEqualByComparingTo("60");
+        assertThat(balance(WalletOwnerType.CUSTOMER, customerId)).isEqualByComparingTo("40");
+        assertThat(transactions.findAllByTransferIdOrderByCreatedAtAsc(operationId)).hasSize(2);
+        assertThat(transfers.findById(operationId).orElseThrow().getStatus())
+                .isEqualTo(HotelCustomerTransferStatus.COMPLETED);
+        // A caller that saw a database conflict can retry the same stable ID.
+        service.transfer(operationId, bookingId, hotelId, customerId, new BigDecimal("40"));
+        assertThat(balance(WalletOwnerType.HOTEL, hotelId)).isEqualByComparingTo("60");
+    }
+
+    private java.util.List<Throwable> concurrentCalls(Runnable first, Runnable second) throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<Throwable> left = pool.submit(() -> runAfter(start, first));
+            Future<Throwable> right = pool.submit(() -> runAfter(start, second));
+            start.countDown();
+            return java.util.Arrays.asList(left.get(10, TimeUnit.SECONDS), right.get(10, TimeUnit.SECONDS));
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private Throwable runAfter(CountDownLatch start, Runnable operation) throws InterruptedException {
+        start.await();
+        try {
+            operation.run();
+            return null;
+        } catch (RuntimeException exception) {
+            return exception;
+        }
     }
 
     private void fundHotel(UUID hotelId, String amount) {

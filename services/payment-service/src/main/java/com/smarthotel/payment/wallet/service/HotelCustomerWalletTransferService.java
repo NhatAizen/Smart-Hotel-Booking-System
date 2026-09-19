@@ -10,6 +10,7 @@ import com.smarthotel.payment.wallet.repository.HotelCustomerTransferRepository;
 import com.smarthotel.payment.wallet.repository.WalletRepository;
 import com.smarthotel.payment.wallet.repository.WalletTransactionRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,18 +59,9 @@ public class HotelCustomerWalletTransferService {
             throw new IllegalArgumentException("Số tiền chuyển ví phải là số đồng nguyên", exception);
         }
 
-        // The unique operation ID is locked before either wallet changes. Concurrent
-        // retries wait for the first transaction, then read its committed result.
-        jdbc.update("""
-                MERGE INTO hotel_customer_transfers AS target
-                USING (VALUES (?, ?, ?, ?, ?)) AS source
-                    (id, booking_id, hotel_id, customer_id, amount)
-                ON target.id = source.id
-                WHEN NOT MATCHED THEN INSERT
-                    (id, booking_id, hotel_id, customer_id, amount, status)
-                    VALUES (source.id, source.booking_id, source.hotel_id,
-                            source.customer_id, source.amount, 'RESERVED')
-                """, operationId, bookingId, hotelId, customerId, wholeDong);
+        // PostgreSQL ON CONFLICT waits for a concurrent insert with the same ID.
+        // MERGE can instead throw a uniqueness error, so it is only used by H2 tests.
+        insertTransferIfAbsent(operationId, bookingId, hotelId, customerId, wholeDong);
         HotelCustomerTransfer transfer = transfers.findForUpdate(operationId)
                 .orElseThrow(() -> new IllegalStateException("Không tìm thấy giao dịch chuyển ví"));
         if (!bookingId.equals(transfer.getBookingId())
@@ -90,17 +82,7 @@ public class HotelCustomerWalletTransferService {
         hotel.debitAvailable(wholeDong);
 
         // The customer wallet may not exist yet. Upsert avoids a creation race.
-        jdbc.update("""
-                MERGE INTO wallets AS target
-                USING (VALUES (?, ?)) AS source (id, owner_id)
-                ON target.owner_type = 'CUSTOMER' AND target.owner_id = source.owner_id
-                WHEN NOT MATCHED THEN INSERT
-                    (id, owner_type, owner_id, available_balance, pending_balance,
-                     locked_balance, commission_debt, total_earned, total_withdrawn,
-                     version, created_at, updated_at)
-                    VALUES (source.id, 'CUSTOMER', source.owner_id, 0, 0, 0,
-                            0, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """, UUID.randomUUID(), customerId);
+        insertCustomerWalletIfAbsent(customerId);
         Wallet customer = wallets.findForUpdate(WalletOwnerType.CUSTOMER, customerId)
                 .orElseThrow(() -> new IllegalStateException("Không tìm thấy Ví Enziu của Customer"));
         customer.creditCustomerRefund(wholeDong);
@@ -113,6 +95,65 @@ public class HotelCustomerWalletTransferService {
                 wholeDong, "Nhận tiền đổi phòng booking " + bookingId));
         transfer.complete();
         return transfer;
+    }
+
+    private void insertTransferIfAbsent(
+            UUID operationId, UUID bookingId, UUID hotelId, UUID customerId, BigDecimal amount
+    ) {
+        if (isPostgreSql()) {
+            jdbc.update("""
+                    INSERT INTO hotel_customer_transfers
+                        (id, booking_id, hotel_id, customer_id, amount, status)
+                    VALUES (?, ?, ?, ?, ?, 'RESERVED')
+                    ON CONFLICT (id) DO NOTHING
+                    """, operationId, bookingId, hotelId, customerId, amount);
+        } else {
+            jdbc.update("""
+                    MERGE INTO hotel_customer_transfers AS target
+                    USING (VALUES (?, ?, ?, ?, ?)) AS source
+                        (id, booking_id, hotel_id, customer_id, amount)
+                    ON target.id = source.id
+                    WHEN NOT MATCHED THEN INSERT
+                        (id, booking_id, hotel_id, customer_id, amount, status)
+                        VALUES (source.id, source.booking_id, source.hotel_id,
+                                source.customer_id, source.amount, 'RESERVED')
+                    """, operationId, bookingId, hotelId, customerId, amount);
+        }
+    }
+
+    private void insertCustomerWalletIfAbsent(UUID customerId) {
+        UUID walletId = UUID.randomUUID();
+        if (isPostgreSql()) {
+            jdbc.update("""
+                    INSERT INTO wallets
+                        (id, owner_type, owner_id, available_balance, pending_balance,
+                         locked_balance, commission_debt, total_earned, total_withdrawn,
+                         version, created_at, updated_at)
+                    VALUES (?, 'CUSTOMER', ?, 0, 0, 0, 0, 0, 0, 0,
+                            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT (owner_type, owner_id) DO NOTHING
+                    """, walletId, customerId);
+        } else {
+            jdbc.update("""
+                    MERGE INTO wallets AS target
+                    USING (VALUES (?, ?)) AS source (id, owner_id)
+                    ON target.owner_type = 'CUSTOMER' AND target.owner_id = source.owner_id
+                    WHEN NOT MATCHED THEN INSERT
+                        (id, owner_type, owner_id, available_balance, pending_balance,
+                         locked_balance, commission_debt, total_earned, total_withdrawn,
+                         version, created_at, updated_at)
+                        VALUES (source.id, 'CUSTOMER', source.owner_id, 0, 0, 0,
+                                0, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """, walletId, customerId);
+        }
+    }
+
+    private boolean isPostgreSql() {
+        String product = jdbc.execute((ConnectionCallback<String>) connection ->
+                connection.getMetaData().getDatabaseProductName());
+        if ("PostgreSQL".equalsIgnoreCase(product)) return true;
+        if ("H2".equalsIgnoreCase(product)) return false;
+        throw new IllegalStateException("Database chưa được kiểm chứng cho chuyển ví: " + product);
     }
 
     private void requireCompleteLedger(HotelCustomerTransfer transfer) {
