@@ -71,6 +71,7 @@ const MyHotelsPage = lazy(() => import("../pages/hotel-admin/MyHotelsPage"));
 const CreateHotelPage = lazy(() => import("../pages/hotel-admin/CreateHotelPage"));
 const RoomTypesPage = lazy(() => import("../pages/hotel-admin/RoomTypesPage"));
 const RoomsPage = lazy(() => import("../pages/hotel-admin/RoomsPage"));
+const AvailabilityCalendarPage = lazy(() => import("../pages/hotel-admin/AvailabilityCalendarPage"));
 const HotelNotificationsPage = lazy(() => import("../pages/hotel-admin/HotelNotificationsPage"));
 const HotelWalletPage = lazy(() => import("../pages/hotel-admin/HotelWalletPage"));
 const StayManagementPage = lazy(() => import("../pages/hotel-admin/StayManagementPage"));
@@ -154,6 +155,7 @@ export default function AppRoutes() {
                   <Route path="/hotel-admin/hotels/create" element={<CreateHotelPage />} />
                   <Route path="/hotel-admin/room-types" element={<RoomTypesPage />} />
                   <Route path="/hotel-admin/rooms" element={<RoomsPage />} />
+                  <Route path="/hotel-admin/availability" element={<AvailabilityCalendarPage />} />
                   <Route path="/hotel-admin/notifications" element={<HotelNotificationsPage />} />
                   <Route path="/hotel-admin/wallet" element={<HotelWalletPage />} />
                   <Route path="/hotel-admin/stays" element={<StayManagementPage />} />
