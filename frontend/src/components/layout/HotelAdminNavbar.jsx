@@ -18,6 +18,7 @@ import {
   Send,
   Star,
   Tags,
+  CalendarDays,
   UserRound,
   WalletCards,
   ScrollText,
@@ -114,6 +115,11 @@ const items = [
     label: "Khiếu nại",
     icon: LifeBuoy,
   },
+  {
+    to: "/hotel-admin/daily-pricing",
+    label: "Giá theo ngày",
+    icon: CalendarDays,
+  },
 ];
 
 const desktopNavigation = [
@@ -122,7 +128,7 @@ const desktopNavigation = [
     type: "group",
     label: "Khách sạn",
     icon: Building2,
-    items: [items[1], items[2], items[3], items[4], items[13]],
+    items: [items[1], items[2], items[3], items[4], items[13], items[15]],
   },
   {
     type: "group",
