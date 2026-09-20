@@ -1,6 +1,7 @@
 package com.smarthotel.booking.integration.pricing;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpServer;
 import com.smarthotel.booking.booking.dto.CreateBookingBatchRequest;
 import com.smarthotel.booking.booking.dto.CreateBookingRequest;
 import com.smarthotel.booking.booking.entity.PaymentOption;
@@ -19,6 +20,7 @@ import com.smarthotel.booking.promotion.service.PromotionService;
 import com.smarthotel.booking.rolechange.fence.OwnerDemotionFenceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,11 +28,16 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -60,6 +67,39 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "booking.hold.cleanup-delay-ms=3600000", "spring.rabbitmq.listener.simple.auto-startup=false"})
 @AutoConfigureMockMvc
 class CustomerDailyPricingPostgresRedisIntegrationTest {
+    private static HttpServer identityServer;
+
+    @DynamicPropertySource
+    static void identityStub(DynamicPropertyRegistry registry) {
+        registry.add("IDENTITY_SERVICE_URL", CustomerDailyPricingPostgresRedisIntegrationTest::identityUrl);
+    }
+
+    private static synchronized String identityUrl() {
+        if (identityServer == null) {
+            try {
+                identityServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+                identityServer.createContext("/api/users/me/role-snapshot", exchange -> {
+                    byte[] body = "{\"role\":\"CUSTOMER\",\"active\":true}"
+                            .getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(200, body.length);
+                    try (var output = exchange.getResponseBody()) {
+                        output.write(body);
+                    }
+                });
+                identityServer.start();
+            } catch (IOException exception) {
+                throw new IllegalStateException("Cannot start synthetic Identity stub", exception);
+            }
+        }
+        return "http://127.0.0.1:" + identityServer.getAddress().getPort();
+    }
+
+    @AfterAll
+    static void stopIdentityStub() {
+        if (identityServer != null) identityServer.stop(0);
+    }
+
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
     @BeforeAll
@@ -185,7 +225,8 @@ class CustomerDailyPricingPostgresRedisIntegrationTest {
         assertThat(refreshed.pricingFingerprint()).isNotEqualTo(oldQuote.pricingFingerprint());
         long before = bookingRows.count();
         mvc.perform(post("/api/bookings/batch")
-                        .with(jwt().jwt(value -> value.subject(customerId.toString()))
+                        .with(jwt().jwt(value -> value.subject(customerId.toString())
+                                        .claim("role", "CUSTOMER"))
                                 .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(batch(List.of(firstRoom), saturday,
