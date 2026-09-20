@@ -204,8 +204,11 @@ public class BookingService {
         );
         if (pricingService.isManualDailyCustomerEnabled()) {
             if (request.expectedGrossAmount() == null || request.expectedFinalAmount() == null
+                    || request.expectedPricingFingerprint() == null
                     || request.expectedGrossAmount().compareTo(groupGross) != 0
-                    || request.expectedFinalAmount().compareTo(discountPlan.finalAmount()) != 0) {
+                    || request.expectedFinalAmount().compareTo(discountPlan.finalAmount()) != 0
+                    || !request.expectedPricingFingerprint().equals(PricingService.fingerprint(
+                            resolvedRooms.stream().map(ResolvedRoom::pricing).toList()))) {
                 throw new PriceChangedException();
             }
         }

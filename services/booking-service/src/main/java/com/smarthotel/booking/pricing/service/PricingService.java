@@ -13,6 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
@@ -62,7 +65,7 @@ public class PricingService {
             throw new IllegalArgumentException("Danh sách phòng có dữ liệu trùng lặp");
         }
 
-        List<RoomPricingQuoteResponse> rooms = new ArrayList<>();
+        List<RoomPricing> rooms = new ArrayList<>();
         for (UUID roomId : roomIds) {
             HotelClient.RoomDetails room = hotelClient.getRoom(roomId);
             if (!request.hotelId().equals(room.hotelId())) {
@@ -78,10 +81,35 @@ public class PricingService {
                     room.id(), room.roomTypeId(), room.roomNumber(), roomType.name(),
                     baseNightlyPrice, request.hotelId(), request.checkIn(), request.checkOut()
             );
-            rooms.add(calculated.toResponse());
+            rooms.add(calculated);
         }
 
-        return aggregate(request.hotelId(), request.checkIn(), request.checkOut(), rooms);
+        return aggregate(request.hotelId(), request.checkIn(), request.checkOut(),
+                rooms.stream().map(RoomPricing::toResponse).toList(),
+                manualDailyCustomerEnabled ? fingerprint(rooms) : null);
+    }
+
+    public static String fingerprint(List<RoomPricing> rooms) {
+        StringBuilder value = new StringBuilder();
+        rooms.stream().sorted(Comparator.comparing(room -> room.roomId().toString()))
+                .forEach(room -> {
+                    value.append(room.roomId()).append(':')
+                            .append(room.totalAmount().setScale(2, RoundingMode.HALF_UP).toPlainString())
+                            .append(':');
+                    room.nights().stream().sorted(Comparator.comparing(NightlyPriceResponse::stayDate))
+                            .forEach(night -> value.append(night.stayDate()).append(':')
+                                    .append(night.pricingType()).append(':')
+                                    .append(night.finalPrice().setScale(2, RoundingMode.HALF_UP).toPlainString())
+                                    .append(';'));
+                    value.append('|');
+                });
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(value.toString().getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("Không thể xác nhận báo giá", exception);
+        }
     }
 
     public boolean isManualDailyCustomerEnabled() {
@@ -101,6 +129,8 @@ public class PricingService {
             if (price.stayDate() == null || price.nightlyPrice() == null
                     || price.stayDate().isBefore(checkIn) || !price.stayDate().isBefore(checkOut)
                     || price.nightlyPrice().signum() <= 0
+                    || price.nightlyPrice().scale() > 2
+                    || price.nightlyPrice().precision() - price.nightlyPrice().scale() > 10
                     || manualPrices.putIfAbsent(price.stayDate(), price.nightlyPrice()) != null) {
                 throw new IllegalStateException("Dữ liệu giá theo ngày không hợp lệ");
             }
@@ -286,7 +316,8 @@ public class PricingService {
             UUID hotelId,
             LocalDate checkIn,
             LocalDate checkOut,
-            List<RoomPricingQuoteResponse> rooms
+            List<RoomPricingQuoteResponse> rooms,
+            String pricingFingerprint
     ) {
         BigDecimal base = rooms.stream().map(RoomPricingQuoteResponse::baseAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -299,7 +330,8 @@ public class PricingService {
         return new PricingQuoteResponse(
                 hotelId, checkIn, checkOut,
                 java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut),
-                money(base), money(weekend), money(special), money(total), List.copyOf(rooms)
+                money(base), money(weekend), money(special), money(total), List.copyOf(rooms),
+                pricingFingerprint
         );
     }
 

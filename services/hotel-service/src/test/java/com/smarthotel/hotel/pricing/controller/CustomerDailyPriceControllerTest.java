@@ -1,5 +1,6 @@
 package com.smarthotel.hotel.pricing.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smarthotel.hotel.pricing.entity.ManualDailyPriceRule;
 import com.smarthotel.hotel.pricing.repository.ManualDailyPriceRuleRepository;
 import com.smarthotel.hotel.roomtype.entity.RoomType;
@@ -17,7 +18,7 @@ import static org.mockito.Mockito.*;
 
 class CustomerDailyPriceControllerTest {
     @Test
-    void onlyRulesWithinCurrentApprovedBoundsApplyImmediately() {
+    void onlyRulesWithinCurrentApprovedBoundsApplyImmediately() throws Exception {
         var rules = mock(ManualDailyPriceRuleRepository.class);
         var types = mock(RoomTypeRepository.class);
         var type = mock(RoomType.class);
@@ -40,5 +41,10 @@ class CustomerDailyPriceControllerTest {
         assertThat(prices).hasSize(2);
         assertThat(prices.get(0).nightlyPrice()).isEqualByComparingTo("500");
         assertThat(prices.get(1).nightlyPrice()).isEqualByComparingTo("1250");
+        var mapper = new ObjectMapper().findAndRegisterModules();
+        var customerFields = mapper.readTree(mapper.writeValueAsString(prices)).get(0);
+        assertThat(customerFields.size()).isEqualTo(2);
+        assertThat(customerFields.has("stayDate")).isTrue();
+        assertThat(customerFields.has("nightlyPrice")).isTrue();
     }
 }

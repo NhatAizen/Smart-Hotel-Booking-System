@@ -108,6 +108,7 @@ public record CreateBookingBatchRequest(
         String platformPromotionCode,
 
         BigDecimal expectedGrossAmount,
-        BigDecimal expectedFinalAmount
+        BigDecimal expectedFinalAmount,
+        String expectedPricingFingerprint
 ) {
 }

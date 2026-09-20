@@ -16,7 +16,7 @@ import {
   Users,
   WalletCards,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
@@ -183,6 +183,8 @@ export default function BookingCheckoutPage() {
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountError, setDiscountError] = useState("");
   const [appliedPromotionCodes, setAppliedPromotionCodes] = useState({ hotel: "", platform: "" });
+  const appliedPromotionCodesRef = useRef({ hotel: "", platform: "" });
+  const discountRequestIdRef = useRef(0);
   const [promotionSuggestions, setPromotionSuggestions] = useState([]);
   const [promotionSuggestionsLoading, setPromotionSuggestionsLoading] = useState(false);
   const [minimumBookingAge, setMinimumBookingAge] = useState(null);
@@ -445,6 +447,7 @@ export default function BookingCheckoutPage() {
       setDiscountPreview(null);
       return null;
     }
+    const requestId = ++discountRequestIdRef.current;
     setDiscountLoading(true);
     if (announce) setDiscountError("");
     try {
@@ -454,16 +457,20 @@ export default function BookingCheckoutPage() {
         hotelPromotionCode: hotelCode.trim() || null,
         platformPromotionCode: platformCode.trim() || null,
       });
+      if (requestId !== discountRequestIdRef.current) return null;
       setDiscountPreview(preview);
-      setAppliedPromotionCodes({ hotel: hotelCode.trim(), platform: platformCode.trim() });
+      const codes = { hotel: hotelCode.trim(), platform: platformCode.trim() };
+      appliedPromotionCodesRef.current = codes;
+      setAppliedPromotionCodes(codes);
       return preview;
     } catch (requestError) {
+      if (requestId !== discountRequestIdRef.current) return null;
       if (announce) {
         setDiscountError(requestError.response?.data?.message ?? "Mã ưu đãi chưa thể áp dụng.");
       }
       return null;
     } finally {
-      setDiscountLoading(false);
+      if (requestId === discountRequestIdRef.current) setDiscountLoading(false);
     }
   }, [hotelId, pricingQuote, user]);
 
@@ -488,7 +495,8 @@ export default function BookingCheckoutPage() {
 
   useEffect(() => {
     if (!pricingQuote?.totalAmount || !user?.id) return;
-    void refreshDiscountPreview("", "", false);
+    const codes = appliedPromotionCodesRef.current;
+    void refreshDiscountPreview(codes.hotel, codes.platform, false);
     void refreshPromotionSuggestions();
   }, [
     pricingQuote?.totalAmount,
@@ -721,6 +729,7 @@ export default function BookingCheckoutPage() {
         platformPromotionCode: appliedPromotionCodes.platform || null,
         expectedGrossAmount: pricingQuote.totalAmount,
         expectedFinalAmount: totals.total,
+        expectedPricingFingerprint: pricingQuote.pricingFingerprint,
         ...form,
         guestLastName: form.bookerIsGuest ? null : form.guestLastName,
         guestFirstName: form.bookerIsGuest ? null : form.guestFirstName,
@@ -788,23 +797,15 @@ export default function BookingCheckoutPage() {
       window.location.assign(paymentOrder.checkoutUrl);
     } catch (requestError) {
       if (requestError.response?.data?.code === "PRICE_CHANGED") {
+        discountRequestIdRef.current += 1;
         try {
           const freshQuote = await getBookingPricingQuote({ hotelId, roomIds, checkIn, checkOut });
+          setDiscountPreview(null);
           setPricingQuote(freshQuote);
-          if (appliedPromotionCodes.hotel || appliedPromotionCodes.platform) {
-            const freshDiscount = await previewDiscount({
-              hotelId,
-              amount: Number(freshQuote.totalAmount),
-              hotelPromotionCode: appliedPromotionCodes.hotel || null,
-              platformPromotionCode: appliedPromotionCodes.platform || null,
-            });
-            setDiscountPreview(freshDiscount);
-          } else {
-            setDiscountPreview(null);
-          }
         } catch {
           setPricingQuote(null);
           setDiscountPreview(null);
+          setDiscountLoading(false);
         }
       }
       setError(

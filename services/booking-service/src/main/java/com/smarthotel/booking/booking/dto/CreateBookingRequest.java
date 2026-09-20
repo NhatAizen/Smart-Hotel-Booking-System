@@ -40,7 +40,8 @@ public record CreateBookingRequest(
         @Email @Size(max = 255) String invoiceEmail,
         @AssertTrue boolean termsAccepted,
         BigDecimal expectedGrossAmount,
-        BigDecimal expectedFinalAmount
+        BigDecimal expectedFinalAmount,
+        String expectedPricingFingerprint
 ) {
     public CreateBookingBatchRequest toBatch() {
         return new CreateBookingBatchRequest(
@@ -50,7 +51,8 @@ public record CreateBookingRequest(
                 bookerIsGuest, guestLastName,
                 guestFirstName, guestPhone, specialRequest, invoiceRequested,
                 invoiceCompanyName, invoiceTaxCode, invoiceAddress, invoiceEmail,
-                termsAccepted, null, null, null, expectedGrossAmount, expectedFinalAmount
+                termsAccepted, null, null, null, expectedGrossAmount, expectedFinalAmount,
+                expectedPricingFingerprint
         );
     }
 }

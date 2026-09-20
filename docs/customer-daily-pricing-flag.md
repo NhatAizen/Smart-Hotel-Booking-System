@@ -11,7 +11,8 @@ it replaces the room type base price, room `customPrice`, and weekend or special
 Other nights retain existing pricing. Booking Service stores the computed nightly prices with
 the booking. The room change flow continues to use the legacy pricing method.
 
-The create booking API requires `expectedGrossAmount` and `expectedFinalAmount` when enabled.
+The create booking API requires `expectedGrossAmount`, `expectedFinalAmount`, and
+`expectedPricingFingerprint` from the quote when enabled. The fingerprint covers each room and night.
 It returns HTTP 409 with code `PRICE_CHANGED` when either amount differs or pricing changes
 during creation. The Customer checkout reloads the quote and asks for a new confirmation.
 The flag does not trigger wallet transfers, extra charges, or refunds.

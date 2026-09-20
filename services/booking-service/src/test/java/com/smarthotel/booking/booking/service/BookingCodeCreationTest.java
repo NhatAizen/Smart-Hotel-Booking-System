@@ -127,14 +127,14 @@ class BookingCodeCreationTest {
                 1, 0, PaymentOption.PAY_AT_HOTEL,
                 "Nguyen", "An", "an@example.com", "0900000000",
                 LocalDate.of(1990, 1, 1), true, true, null, null, null, null,
-                false, null, null, null, null, true, null, null
+                false, null, null, null, null, true, null, null, null
         ));
         var batch = service.createBatch(new CreateBookingBatchRequest(
                 customerId, hotelId, List.of(UUID.randomUUID(), UUID.randomUUID()),
                 checkIn, checkIn.plusDays(1), 1, 0, PaymentOption.PAY_AT_HOTEL,
                 "Nguyen", "An", "an@example.com", "0900000000",
                 LocalDate.of(1990, 1, 1), true, true, null, null, null, null,
-                false, null, null, null, null, true, null, null, null, null, null
+                false, null, null, null, null, true, null, null, null, null, null, null
         ));
 
         assertThat(single.bookingCode()).isEqualTo("ALH-01");
@@ -168,10 +168,70 @@ class BookingCodeCreationTest {
                 "Nguyen", "An", "an@example.com", "0900000000",
                 LocalDate.of(1990, 1, 1), true, true, null, null, null, null,
                 false, null, null, null, null, true, holdToken, null, null,
-                BigDecimal.valueOf(1_000_000), BigDecimal.valueOf(1_000_000));
+                BigDecimal.valueOf(1_000_000), BigDecimal.valueOf(1_000_000),
+                PricingService.fingerprint(List.of(first)));
 
         assertThatThrownBy(() -> service.createBatch(request)).isInstanceOf(PriceChangedException.class);
         verify(bookingRepository, never()).saveAll(any());
         verify(roomHoldService, never()).release(any(RoomHoldService.Hold.class));
+    }
+
+    @Test
+    void enabledSingleBookingRequiresQuoteConfirmationAndThenStoresAcceptedPrice() {
+        UUID roomId = UUID.randomUUID();
+        when(pricingService.isManualDailyCustomerEnabled()).thenReturn(true);
+        var price = new PricingService.RoomPricing(roomId, roomTypeId, "101", "Suite",
+                BigDecimal.valueOf(750_000), BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.valueOf(750_000), List.of());
+        when(pricingService.calculateCustomerRoomPricing(any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(price);
+        var oldClient = new CreateBookingRequest(customerId, hotelId, roomId,
+                checkIn, checkIn.plusDays(1), 1, 0, PaymentOption.PAY_AT_HOTEL,
+                "Nguyen", "An", "an@example.com", "0900000000",
+                LocalDate.of(1990, 1, 1), true, true, null, null, null, null,
+                false, null, null, null, null, true, null, null, null);
+        assertThatThrownBy(() -> service.create(oldClient)).isInstanceOf(PriceChangedException.class);
+        verify(roomHoldService, never()).acquire(any(), any(), any(), any(), any(), any());
+
+        var confirmed = new CreateBookingRequest(customerId, hotelId, roomId,
+                checkIn, checkIn.plusDays(1), 1, 0, PaymentOption.PAY_AT_HOTEL,
+                "Nguyen", "An", "an@example.com", "0900000000",
+                LocalDate.of(1990, 1, 1), true, true, null, null, null, null,
+                false, null, null, null, null, true, price.totalAmount(), price.totalAmount(),
+                PricingService.fingerprint(List.of(price)));
+        var booking = service.create(confirmed);
+        assertThat(booking.totalPrice()).isEqualByComparingTo("750000");
+        verify(pricingService).saveNightlySnapshot(any(), any());
+    }
+
+    @Test
+    void enabledBatchRejectsChangedRoomPricesEvenWhenGrandTotalIsUnchanged() {
+        UUID firstId = UUID.randomUUID();
+        UUID secondId = UUID.randomUUID();
+        when(pricingService.isManualDailyCustomerEnabled()).thenReturn(true);
+        var first = new PricingService.RoomPricing(firstId, roomTypeId, "101", "Suite",
+                BigDecimal.valueOf(900_000), BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.valueOf(900_000), List.of());
+        var second = new PricingService.RoomPricing(secondId, roomTypeId, "102", "Suite",
+                BigDecimal.valueOf(800_000), BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.valueOf(800_000), List.of());
+        var quotedFirst = new PricingService.RoomPricing(firstId, roomTypeId, "101", "Suite",
+                BigDecimal.valueOf(800_000), BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.valueOf(800_000), List.of());
+        var quotedSecond = new PricingService.RoomPricing(secondId, roomTypeId, "102", "Suite",
+                BigDecimal.valueOf(900_000), BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.valueOf(900_000), List.of());
+        when(pricingService.calculateCustomerRoomPricing(any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenAnswer(invocation -> firstId.equals(invocation.getArgument(0)) ? first : second);
+        var request = new CreateBookingBatchRequest(customerId, hotelId, List.of(firstId, secondId),
+                checkIn, checkIn.plusDays(1), 1, 0, PaymentOption.PAY_AT_HOTEL,
+                "Nguyen", "An", "an@example.com", "0900000000",
+                LocalDate.of(1990, 1, 1), true, true, null, null, null, null,
+                false, null, null, null, null, true, null, null, null,
+                BigDecimal.valueOf(1_700_000), BigDecimal.valueOf(1_700_000),
+                PricingService.fingerprint(List.of(quotedFirst, quotedSecond)));
+        assertThatThrownBy(() -> service.createBatch(request)).isInstanceOf(PriceChangedException.class);
+        verify(bookingRepository, never()).saveAll(any());
+        verify(roomHoldService, never()).acquire(any(), any(), any(), any(), any(), any());
     }
 }
