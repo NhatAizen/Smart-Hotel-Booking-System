@@ -172,7 +172,7 @@ export default function ManualDailyPricingPage() {
       <p>Đặt giá theo loại phòng cho một ngày hoặc khoảng ngày, rồi xem trước từng đêm.</p>
     </header>
     <div className="daily-pricing__notice" role="status">
-      <strong>Chưa áp dụng cho khách đặt phòng.</strong> Quy tắc tại đây chỉ được lưu để quản lý và xem trước.
+      <strong>Giá theo ngày chưa áp dụng cho khách đặt phòng.</strong> Quy tắc tại đây chỉ được lưu để quản lý và xem trước.
       Báo giá, đặt phòng, đổi phòng và thanh toán vẫn dùng cách tính giá hiện tại.
     </div>
     {error && <div className="daily-pricing__error" role="alert">{error}</div>}
