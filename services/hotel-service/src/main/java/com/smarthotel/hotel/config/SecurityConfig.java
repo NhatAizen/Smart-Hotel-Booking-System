@@ -78,6 +78,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/hotels/**", "/api/admin/room-types/**")
                         .hasRole("SYSTEM_ADMIN")
 
+                        .requestMatchers(
+                                "/api/hotels/*/daily-price-rules",
+                                "/api/hotels/*/daily-price-rules/**"
+                        ).hasRole("HOTEL_ADMIN")
+
                         .requestMatchers(HttpMethod.GET,
                                 "/api/hotels/mine",
                                 "/api/hotels/mine/**",
