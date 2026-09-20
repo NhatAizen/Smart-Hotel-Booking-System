@@ -11,6 +11,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -104,6 +105,9 @@ public record CreateBookingBatchRequest(
         String hotelPromotionCode,
 
         @Size(max = 40, message = "Mã ưu đãi EnziuRooms tối đa 40 ký tự")
-        String platformPromotionCode
+        String platformPromotionCode,
+
+        BigDecimal expectedGrossAmount,
+        BigDecimal expectedFinalAmount
 ) {
 }

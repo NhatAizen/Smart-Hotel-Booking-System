@@ -26,6 +26,7 @@ import com.smarthotel.booking.booking.hold.RoomHoldService;
 import com.smarthotel.booking.booking.realtime.AvailabilityEvent;
 import com.smarthotel.booking.booking.realtime.AvailabilityRealtimeService;
 import com.smarthotel.booking.common.exception.BookingNotFoundException;
+import com.smarthotel.booking.common.exception.PriceChangedException;
 import com.smarthotel.booking.common.exception.RoomAlreadyBookedException;
 import com.smarthotel.booking.integration.hotel.HotelClient;
 import com.smarthotel.booking.integration.notification.NotificationClient;
@@ -172,15 +173,13 @@ public class BookingService {
             BigDecimal nightlyPrice = room.customPrice() != null
                     ? room.customPrice()
                     : roomType.basePrice();
-            PricingService.RoomPricing pricing = pricingService.calculateRoomPricing(
-                    room.id(),
-                    room.roomTypeId(),
-                    room.roomNumber(),
-                    roomType.name(),
-                    nightlyPrice,
-                    request.checkIn(),
-                    request.checkOut()
-            );
+            PricingService.RoomPricing pricing = pricingService.isManualDailyCustomerEnabled()
+                    ? pricingService.calculateCustomerRoomPricing(room.id(), room.roomTypeId(),
+                            room.roomNumber(), roomType.name(), nightlyPrice, request.hotelId(),
+                            request.checkIn(), request.checkOut())
+                    : pricingService.calculateRoomPricing(room.id(), room.roomTypeId(),
+                            room.roomNumber(), roomType.name(), nightlyPrice,
+                            request.checkIn(), request.checkOut());
             resolvedRooms.add(new ResolvedRoom(room, roomType, pricing));
         }
 
@@ -203,6 +202,13 @@ public class BookingService {
                 request.customerId(), request.hotelId(), groupGross,
                 request.hotelPromotionCode(), request.platformPromotionCode()
         );
+        if (pricingService.isManualDailyCustomerEnabled()) {
+            if (request.expectedGrossAmount() == null || request.expectedFinalAmount() == null
+                    || request.expectedGrossAmount().compareTo(groupGross) != 0
+                    || request.expectedFinalAmount().compareTo(discountPlan.finalAmount()) != 0) {
+                throw new PriceChangedException();
+            }
+        }
         List<BigDecimal> membershipShares = allocateDiscount(
                 discountPlan.membershipDiscount(), resolvedRooms
         );
@@ -240,6 +246,28 @@ public class BookingService {
                         roomId, request.checkIn(), request.checkOut(), lockedAt
                 )) {
                     throw new RoomAlreadyBookedException();
+                }
+            }
+
+            if (pricingService.isManualDailyCustomerEnabled()) {
+                for (ResolvedRoom item : resolvedRooms) {
+                    HotelClient.RoomDetails currentRoom = hotelClient.getRoom(item.room().id());
+                    HotelClient.RoomTypeDetails currentType = hotelClient.getRoomType(currentRoom.roomTypeId());
+                    if (!request.hotelId().equals(currentRoom.hotelId())
+                            || !request.hotelId().equals(currentType.hotelId())
+                            || !item.room().roomTypeId().equals(currentRoom.roomTypeId())) {
+                        throw new PriceChangedException();
+                    }
+                    BigDecimal currentBase = currentRoom.customPrice() != null
+                            ? currentRoom.customPrice() : currentType.basePrice();
+                    var currentPrice = pricingService.calculateCustomerRoomPricing(
+                            currentRoom.id(), currentRoom.roomTypeId(), currentRoom.roomNumber(),
+                            currentType.name(), currentBase, request.hotelId(),
+                            request.checkIn(), request.checkOut());
+                    if (!item.pricing().nights().equals(currentPrice.nights())
+                            || item.pricing().totalAmount().compareTo(currentPrice.totalAmount()) != 0) {
+                        throw new PriceChangedException();
+                    }
                 }
             }
 
@@ -355,7 +383,10 @@ public class BookingService {
             promotionService.recordUsage(discountPlan, request.customerId(), bookingGroupId);
             return savedBookings.stream().map(BookingResponse::from).toList();
         } catch (RuntimeException exception) {
-            roomHoldService.release(roomHold);
+            // Keep the Customer's existing hold so they can confirm the refreshed price.
+            if (!(exception instanceof PriceChangedException && request.holdToken() != null)) {
+                roomHoldService.release(roomHold);
+            }
             throw exception;
         }
     }

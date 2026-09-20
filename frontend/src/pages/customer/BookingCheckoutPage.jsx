@@ -719,6 +719,8 @@ export default function BookingCheckoutPage() {
         holdToken: bookingHold?.holdToken ?? null,
         hotelPromotionCode: appliedPromotionCodes.hotel || null,
         platformPromotionCode: appliedPromotionCodes.platform || null,
+        expectedGrossAmount: pricingQuote.totalAmount,
+        expectedFinalAmount: totals.total,
         ...form,
         guestLastName: form.bookerIsGuest ? null : form.guestLastName,
         guestFirstName: form.bookerIsGuest ? null : form.guestFirstName,
@@ -785,6 +787,26 @@ export default function BookingCheckoutPage() {
       }
       window.location.assign(paymentOrder.checkoutUrl);
     } catch (requestError) {
+      if (requestError.response?.data?.code === "PRICE_CHANGED") {
+        try {
+          const freshQuote = await getBookingPricingQuote({ hotelId, roomIds, checkIn, checkOut });
+          setPricingQuote(freshQuote);
+          if (appliedPromotionCodes.hotel || appliedPromotionCodes.platform) {
+            const freshDiscount = await previewDiscount({
+              hotelId,
+              amount: Number(freshQuote.totalAmount),
+              hotelPromotionCode: appliedPromotionCodes.hotel || null,
+              platformPromotionCode: appliedPromotionCodes.platform || null,
+            });
+            setDiscountPreview(freshDiscount);
+          } else {
+            setDiscountPreview(null);
+          }
+        } catch {
+          setPricingQuote(null);
+          setDiscountPreview(null);
+        }
+      }
       setError(
         requestError.response?.data?.message ??
           requestError.response?.data?.detail ??

@@ -48,6 +48,12 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(PriceChangedException.class)
+    public ResponseEntity<ApiErrorResponse> handlePriceChanged(
+            PriceChangedException exception, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, "PRICE_CHANGED", exception.getMessage(), request);
+    }
+
 
     @ExceptionHandler(RoomHoldService.RoomHoldConflictException.class)
     public ResponseEntity<ApiErrorResponse> handleRoomHoldConflict(

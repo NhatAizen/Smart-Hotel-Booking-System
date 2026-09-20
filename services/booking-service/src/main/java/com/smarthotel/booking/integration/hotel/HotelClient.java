@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -112,6 +113,22 @@ public class HotelClient {
         }
         return response;
     }
+
+    public List<CustomerDailyPrice> getCustomerDailyPrices(UUID hotelId, UUID roomTypeId,
+                                                             LocalDate checkIn, LocalDate checkOut) {
+        List<CustomerDailyPrice> response = restClient.get()
+                .uri(uri -> uri.path("/api/hotels/{hotelId}/room-types/{roomTypeId}/customer-daily-prices")
+                        .queryParam("checkIn", checkIn).queryParam("checkOut", checkOut)
+                        .build(hotelId, roomTypeId))
+                .retrieve()
+                .body(new ParameterizedTypeReference<List<CustomerDailyPrice>>() {});
+        if (response == null) {
+            throw new IllegalStateException("Hotel Service không trả về giá theo ngày");
+        }
+        return response;
+    }
+
+    public record CustomerDailyPrice(LocalDate stayDate, BigDecimal nightlyPrice) {}
 
     public void updateRoomStatus(RoomDetails room, String status, String bearerToken) {
         if (bearerToken == null || bearerToken.isBlank()) {

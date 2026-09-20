@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.UUID;
 
 public record CreateBookingRequest(
@@ -37,7 +38,9 @@ public record CreateBookingRequest(
         @Size(max = 50) String invoiceTaxCode,
         @Size(max = 500) String invoiceAddress,
         @Email @Size(max = 255) String invoiceEmail,
-        @AssertTrue boolean termsAccepted
+        @AssertTrue boolean termsAccepted,
+        BigDecimal expectedGrossAmount,
+        BigDecimal expectedFinalAmount
 ) {
     public CreateBookingBatchRequest toBatch() {
         return new CreateBookingBatchRequest(
@@ -47,7 +50,7 @@ public record CreateBookingRequest(
                 bookerIsGuest, guestLastName,
                 guestFirstName, guestPhone, specialRequest, invoiceRequested,
                 invoiceCompanyName, invoiceTaxCode, invoiceAddress, invoiceEmail,
-                termsAccepted, null, null, null
+                termsAccepted, null, null, null, expectedGrossAmount, expectedFinalAmount
         );
     }
 }
