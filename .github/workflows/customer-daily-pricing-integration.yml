@@ -62,7 +62,23 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
-          cache-dependency-path: services/booking-service/pom.xml
+          cache-dependency-path: |
+            services/booking-service/pom.xml
+            services/hotel-service/pom.xml
+      - name: Create separate disposable Hotel database
+        run: >-
+          docker exec ${{ job.services.postgres.id }}
+          createdb -U ci_daily --maintenance-db=booking_daily_ci hotel_daily_ci
+      - name: Test Hotel rule bounds and immediate customer read
+        working-directory: services/hotel-service
+        env:
+          CI_DAILY_HOTEL_INTEGRATION: "true"
+          DB_URL: jdbc:postgresql://localhost:5432/hotel_daily_ci
+          NOMINATIM_ENABLED: "false"
+        run: >-
+          mvn --batch-mode --no-transfer-progress
+          -Dtest=ManualDailyPricingPostgresIntegrationTest
+          test
       - name: Test quote, booking persistence and Redis holds
         working-directory: services/booking-service
         run: >-
