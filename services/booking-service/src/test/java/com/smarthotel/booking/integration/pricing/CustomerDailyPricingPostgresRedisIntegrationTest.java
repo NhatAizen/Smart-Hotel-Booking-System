@@ -6,6 +6,7 @@ import com.smarthotel.booking.booking.dto.CreateBookingBatchRequest;
 import com.smarthotel.booking.booking.dto.CreateBookingRequest;
 import com.smarthotel.booking.booking.entity.PaymentOption;
 import com.smarthotel.booking.booking.hold.RoomHoldService;
+import com.smarthotel.booking.common.exception.RoomAlreadyBookedException;
 import com.smarthotel.booking.booking.realtime.AvailabilityRealtimeService;
 import com.smarthotel.booking.booking.repository.BookingRepository;
 import com.smarthotel.booking.booking.service.BookingService;
@@ -272,6 +273,40 @@ class CustomerDailyPricingPostgresRedisIntegrationTest {
             holds.releaseByBookingGroup(firstToken);
             holds.releaseByBookingGroup(secondToken);
             executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void simultaneousBookingRequestsPersistOnlyOneReservation() throws Exception {
+        var quote = pricing.quote(new PricingQuoteRequest(hotelId, List.of(firstRoom),
+                saturday, saturday.plusDays(1)));
+        long before = bookingRows.count();
+        var gate = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            var first = executor.submit(() -> createAfterGate(gate, quote.totalAmount(),
+                    quote.pricingFingerprint()));
+            var second = executor.submit(() -> createAfterGate(gate, quote.totalAmount(),
+                    quote.pricingFingerprint()));
+            gate.countDown();
+            int successes = (first.get(15, TimeUnit.SECONDS) ? 1 : 0)
+                    + (second.get(15, TimeUnit.SECONDS) ? 1 : 0);
+            assertThat(successes).isEqualTo(1);
+            assertThat(bookingRows.count()).isEqualTo(before + 1);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private boolean createAfterGate(CountDownLatch gate, BigDecimal gross, String fingerprint)
+            throws InterruptedException {
+        gate.await();
+        try {
+            bookings.createBatch(batch(List.of(firstRoom), saturday, saturday.plusDays(1),
+                    null, gross, fingerprint, null));
+            return true;
+        } catch (RoomHoldService.RoomHoldConflictException | RoomAlreadyBookedException expected) {
+            return false;
         }
     }
 
