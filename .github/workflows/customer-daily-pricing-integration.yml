@@ -1,0 +1,71 @@
+name: Customer daily pricing integration
+
+on:
+  pull_request:
+    branches: [feat/manual-daily-pricing]
+    paths:
+      - .github/workflows/customer-daily-pricing-integration.yml
+      - services/booking-service/**
+      - services/hotel-service/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  booking-postgres-redis:
+    name: Booking quote and create on isolated PostgreSQL and Redis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: booking_daily_ci
+          POSTGRES_USER: ci_daily
+          POSTGRES_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_daily -d booking_daily_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI_DAILY_PRICING_INTEGRATION: "true"
+      DB_URL: jdbc:postgresql://localhost:5432/booking_daily_ci
+      DB_USERNAME: ci_daily
+      DB_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      REDIS_HOST: localhost
+      REDIS_PORT: "6379"
+      HOTEL_SERVICE_URL: http://localhost:1
+      IDENTITY_SERVICE_URL: http://localhost:1
+      PAYMENT_SERVICE_URL: http://localhost:1
+      NOTIFICATION_SERVICE_URL: http://localhost:1
+      JPA_SHOW_SQL: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate ephemeral test-only JWT secret
+        shell: bash
+        run: echo "JWT_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: services/booking-service/pom.xml
+      - name: Test quote, booking persistence and Redis holds
+        working-directory: services/booking-service
+        run: >-
+          mvn --batch-mode --no-transfer-progress
+          -Dtest=CustomerDailyPricingPostgresRedisIntegrationTest,CustomerDailyPricingDisabledPostgresRedisIntegrationTest
+          test
