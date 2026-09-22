@@ -227,7 +227,7 @@ def run(args: argparse.Namespace) -> None:
             "discountValue": 100,
             "maxDiscount": None,
             "minBookingAmount": 0,
-            "startAt": iso(now - timedelta(days=1)),
+            "startAt": iso(now - timedelta(seconds=30)),
             "endAt": iso(now + timedelta(days=2)),
             "usageLimit": 5,
             "usagePerUser": 1,
