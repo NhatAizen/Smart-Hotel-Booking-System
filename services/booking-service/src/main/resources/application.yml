@@ -79,6 +79,7 @@ booking:
     cleanup-delay-ms: ${BOOKING_HOLD_CLEANUP_DELAY_MS:5000}
 
 pricing:
+  manual-daily-customer-enabled: ${MANUAL_DAILY_CUSTOMER_PRICING_ENABLED:false}
   weekend-surcharge-percent: ${WEEKEND_SURCHARGE_PERCENT:10}
   late-checkout:
     grace-minutes: ${LATE_CHECKOUT_GRACE_MINUTES:60}
