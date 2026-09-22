@@ -218,7 +218,7 @@ def run(args: argparse.Namespace) -> None:
 
         now = datetime.now(timezone.utc)
         promotion_code = "KEEP100"
-        http("POST", f"{BOOKING_URL}/api/hotel-admin/promotions", {
+        _, promotion = http("POST", f"{BOOKING_URL}/api/hotel-admin/promotions", {
             "code": promotion_code,
             "name": "QA browser promotion",
             "description": "Synthetic GitHub Actions data only",
@@ -232,6 +232,11 @@ def run(args: argparse.Namespace) -> None:
             "usageLimit": 5,
             "usagePerUser": 1,
         }, admin_token, (201,))
+        http(
+            "POST",
+            f"{BOOKING_URL}/api/promotions/{promotion['id']}/save",
+            token=customer_token,
+        )
 
         frontend = ManagedProcess(
             "frontend-browser",
