@@ -260,6 +260,16 @@ def quote(room_id: str) -> dict:
     return result
 
 
+def discount_preview(customer_token: str, gross_amount: object) -> dict:
+    _, result = http("POST", f"{BOOKING_URL}/api/discounts/preview", {
+        "hotelId": STATE["hotel"],
+        "amount": gross_amount,
+        "hotelPromotionCode": None,
+        "platformPromotionCode": None,
+    }, customer_token)
+    return result
+
+
 def hold(room_id: str, customer_token: str) -> str:
     _, result = http("POST", f"{BOOKING_URL}/api/availability/holds", {
         "hotelId": STATE["hotel"],
@@ -271,7 +281,8 @@ def hold(room_id: str, customer_token: str) -> str:
     return result["holdToken"]
 
 
-def booking_payload(room_id: str, hold_token: str, quote_data: dict | None) -> dict:
+def booking_payload(room_id: str, hold_token: str, quote_data: dict | None,
+                    final_amount: object | None = None) -> dict:
     payload = {
         "customerId": STATE["customer"],
         "hotelId": STATE["hotel"],
@@ -308,7 +319,7 @@ def booking_payload(room_id: str, hold_token: str, quote_data: dict | None) -> d
     if quote_data is not None:
         payload.update({
             "expectedGrossAmount": quote_data["totalAmount"],
-            "expectedFinalAmount": quote_data["totalAmount"],
+            "expectedFinalAmount": final_amount,
             "expectedPricingFingerprint": quote_data["pricingFingerprint"],
         })
     return payload
@@ -396,8 +407,9 @@ def run(args: argparse.Namespace) -> None:
         legacy_hold = hold(legacy_room, customer_token)
         _, legacy_booking = http("POST", f"{BOOKING_URL}/api/bookings/batch",
                                  booking_payload(legacy_room, legacy_hold, None), customer_token, (201,))
-        assert_money(legacy_booking[0]["totalPrice"], "1800.00", "flag-off stored booking")
-        print("PASS flag-off: legacy quote and stored booking remain 1800.00")
+        assert_money(legacy_booking[0]["grossAmount"], "1800.00", "flag-off stored gross")
+        assert_money(legacy_booking[0]["totalPrice"], "1764.00", "flag-off legacy member total")
+        print("PASS flag-off: legacy gross remains 1800.00 and existing member discount remains 2%")
 
         booking.stop()
         wait_port_closed(18083)
@@ -411,6 +423,8 @@ def run(args: argparse.Namespace) -> None:
 
         accepted_before_change = quote(priced_room)
         assert_money(accepted_before_change["totalAmount"], "1500.00", "flag-on Hotel price")
+        accepted_discount = discount_preview(customer_token, accepted_before_change["totalAmount"])
+        assert_money(accepted_discount["finalAmount"], "1470.00", "flag-on Customer final price")
         if [night["pricingType"] for night in accepted_before_change["rooms"][0]["nights"]] != [
                 "MANUAL_DAILY", "MANUAL_DAILY"]:
             raise AssertionError("Booking quote did not use nightly prices returned by Hotel Service")
@@ -423,7 +437,8 @@ def run(args: argparse.Namespace) -> None:
         }, admin_token)
 
         status, changed = http("POST", f"{BOOKING_URL}/api/bookings/batch",
-                               booking_payload(priced_room, priced_hold, accepted_before_change),
+                               booking_payload(priced_room, priced_hold, accepted_before_change,
+                                               accepted_discount["finalAmount"]),
                                customer_token, (409,))
         if status != 409 or changed.get("code") != "PRICE_CHANGED":
             raise AssertionError(f"expected PRICE_CHANGED, got {status}: {changed}")
@@ -435,9 +450,13 @@ def run(args: argparse.Namespace) -> None:
 
         refreshed = quote(priced_room)
         assert_money(refreshed["totalAmount"], "1600.00", "refreshed Hotel price")
+        refreshed_discount = discount_preview(customer_token, refreshed["totalAmount"])
+        assert_money(refreshed_discount["finalAmount"], "1568.00", "refreshed Customer final price")
         _, saved = http("POST", f"{BOOKING_URL}/api/bookings/batch",
-                        booking_payload(priced_room, priced_hold, refreshed), customer_token, (201,))
-        assert_money(saved[0]["totalPrice"], "1600.00", "confirmed stored booking")
+                        booking_payload(priced_room, priced_hold, refreshed,
+                                        refreshed_discount["finalAmount"]), customer_token, (201,))
+        assert_money(saved[0]["grossAmount"], "1600.00", "confirmed stored gross")
+        assert_money(saved[0]["totalPrice"], "1568.00", "confirmed stored Customer total")
         after_booking = calendar(admin_token)
         if any(item["roomId"] == priced_room for item in after_booking["holds"]):
             raise AssertionError("Calendar still exposed the released hold after booking")
@@ -448,13 +467,15 @@ def run(args: argparse.Namespace) -> None:
 
         outage_room = STATE["rooms"][2]
         outage_quote = quote(outage_room)
+        outage_discount = discount_preview(customer_token, outage_quote["totalAmount"])
         outage_hold = hold(outage_room, customer_token)
         _, bookings_before = http("GET", f"{BOOKING_URL}/api/bookings/me", token=customer_token)
         hotel.stop()
         wait_port_closed(18082)
 
         outage_status, _ = http("POST", f"{BOOKING_URL}/api/bookings/batch",
-                                booking_payload(outage_room, outage_hold, outage_quote),
+                                booking_payload(outage_room, outage_hold, outage_quote,
+                                                outage_discount["finalAmount"]),
                                 customer_token, (500, 502, 503, 504))
         if outage_status < 500:
             raise AssertionError("Booking unexpectedly succeeded while Hotel Service was unavailable")
