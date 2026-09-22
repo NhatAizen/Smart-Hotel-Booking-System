@@ -1,10 +1,18 @@
 name: Customer daily pricing integration
 
 on:
+  push:
+    branches: [integration/calendar-daily-pricing]
+    paths:
+      - .github/workflows/customer-daily-pricing-integration.yml
+      - frontend/**
+      - services/booking-service/**
+      - services/hotel-service/**
   pull_request:
     branches: [feat/manual-daily-pricing]
     paths:
       - .github/workflows/customer-daily-pricing-integration.yml
+      - frontend/**
       - services/booking-service/**
       - services/hotel-service/**
   workflow_dispatch:
@@ -13,8 +21,25 @@ permissions:
   contents: read
 
 jobs:
+  frontend-navigation:
+    name: Calendar and daily pricing navigation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
   booking-postgres-redis:
-    name: Booking quote and create on isolated PostgreSQL and Redis
+    name: Calendar, quote and booking on isolated PostgreSQL and Redis
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -77,11 +102,11 @@ jobs:
           NOMINATIM_ENABLED: "false"
         run: >-
           mvn --batch-mode --no-transfer-progress
-          -Dtest=ManualDailyPricingPostgresIntegrationTest
+          -Dtest=ManualDailyPricingPostgresIntegrationTest,RoomCleaningTest
           test
-      - name: Test quote, booking persistence and Redis holds
+      - name: Test Calendar, quote, booking persistence and Redis holds
         working-directory: services/booking-service
         run: >-
           mvn --batch-mode --no-transfer-progress
-          -Dtest=CustomerDailyPricingPostgresRedisIntegrationTest,CustomerDailyPricingDisabledPostgresRedisIntegrationTest
+          -Dtest=CustomerDailyPricingPostgresRedisIntegrationTest,CustomerDailyPricingDisabledPostgresRedisIntegrationTest,AvailabilityCalendarServiceTest,RoomHoldCalendarTest
           test

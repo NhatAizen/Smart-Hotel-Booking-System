@@ -58,6 +58,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -145,13 +146,17 @@ class CustomerDailyPricingPostgresRedisIntegrationTest {
         dailyPrices = new AtomicReference<>(List.of(
                 new HotelClient.CustomerDailyPrice(saturday, new BigDecimal("750.00"))));
 
-        when(hotel.getHotel(hotelId)).thenReturn(new HotelClient.HotelDetails(
-                hotelId, ownerId, "CI Synthetic Hotel", "CI Street", "CI City", LocalTime.of(14, 0), LocalTime.NOON));
+        var syntheticHotel = new HotelClient.HotelDetails(
+                hotelId, ownerId, "CI Synthetic Hotel", "CI Street", "CI City", LocalTime.of(14, 0), LocalTime.NOON);
+        when(hotel.getHotel(hotelId)).thenReturn(syntheticHotel);
+        when(hotel.getManagedHotel(eq(hotelId), anyString())).thenReturn(syntheticHotel);
         when(hotel.getHotelPolicy(hotelId)).thenReturn(new HotelClient.HotelPolicyDetails(
                 hotelId, LocalTime.of(14, 0), LocalTime.NOON, true, null, null, false, false,
                 false, false, false, null, null, false, null, List.of(), true));
         when(hotel.getRoom(firstRoom)).thenReturn(room(firstRoom, "101", "900.00"));
         when(hotel.getRoom(secondRoom)).thenReturn(room(secondRoom, "102", "800.00"));
+        when(hotel.getManagedRooms(eq(hotelId), anyString()))
+                .thenReturn(List.of(room(firstRoom, "101", "900.00"), room(secondRoom, "102", "800.00")));
         when(hotel.getRoomType(typeId)).thenReturn(new HotelClient.RoomTypeDetails(
                 typeId, hotelId, "Suite", null, new BigDecimal("1000.00"), 4, 2,
                 "KING", 1, null, false, true, false, true, true, 30, true));
@@ -241,6 +246,92 @@ class CustomerDailyPricingPostgresRedisIntegrationTest {
                 saturday.plusDays(2), token, refreshed.totalAmount(), refreshed.pricingFingerprint(), "KEEP10"));
         assertThat(accepted).hasSize(1);
         verify(promotions, times(2)).plan(eq(customerId), eq(hotelId), any(), eq("KEEP10"), nullable(String.class));
+    }
+
+    @Test
+    void calendarKeepsHoldAcrossPriceChangeAndReplacesItWithConfirmedBooking() throws Exception {
+        var customerJwt = jwt().jwt(value -> value.subject(customerId.toString())
+                        .claim("role", "CUSTOMER"))
+                .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"));
+        var adminJwt = jwt().jwt(value -> value.subject(ownerId.toString())
+                        .claim("role", "HOTEL_ADMIN"))
+                .authorities(new SimpleGrantedAuthority("ROLE_HOTEL_ADMIN"));
+
+        var holdJson = mapper.readTree(mvc.perform(post("/api/availability/holds")
+                        .with(customerJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new com.smarthotel.booking.booking.dto.CreateRoomHoldRequest(
+                                hotelId, List.of(firstRoom), saturday, saturday.plusDays(2), null))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString());
+        UUID holdToken = UUID.fromString(holdJson.path("holdToken").asText());
+
+        mvc.perform(get("/api/hotel-admin/hotels/{hotelId}/availability-calendar", hotelId)
+                        .with(adminJwt)
+                        .param("from", saturday.toString())
+                        .param("to", saturday.plusDays(1).toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.holds.length()").value(1))
+                .andExpect(jsonPath("$.holds[0].roomId").value(firstRoom.toString()))
+                .andExpect(jsonPath("$.bookings.length()").value(0));
+
+        var oldQuote = mapper.readTree(mvc.perform(post("/api/pricing/quote")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new PricingQuoteRequest(
+                                hotelId, List.of(firstRoom), saturday, saturday.plusDays(2)))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+        BigDecimal oldTotal = oldQuote.path("totalAmount").decimalValue();
+        String oldFingerprint = oldQuote.path("pricingFingerprint").asText();
+
+        dailyPrices.set(List.of(new HotelClient.CustomerDailyPrice(
+                saturday, new BigDecimal("800.00"))));
+        long bookingCountBefore = bookingRows.count();
+        mvc.perform(post("/api/bookings/batch")
+                        .with(customerJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(batch(List.of(firstRoom), saturday,
+                                saturday.plusDays(2), holdToken, oldTotal, oldFingerprint, null))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PRICE_CHANGED"));
+        assertThat(bookingRows.count()).isEqualTo(bookingCountBefore);
+
+        mvc.perform(get("/api/hotel-admin/hotels/{hotelId}/availability-calendar", hotelId)
+                        .with(adminJwt)
+                        .param("from", saturday.toString())
+                        .param("to", saturday.plusDays(1).toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.holds.length()").value(1))
+                .andExpect(jsonPath("$.holds[0].roomId").value(firstRoom.toString()))
+                .andExpect(jsonPath("$.bookings.length()").value(0));
+
+        var refreshedQuote = mapper.readTree(mvc.perform(post("/api/pricing/quote")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new PricingQuoteRequest(
+                                hotelId, List.of(firstRoom), saturday, saturday.plusDays(2)))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+        BigDecimal refreshedTotal = refreshedQuote.path("totalAmount").decimalValue();
+        String refreshedFingerprint = refreshedQuote.path("pricingFingerprint").asText();
+        assertThat(refreshedFingerprint).isNotEqualTo(oldFingerprint);
+
+        mvc.perform(post("/api/bookings/batch")
+                        .with(customerJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(batch(List.of(firstRoom), saturday,
+                                saturday.plusDays(2), holdToken, refreshedTotal, refreshedFingerprint, null))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$[0].grossAmount").value(refreshedTotal.doubleValue()));
+
+        mvc.perform(get("/api/hotel-admin/hotels/{hotelId}/availability-calendar", hotelId)
+                        .with(adminJwt)
+                        .param("from", saturday.toString())
+                        .param("to", saturday.plusDays(1).toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.holds.length()").value(0))
+                .andExpect(jsonPath("$.bookings.length()").value(1))
+                .andExpect(jsonPath("$.bookings[0].roomId").value(firstRoom.toString()))
+                .andExpect(jsonPath("$.bookings[0].status").value("CONFIRMED"));
     }
 
     @Test
