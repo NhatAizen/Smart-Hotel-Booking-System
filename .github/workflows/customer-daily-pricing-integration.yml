@@ -5,6 +5,7 @@ on:
     branches: [integration/calendar-daily-pricing]
     paths:
       - .github/workflows/customer-daily-pricing-integration.yml
+      - .github/tests/calendar_daily_pricing_http_e2e.py
       - frontend/**
       - services/booking-service/**
       - services/hotel-service/**
@@ -12,6 +13,7 @@ on:
     branches: [feat/manual-daily-pricing]
     paths:
       - .github/workflows/customer-daily-pricing-integration.yml
+      - .github/tests/calendar_daily_pricing_http_e2e.py
       - frontend/**
       - services/booking-service/**
       - services/hotel-service/**
@@ -135,3 +137,69 @@ jobs:
 
           if failures == 0:
               print("::error title=Booking integration failed::No failing Surefire test case was recorded; inspect the Maven step.")
+
+  hotel-booking-http:
+    name: Hotel and Booking services over real HTTP
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: booking_http_ci
+          POSTGRES_USER: ci_http
+          POSTGRES_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_http -d booking_http_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      BOOKING_DB_URL: jdbc:postgresql://127.0.0.1:5432/booking_http_ci
+      HOTEL_DB_URL: jdbc:postgresql://127.0.0.1:5432/hotel_http_ci
+      HOTEL_DB_NAME: hotel_http_ci
+      DB_USERNAME: ci_http
+      DB_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      POSTGRES_CONTAINER_ID: ${{ job.services.postgres.id }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate ephemeral test-only JWT secret
+        shell: bash
+        run: echo "JWT_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: |
+            services/booking-service/pom.xml
+            services/hotel-service/pom.xml
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Create disposable Hotel database
+        run: >-
+          docker exec ${{ job.services.postgres.id }}
+          createdb -U ci_http --maintenance-db=booking_http_ci hotel_http_ci
+      - name: Package Hotel Service
+        working-directory: services/hotel-service
+        run: mvn --batch-mode --no-transfer-progress -DskipTests package
+      - name: Package Booking Service
+        working-directory: services/booking-service
+        run: mvn --batch-mode --no-transfer-progress -DskipTests package
+      - name: Test Hotel and Booking through real HTTP
+        run: >-
+          python .github/tests/calendar_daily_pricing_http_e2e.py
+          --hotel-jar services/hotel-service/target/hotel-service-0.0.1-SNAPSHOT.jar
+          --booking-jar services/booking-service/target/booking-service-0.0.1-SNAPSHOT.jar
