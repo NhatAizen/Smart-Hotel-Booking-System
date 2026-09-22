@@ -81,7 +81,11 @@ class CustomerDailyPricingPostgresRedisIntegrationTest {
             try {
                 identityServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
                 identityServer.createContext("/api/users/me/role-snapshot", exchange -> {
-                    byte[] body = "{\"role\":\"CUSTOMER\",\"active\":true}"
+                    String authorization = exchange.getRequestHeaders().getFirst("Authorization");
+                    String role = "Bearer hotel-admin-token".equals(authorization)
+                            ? "HOTEL_ADMIN"
+                            : "CUSTOMER";
+                    byte[] body = ("{\"role\":\"" + role + "\",\"active\":true}")
                             .getBytes(StandardCharsets.UTF_8);
                     exchange.getResponseHeaders().set("Content-Type", "application/json");
                     exchange.sendResponseHeaders(200, body.length);
@@ -253,7 +257,8 @@ class CustomerDailyPricingPostgresRedisIntegrationTest {
         var customerJwt = jwt().jwt(value -> value.subject(customerId.toString())
                         .claim("role", "CUSTOMER"))
                 .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"));
-        var adminJwt = jwt().jwt(value -> value.subject(ownerId.toString())
+        var adminJwt = jwt().jwt(value -> value.tokenValue("hotel-admin-token")
+                        .subject(ownerId.toString())
                         .claim("role", "HOTEL_ADMIN"))
                 .authorities(new SimpleGrantedAuthority("ROLE_HOTEL_ADMIN"));
 
