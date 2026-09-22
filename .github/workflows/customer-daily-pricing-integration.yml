@@ -110,3 +110,28 @@ jobs:
           mvn --batch-mode --no-transfer-progress
           -Dtest=CustomerDailyPricingPostgresRedisIntegrationTest,CustomerDailyPricingDisabledPostgresRedisIntegrationTest,AvailabilityCalendarServiceTest,RoomHoldCalendarTest
           test
+      - name: Publish failing test details
+        if: failure()
+        working-directory: services/booking-service
+        shell: python
+        run: |
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          failures = 0
+          for report in Path("target/surefire-reports").glob("TEST-*.xml"):
+              suite = ET.parse(report).getroot()
+              for case in suite.findall("testcase"):
+                  issue = case.find("failure")
+                  if issue is None:
+                      issue = case.find("error")
+                  if issue is None:
+                      continue
+                  failures += 1
+                  title = f"{case.get('classname', report.stem)}.{case.get('name', 'test')}"
+                  message = issue.get("message") or issue.text or "Test failed without a message"
+                  message = " ".join(message.split())[:4000]
+                  print(f"::error title={title}::{message}")
+
+          if failures == 0:
+              print("::error title=Booking integration failed::No failing Surefire test case was recorded; inspect the Maven step.")
