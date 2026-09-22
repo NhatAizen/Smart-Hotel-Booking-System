@@ -171,7 +171,6 @@ jobs:
       HOTEL_DB_NAME: hotel_http_ci
       DB_USERNAME: ci_http
       DB_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
-      POSTGRES_CONTAINER_ID: ${{ job.services.postgres.id }}
     steps:
       - uses: actions/checkout@v4
       - name: Generate ephemeral test-only JWT secret
@@ -199,6 +198,8 @@ jobs:
         working-directory: services/booking-service
         run: mvn --batch-mode --no-transfer-progress -DskipTests package
       - name: Test Hotel and Booking through real HTTP
+        env:
+          POSTGRES_CONTAINER_ID: ${{ job.services.postgres.id }}
         run: >-
           python .github/tests/calendar_daily_pricing_http_e2e.py
           --hotel-jar services/hotel-service/target/hotel-service-0.0.1-SNAPSHOT.jar
