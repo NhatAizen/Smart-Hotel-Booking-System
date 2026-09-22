@@ -139,7 +139,7 @@ class BookingTermsSnapshotTest {
                 LocalDate.of(1990, 1, 1), true, true,
                 null, null, null, null,
                 false, null, null, null, null,
-                true, null, null, null
+                true, null, null, null, null, null, null
         );
 
         var response = bookingService.createBatch(request).get(0);

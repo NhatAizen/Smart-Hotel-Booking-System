@@ -84,6 +84,10 @@ public class SecurityConfig {
                         ).hasRole("HOTEL_ADMIN")
 
                         .requestMatchers(HttpMethod.GET,
+                                "/api/hotels/*/room-types/*/customer-daily-prices"
+                        ).permitAll()
+
+                        .requestMatchers(HttpMethod.GET,
                                 "/api/hotels/mine",
                                 "/api/hotels/mine/**",
                                 "/api/hotels/*/room-types/manage",

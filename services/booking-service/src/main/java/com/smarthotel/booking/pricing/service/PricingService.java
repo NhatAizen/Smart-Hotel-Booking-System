@@ -13,6 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
@@ -28,6 +31,7 @@ public class PricingService {
     private final SpecialPricingDateRepository specialDateRepository;
     private final BookingNightPriceRepository nightPriceRepository;
     private final HotelClient hotelClient;
+    private final boolean manualDailyCustomerEnabled;
     private final BigDecimal weekendSurchargePercent;
     private final int lateGraceMinutes;
     private final BigDecimal lateUpTo3HoursPercent;
@@ -37,6 +41,7 @@ public class PricingService {
             SpecialPricingDateRepository specialDateRepository,
             BookingNightPriceRepository nightPriceRepository,
             HotelClient hotelClient,
+            @Value("${pricing.manual-daily-customer-enabled:false}") boolean manualDailyCustomerEnabled,
             @Value("${pricing.weekend-surcharge-percent:10}") BigDecimal weekendSurchargePercent,
             @Value("${pricing.late-checkout.grace-minutes:60}") int lateGraceMinutes,
             @Value("${pricing.late-checkout.up-to-3-hours-percent:30}") BigDecimal lateUpTo3HoursPercent,
@@ -45,6 +50,7 @@ public class PricingService {
         this.specialDateRepository = specialDateRepository;
         this.nightPriceRepository = nightPriceRepository;
         this.hotelClient = hotelClient;
+        this.manualDailyCustomerEnabled = manualDailyCustomerEnabled;
         this.weekendSurchargePercent = validatePercent(weekendSurchargePercent, "weekend");
         this.lateGraceMinutes = Math.max(0, lateGraceMinutes);
         this.lateUpTo3HoursPercent = validatePercent(lateUpTo3HoursPercent, "late 3h");
@@ -59,23 +65,78 @@ public class PricingService {
             throw new IllegalArgumentException("Danh sách phòng có dữ liệu trùng lặp");
         }
 
-        List<RoomPricingQuoteResponse> rooms = new ArrayList<>();
+        List<RoomPricing> rooms = new ArrayList<>();
         for (UUID roomId : roomIds) {
             HotelClient.RoomDetails room = hotelClient.getRoom(roomId);
             if (!request.hotelId().equals(room.hotelId())) {
                 throw new IllegalArgumentException("Phòng không thuộc khách sạn đã chọn");
             }
             HotelClient.RoomTypeDetails roomType = hotelClient.getRoomType(room.roomTypeId());
+            if (!request.hotelId().equals(roomType.hotelId())) {
+                throw new IllegalArgumentException("Loại phòng không thuộc khách sạn đã chọn");
+            }
             BigDecimal baseNightlyPrice = room.customPrice() != null
                     ? room.customPrice() : roomType.basePrice();
-            RoomPricing calculated = calculateRoomPricing(
+            RoomPricing calculated = calculateCustomerRoomPricing(
                     room.id(), room.roomTypeId(), room.roomNumber(), roomType.name(),
-                    baseNightlyPrice, request.checkIn(), request.checkOut()
+                    baseNightlyPrice, request.hotelId(), request.checkIn(), request.checkOut()
             );
-            rooms.add(calculated.toResponse());
+            rooms.add(calculated);
         }
 
-        return aggregate(request.hotelId(), request.checkIn(), request.checkOut(), rooms);
+        return aggregate(request.hotelId(), request.checkIn(), request.checkOut(),
+                rooms.stream().map(RoomPricing::toResponse).toList(),
+                manualDailyCustomerEnabled ? fingerprint(rooms) : null);
+    }
+
+    public static String fingerprint(List<RoomPricing> rooms) {
+        StringBuilder value = new StringBuilder();
+        rooms.stream().sorted(Comparator.comparing(room -> room.roomId().toString()))
+                .forEach(room -> {
+                    value.append(room.roomId()).append(':')
+                            .append(room.totalAmount().setScale(2, RoundingMode.HALF_UP).toPlainString())
+                            .append(':');
+                    room.nights().stream().sorted(Comparator.comparing(NightlyPriceResponse::stayDate))
+                            .forEach(night -> value.append(night.stayDate()).append(':')
+                                    .append(night.pricingType()).append(':')
+                                    .append(night.finalPrice().setScale(2, RoundingMode.HALF_UP).toPlainString())
+                                    .append(';'));
+                    value.append('|');
+                });
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(value.toString().getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("Không thể xác nhận báo giá", exception);
+        }
+    }
+
+    public boolean isManualDailyCustomerEnabled() {
+        return manualDailyCustomerEnabled;
+    }
+
+    public RoomPricing calculateCustomerRoomPricing(UUID roomId, UUID roomTypeId, String roomNumber,
+            String roomTypeName, BigDecimal baseNightlyPrice, UUID hotelId,
+            LocalDate checkIn, LocalDate checkOut) {
+        if (!manualDailyCustomerEnabled) {
+            return calculateRoomPricing(roomId, roomTypeId, roomNumber, roomTypeName,
+                    baseNightlyPrice, checkIn, checkOut);
+        }
+        validateRange(checkIn, checkOut);
+        Map<LocalDate, BigDecimal> manualPrices = new HashMap<>();
+        for (var price : hotelClient.getCustomerDailyPrices(hotelId, roomTypeId, checkIn, checkOut)) {
+            if (price.stayDate() == null || price.nightlyPrice() == null
+                    || price.stayDate().isBefore(checkIn) || !price.stayDate().isBefore(checkOut)
+                    || price.nightlyPrice().signum() <= 0
+                    || price.nightlyPrice().scale() > 2
+                    || price.nightlyPrice().precision() - price.nightlyPrice().scale() > 10
+                    || manualPrices.putIfAbsent(price.stayDate(), price.nightlyPrice()) != null) {
+                throw new IllegalStateException("Dữ liệu giá theo ngày không hợp lệ");
+            }
+        }
+        return calculateRoomPricing(roomId, roomTypeId, roomNumber, roomTypeName,
+                baseNightlyPrice, checkIn, checkOut, manualPrices);
     }
 
     @Transactional(readOnly = true)
@@ -88,6 +149,13 @@ public class PricingService {
             LocalDate checkIn,
             LocalDate checkOut
     ) {
+        return calculateRoomPricing(roomId, roomTypeId, roomNumber, roomTypeName,
+                baseNightlyPrice, checkIn, checkOut, Map.of());
+    }
+
+    private RoomPricing calculateRoomPricing(UUID roomId, UUID roomTypeId, String roomNumber,
+            String roomTypeName, BigDecimal baseNightlyPrice, LocalDate checkIn,
+            LocalDate checkOut, Map<LocalDate, BigDecimal> manualPrices) {
         validateRange(checkIn, checkOut);
         BigDecimal normalizedBase = money(baseNightlyPrice);
         Map<LocalDate, SpecialPricingDate> specialDates = new HashMap<>();
@@ -102,6 +170,15 @@ public class PricingService {
         BigDecimal total = BigDecimal.ZERO;
 
         for (LocalDate date = checkIn; date.isBefore(checkOut); date = date.plusDays(1)) {
+            BigDecimal manualPrice = manualPrices.get(date);
+            if (manualPrice != null) {
+                BigDecimal nightly = money(manualPrice);
+                baseAmount = baseAmount.add(nightly);
+                total = total.add(nightly);
+                nights.add(new NightlyPriceResponse(date, nightly, "MANUAL_DAILY",
+                        "Giá theo ngày", money(BigDecimal.ZERO), money(BigDecimal.ZERO), nightly));
+                continue;
+            }
             SpecialPricingDate special = specialDates.get(date);
             String type = "WEEKDAY";
             String label = "Giá ngày thường";
@@ -239,7 +316,8 @@ public class PricingService {
             UUID hotelId,
             LocalDate checkIn,
             LocalDate checkOut,
-            List<RoomPricingQuoteResponse> rooms
+            List<RoomPricingQuoteResponse> rooms,
+            String pricingFingerprint
     ) {
         BigDecimal base = rooms.stream().map(RoomPricingQuoteResponse::baseAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -252,7 +330,8 @@ public class PricingService {
         return new PricingQuoteResponse(
                 hotelId, checkIn, checkOut,
                 java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut),
-                money(base), money(weekend), money(special), money(total), List.copyOf(rooms)
+                money(base), money(weekend), money(special), money(total), List.copyOf(rooms),
+                pricingFingerprint
         );
     }
 
