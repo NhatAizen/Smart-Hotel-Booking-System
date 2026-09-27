@@ -2,7 +2,7 @@ name: EnziuRooms Platform CI
 
 on:
   push:
-    branches: [main, develop, feat/manual-daily-pricing, feat/hotel-wallet-foundation]
+    branches: [main, develop, ui/enziu-home-creative-rebuild, feat/manual-daily-pricing, feat/hotel-wallet-foundation]
   pull_request:
     branches: [main, develop]
 
@@ -174,7 +174,7 @@ jobs:
 
   hotel-daily-pricing-postgres-upgrade:
     name: Hotel daily pricing upgrade on PostgreSQL 16
-    if: github.ref == 'refs/heads/feat/manual-daily-pricing'
+    if: github.ref == 'refs/heads/feat/manual-daily-pricing' || github.ref == 'refs/heads/ui/enziu-home-creative-rebuild'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -211,7 +211,7 @@ jobs:
 
   payment-v12-postgres-upgrade:
     name: Payment V12 upgrade on PostgreSQL 16
-    if: github.ref == 'refs/heads/feat/hotel-wallet-foundation'
+    if: github.ref == 'refs/heads/feat/hotel-wallet-foundation' || github.ref == 'refs/heads/ui/enziu-home-creative-rebuild'
     runs-on: ubuntu-latest
     services:
       postgres:
