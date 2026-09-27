@@ -105,6 +105,27 @@ export async function deactivateRoomType(roomTypeId) {
   await apiClient.delete(`/room-types/${roomTypeId}`);
 }
 
+/* Daily prices are stored for management and preview only. */
+export async function getDailyPriceRules(hotelId) {
+  return data(await apiClient.get(`/hotels/${hotelId}/daily-price-rules`));
+}
+
+export async function previewDailyPriceRule(hotelId, payload, params = {}) {
+  return data(await apiClient.post(`/hotels/${hotelId}/daily-price-rules/preview`, payload, { params }));
+}
+
+export async function createDailyPriceRule(hotelId, payload) {
+  return data(await apiClient.post(`/hotels/${hotelId}/daily-price-rules`, payload));
+}
+
+export async function updateDailyPriceRule(hotelId, ruleId, payload) {
+  return data(await apiClient.put(`/hotels/${hotelId}/daily-price-rules/${ruleId}`, payload));
+}
+
+export async function deleteDailyPriceRule(hotelId, ruleId) {
+  await apiClient.delete(`/hotels/${hotelId}/daily-price-rules/${ruleId}`);
+}
+
 /* =========================================================
    ROOM TYPE IMAGES
 ========================================================= */

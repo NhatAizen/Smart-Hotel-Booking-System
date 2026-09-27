@@ -37,6 +37,31 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     );
 
     List<Booking> findAllByHotelIdOrderByCreatedAtDesc(UUID hotelId);
+
+    @Query("""
+            SELECT b
+            FROM Booking b
+            WHERE b.hotelId = :hotelId
+              AND b.status NOT IN (
+                    com.smarthotel.booking.booking.entity.BookingStatus.CANCELLED,
+                    com.smarthotel.booking.booking.entity.BookingStatus.NO_SHOW
+              )
+              AND (
+                    b.status <> com.smarthotel.booking.booking.entity.BookingStatus.PENDING_PAYMENT
+                    OR b.paymentExpiresAt IS NULL
+                    OR b.paymentExpiresAt > :now
+              )
+              AND b.checkIn < :rangeEndExclusive
+              AND b.checkOut > :rangeStart
+            ORDER BY b.roomId, b.checkIn, b.createdAt
+            """)
+    List<Booking> findCalendarBookings(
+            @Param("hotelId") UUID hotelId,
+            @Param("rangeStart") LocalDate rangeStart,
+            @Param("rangeEndExclusive") LocalDate rangeEndExclusive,
+            @Param("now") Instant now
+    );
+
     @Query(value = """
             SELECT COUNT(DISTINCT COALESCE(booking_group_id, id))
             FROM bookings

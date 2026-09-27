@@ -1,0 +1,33 @@
+.daily-pricing { max-width: 1200px; margin: 0 auto; padding: 24px 16px 60px; color: #213042; }
+.daily-pricing__header h1 { margin: 4px 0 8px; font-size: clamp(1.8rem, 3vw, 2.5rem); }
+.daily-pricing__header p { margin: 0 0 22px; }
+.daily-pricing__eyebrow { color: #136d72; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.daily-pricing__notice, .daily-pricing__error, .daily-pricing__success, .daily-pricing__warning { padding: 14px 16px; border-radius: 12px; margin: 12px 0; }
+.daily-pricing__notice { background: #e8f4f2; border: 1px solid #9ccac3; }
+.daily-pricing__error { background: #fff0ef; border: 1px solid #e9a5a0; color: #9a2922; }
+.daily-pricing__success { background: #eaf7ed; border: 1px solid #a6d8b1; }
+.daily-pricing__warning { background: #fff5dd; border: 1px solid #edcb75; }
+.daily-pricing__warning ul { margin-bottom: 0; }
+.daily-pricing__hotel { display: block; max-width: 420px; margin: 22px 0; font-weight: 700; }
+.daily-pricing__grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.daily-pricing__panel { min-width: 0; padding: 22px; border: 1px solid #dbe4e9; border-radius: 16px; background: white; box-shadow: 0 6px 22px #1d36400c; }
+.daily-pricing__panel h2 { margin: 0 0 12px; font-size: 1.35rem; }
+.daily-pricing__form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.daily-pricing__form label:first-child, .daily-pricing__form .daily-pricing__actions { grid-column: 1 / -1; }
+.daily-pricing__form label { display: flex; flex-direction: column; gap: 7px; font-weight: 650; }
+.daily-pricing select, .daily-pricing input { width: 100%; min-width: 0; box-sizing: border-box; padding: 10px 12px; border: 1px solid #abbcc7; border-radius: 8px; background: white; color: inherit; }
+.daily-pricing__actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 12px; }
+.daily-pricing button { padding: 9px 15px; border: 1px solid #126e73; border-radius: 8px; background: #126e73; color: white; font-weight: 700; cursor: pointer; }
+.daily-pricing button.secondary { background: white; color: #126e73; }
+.daily-pricing button.danger { background: white; border-color: #aa312c; color: #aa312c; }
+.daily-pricing button:disabled { cursor: not-allowed; opacity: .55; }
+.daily-pricing__preview { border-top: 1px solid #dbe4e9; margin-top: 22px; padding-top: 18px; }
+.daily-pricing__nights { max-height: 350px; overflow: auto; border: 1px solid #e2e8ec; border-radius: 8px; margin: 14px 0; }
+.daily-pricing__night { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 9px 12px; border-bottom: 1px solid #e2e8ec; }
+.daily-pricing__night:last-child { border-bottom: 0; }
+.daily-pricing__night small { width: 100%; color: #9a2922; }
+.daily-pricing__listhead { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+.daily-pricing__rules { list-style: none; padding: 0; margin: 0; }
+.daily-pricing__rules li { display: flex; flex-direction: column; gap: 6px; padding: 15px 0; border-top: 1px solid #e2e8ec; }
+@media (max-width: 840px) { .daily-pricing__grid { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .daily-pricing__form { grid-template-columns: 1fr; } .daily-pricing__panel { padding: 16px; } }
