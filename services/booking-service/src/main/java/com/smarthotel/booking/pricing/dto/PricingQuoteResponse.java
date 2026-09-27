@@ -1,5 +1,6 @@
 package com.smarthotel.booking.pricing.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -14,5 +15,6 @@ public record PricingQuoteResponse(
         BigDecimal weekendSurchargeAmount,
         BigDecimal specialDateSurchargeAmount,
         BigDecimal totalAmount,
-        List<RoomPricingQuoteResponse> rooms
+        List<RoomPricingQuoteResponse> rooms,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String pricingFingerprint
 ) {}

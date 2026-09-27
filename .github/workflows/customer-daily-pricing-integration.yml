@@ -1,0 +1,206 @@
+name: Customer daily pricing integration
+
+on:
+  push:
+    branches: [integration/calendar-daily-pricing]
+    paths:
+      - .github/workflows/customer-daily-pricing-integration.yml
+      - .github/tests/calendar_daily_pricing_http_e2e.py
+      - frontend/**
+      - services/booking-service/**
+      - services/hotel-service/**
+  pull_request:
+    branches: [feat/manual-daily-pricing]
+    paths:
+      - .github/workflows/customer-daily-pricing-integration.yml
+      - .github/tests/calendar_daily_pricing_http_e2e.py
+      - frontend/**
+      - services/booking-service/**
+      - services/hotel-service/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-navigation:
+    name: Calendar and daily pricing navigation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  booking-postgres-redis:
+    name: Calendar, quote and booking on isolated PostgreSQL and Redis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: booking_daily_ci
+          POSTGRES_USER: ci_daily
+          POSTGRES_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_daily -d booking_daily_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI_DAILY_PRICING_INTEGRATION: "true"
+      DB_URL: jdbc:postgresql://localhost:5432/booking_daily_ci
+      DB_USERNAME: ci_daily
+      DB_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      REDIS_HOST: localhost
+      REDIS_PORT: "6379"
+      HOTEL_SERVICE_URL: http://localhost:1
+      IDENTITY_SERVICE_URL: http://localhost:1
+      PAYMENT_SERVICE_URL: http://localhost:1
+      NOTIFICATION_SERVICE_URL: http://localhost:1
+      JPA_SHOW_SQL: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate ephemeral test-only JWT secret
+        shell: bash
+        run: echo "JWT_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: |
+            services/booking-service/pom.xml
+            services/hotel-service/pom.xml
+      - name: Create separate disposable Hotel database
+        run: >-
+          docker exec ${{ job.services.postgres.id }}
+          createdb -U ci_daily --maintenance-db=booking_daily_ci hotel_daily_ci
+      - name: Test Hotel rule bounds and immediate customer read
+        working-directory: services/hotel-service
+        env:
+          CI_DAILY_HOTEL_INTEGRATION: "true"
+          DB_URL: jdbc:postgresql://localhost:5432/hotel_daily_ci
+          NOMINATIM_ENABLED: "false"
+        run: >-
+          mvn --batch-mode --no-transfer-progress
+          -Dtest=ManualDailyPricingPostgresIntegrationTest,RoomCleaningTest
+          test
+      - name: Test Calendar, quote, booking persistence and Redis holds
+        working-directory: services/booking-service
+        run: >-
+          mvn --batch-mode --no-transfer-progress
+          -Dtest=CustomerDailyPricingPostgresRedisIntegrationTest,CustomerDailyPricingDisabledPostgresRedisIntegrationTest,AvailabilityCalendarServiceTest,RoomHoldCalendarTest
+          test
+      - name: Publish failing test details
+        if: failure()
+        working-directory: services/booking-service
+        shell: python
+        run: |
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          failures = 0
+          for report in Path("target/surefire-reports").glob("TEST-*.xml"):
+              suite = ET.parse(report).getroot()
+              for case in suite.findall("testcase"):
+                  issue = case.find("failure")
+                  if issue is None:
+                      issue = case.find("error")
+                  if issue is None:
+                      continue
+                  failures += 1
+                  title = f"{case.get('classname', report.stem)}.{case.get('name', 'test')}"
+                  message = issue.get("message") or issue.text or "Test failed without a message"
+                  message = " ".join(message.split())[:4000]
+                  print(f"::error title={title}::{message}")
+
+          if failures == 0:
+              print("::error title=Booking integration failed::No failing Surefire test case was recorded; inspect the Maven step.")
+
+  hotel-booking-http:
+    name: Hotel and Booking services over real HTTP
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: booking_http_ci
+          POSTGRES_USER: ci_http
+          POSTGRES_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_http -d booking_http_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      BOOKING_DB_URL: jdbc:postgresql://127.0.0.1:5432/booking_http_ci
+      HOTEL_DB_URL: jdbc:postgresql://127.0.0.1:5432/hotel_http_ci
+      HOTEL_DB_NAME: hotel_http_ci
+      DB_USERNAME: ci_http
+      DB_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate ephemeral test-only JWT secret
+        shell: bash
+        run: echo "JWT_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: |
+            services/booking-service/pom.xml
+            services/hotel-service/pom.xml
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Create disposable Hotel database
+        run: >-
+          docker exec ${{ job.services.postgres.id }}
+          createdb -U ci_http --maintenance-db=booking_http_ci hotel_http_ci
+      - name: Package Hotel Service
+        working-directory: services/hotel-service
+        run: mvn --batch-mode --no-transfer-progress -DskipTests package
+      - name: Package Booking Service
+        working-directory: services/booking-service
+        run: mvn --batch-mode --no-transfer-progress -DskipTests package
+      - name: Test Hotel and Booking through real HTTP
+        env:
+          POSTGRES_CONTAINER_ID: ${{ job.services.postgres.id }}
+        run: >-
+          python .github/tests/calendar_daily_pricing_http_e2e.py
+          --hotel-jar services/hotel-service/target/hotel-service-0.0.1-SNAPSHOT.jar
+          --booking-jar services/booking-service/target/booking-service-0.0.1-SNAPSHOT.jar

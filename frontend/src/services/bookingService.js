@@ -49,6 +49,25 @@ export async function getHotelAvailability(
   return response.data;
 }
 
+export async function getHotelAvailabilityCalendar(hotelId, from, to) {
+  if (!hotelId || !from || !to) {
+    return {
+      hotelId,
+      from,
+      to,
+      rooms: [],
+      bookings: [],
+      holds: [],
+    };
+  }
+
+  const response = await apiClient.get(
+    `/hotel-admin/hotels/${hotelId}/availability-calendar`,
+    { params: { from, to } },
+  );
+  return response.data;
+}
+
 export async function createRoomHold(payload) {
   const response = await apiClient.post("/availability/holds", payload);
   return response.data;

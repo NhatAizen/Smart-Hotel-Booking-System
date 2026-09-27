@@ -75,7 +75,7 @@ spring:
         - id: booking-service
           uri: ${BOOKING_SERVICE_URL:http://localhost:8083}
           predicates:
-            - Path=/api/bookings/**,/api/customers/*/bookings,/api/availability/**,/api/pricing/**,/api/reviews/**,/api/complaints/**,/api/favorites/**,/api/membership/**,/api/promotions/**,/api/discounts/**,/api/campaigns/**,/api/platform-policies,/api/hotel-admin/promotions/**,/api/hotel-admin/reviews/**,/api/hotel-admin/complaints/**,/api/admin/promotions/**,/api/admin/campaigns/**,/api/admin/membership-tiers/**,/api/admin/reviews/**,/api/admin/complaints/**,/api/admin/platform-policies
+            - Path=/api/bookings/**,/api/customers/*/bookings,/api/availability/**,/api/pricing/**,/api/reviews/**,/api/complaints/**,/api/favorites/**,/api/membership/**,/api/promotions/**,/api/discounts/**,/api/campaigns/**,/api/platform-policies,/api/hotel-admin/promotions/**,/api/hotel-admin/reviews/**,/api/hotel-admin/complaints/**,/api/hotel-admin/hotels/*/availability-calendar,/api/admin/promotions/**,/api/admin/campaigns/**,/api/admin/membership-tiers/**,/api/admin/reviews/**,/api/admin/complaints/**,/api/admin/platform-policies
 
         - id: chat-service
           uri: ${CHAT_SERVICE_URL:http://localhost:8088}
