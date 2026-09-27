@@ -11,4 +11,5 @@ public interface WalletTransactionRepository extends JpaRepository<WalletTransac
     List<WalletTransaction> findAllByWalletIdOrderByCreatedAtDesc(UUID walletId);
     boolean existsByPaymentIdAndType(UUID paymentId, WalletTransactionType type);
     boolean existsByPaymentOrderIdAndType(UUID paymentOrderId, WalletTransactionType type);
+    List<WalletTransaction> findAllByTransferIdOrderByCreatedAtAsc(UUID transferId);
 }

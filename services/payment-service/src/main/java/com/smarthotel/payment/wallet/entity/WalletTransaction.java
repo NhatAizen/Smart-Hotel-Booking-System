@@ -22,6 +22,8 @@ public class WalletTransaction {
     private UUID paymentOrderId;
     @Column(name = "withdrawal_id")
     private UUID withdrawalId;
+    @Column(name = "transfer_id")
+    private UUID transferId;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 40)
     private WalletTransactionType type;
@@ -39,6 +41,7 @@ public class WalletTransaction {
         this.paymentId = paymentId;
         this.paymentOrderId = null;
         this.withdrawalId = withdrawalId;
+        this.transferId = null;
         this.type = type;
         this.amount = amount.setScale(0, RoundingMode.HALF_UP);
         this.description = description;
@@ -54,11 +57,32 @@ public class WalletTransaction {
         return transaction;
     }
 
+    public static WalletTransaction forHotelCustomerTransfer(
+            UUID walletId, UUID transferId, WalletTransactionType type,
+            BigDecimal amount, String description
+    ) {
+        if (transferId == null || (type != WalletTransactionType.HOTEL_TO_CUSTOMER_DEBIT
+                && type != WalletTransactionType.HOTEL_TO_CUSTOMER_CREDIT)) {
+            throw new IllegalArgumentException("Giao dịch chuyển ví không hợp lệ");
+        }
+        if (amount == null || (type == WalletTransactionType.HOTEL_TO_CUSTOMER_DEBIT
+                && amount.signum() >= 0) || (type == WalletTransactionType.HOTEL_TO_CUSTOMER_CREDIT
+                && amount.signum() <= 0)) {
+            throw new IllegalArgumentException("Dấu của số tiền chuyển ví không hợp lệ");
+        }
+        WalletTransaction transaction = new WalletTransaction(
+                walletId, null, null, type, amount, description
+        );
+        transaction.transferId = transferId;
+        return transaction;
+    }
+
     public UUID getId() { return id; }
     public UUID getWalletId() { return walletId; }
     public UUID getPaymentId() { return paymentId; }
     public UUID getPaymentOrderId() { return paymentOrderId; }
     public UUID getWithdrawalId() { return withdrawalId; }
+    public UUID getTransferId() { return transferId; }
     public WalletTransactionType getType() { return type; }
     public BigDecimal getAmount() { return amount; }
     public String getDescription() { return description; }
