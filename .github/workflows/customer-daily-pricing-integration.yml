@@ -2,7 +2,7 @@ name: Customer daily pricing integration
 
 on:
   push:
-    branches: [integration/calendar-daily-pricing]
+    branches: [integration/calendar-daily-pricing, ui/enziu-home-creative-rebuild]
     paths:
       - .github/workflows/customer-daily-pricing-integration.yml
       - .github/tests/calendar_daily_pricing_http_e2e.py

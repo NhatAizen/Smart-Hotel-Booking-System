@@ -2,7 +2,7 @@ name: Customer daily pricing browser QA
 
 on:
   push:
-    branches: [integration/calendar-daily-pricing]
+    branches: [integration/calendar-daily-pricing, ui/enziu-home-creative-rebuild]
     paths:
       - .github/workflows/customer-daily-pricing-browser-e2e.yml
       - .github/tests/customer_daily_pricing_browser_env.py
