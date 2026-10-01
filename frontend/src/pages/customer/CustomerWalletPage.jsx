@@ -1,16 +1,19 @@
 import {
   ArrowDownToLine,
   Banknote,
+  CircleDollarSign,
   History,
   LockKeyhole,
   RefreshCw,
+  ShieldCheck,
   WalletCards,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
 import {
+  ConfirmDialog,
   EmptyState,
   PageHeader,
   Pagination,
@@ -19,8 +22,8 @@ import {
 import {
   createWithdrawal,
   getMyWallet,
-  getMyWalletTransactions,
-  getMyWithdrawals,
+  getMyWalletTransactionsPage,
+  getMyWithdrawalsPage,
 } from "../../services/paymentService";
 import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 import {
@@ -31,12 +34,15 @@ import {
 import "../shared/WalletPage.css";
 import "./CustomerAccountExperience.css";
 
-const TABLE_PAGE_SIZE = 8;
+const PAGE_SIZE = 8;
+const EMPTY_PAGE = Object.freeze({ content: [], totalPages: 0, totalElements: 0 });
 
 function money(value) {
   if (value === null || value === undefined || value === "") return "—";
   const amount = Number(value);
-  return Number.isFinite(amount) ? `${Math.round(amount).toLocaleString("vi-VN", { maximumFractionDigits: 0 })} ₫` : "—";
+  return Number.isFinite(amount)
+    ? `${Math.round(amount).toLocaleString("vi-VN", { maximumFractionDigits: 0 })} ₫`
+    : "—";
 }
 
 function dateTime(value) {
@@ -47,24 +53,41 @@ function dateTime(value) {
   }).format(new Date(value));
 }
 
-function transactionTypeLabel(type) {
-  return TRANSACTION_TYPE_LABELS[normalizeEnum(type)] ?? "Chưa xác định";
+function transactionTypeLabel(type, referenceType) {
+  if (
+    normalizeEnum(type) === "CUSTOMER_REFUND_CREDIT"
+    && normalizeEnum(referenceType) === "ROOM_CHANGE"
+  ) {
+    return "Hoàn chênh lệch đổi phòng";
+  }
+  return TRANSACTION_TYPE_LABELS[normalizeEnum(type)] ?? "Giao dịch Ví Enziu";
 }
 
 function withdrawalStatusLabel(status) {
-  return STATUS_LABELS[normalizeEnum(status)] ?? "Chưa xác định";
+  return ({
+    PENDING: "Chờ System Admin duyệt",
+    APPROVED: "Đã duyệt · chờ chuyển khoản",
+    PROCESSING: "Đang xử lý thủ công",
+    PAID: "Đã xác nhận chuyển khoản",
+    REJECTED: "Đã từ chối",
+    FAILED: "Xử lý thất bại",
+    CANCELLED: "Đã hủy",
+  }[normalizeEnum(status)] ?? STATUS_LABELS[normalizeEnum(status)] ?? "Chưa xác định");
 }
 
 export default function CustomerWalletPage() {
+  const requestKeyRef = useRef("");
+  const loadRequestRef = useRef(0);
   const [wallet, setWallet] = useState(null);
-  const [transactions, setTransactions] = useState([]);
-  const [withdrawals, setWithdrawals] = useState([]);
+  const [transactionData, setTransactionData] = useState(EMPTY_PAGE);
+  const [withdrawalData, setWithdrawalData] = useState(EMPTY_PAGE);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [transactionPage, setTransactionPage] = useState(1);
   const [withdrawalPage, setWithdrawalPage] = useState(1);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [form, setForm] = useState({
     amount: "",
     bankName: "",
@@ -74,108 +97,108 @@ export default function CustomerWalletPage() {
   });
 
   const load = useCallback(async () => {
+    const requestId = loadRequestRef.current + 1;
+    loadRequestRef.current = requestId;
     setLoading(true);
     setError("");
     try {
-      const [walletData, transactionData, withdrawalData] = await Promise.all([
+      const [walletResult, transactionsResult, withdrawalsResult] = await Promise.all([
         getMyWallet(),
-        getMyWalletTransactions(),
-        getMyWithdrawals(),
+        getMyWalletTransactionsPage(transactionPage - 1, PAGE_SIZE),
+        getMyWithdrawalsPage(withdrawalPage - 1, PAGE_SIZE),
       ]);
-      setWallet(walletData);
-      setTransactions(Array.isArray(transactionData) ? transactionData : []);
-      setWithdrawals(Array.isArray(withdrawalData) ? withdrawalData : []);
+      if (loadRequestRef.current !== requestId) return false;
+      setWallet(walletResult);
+      setTransactionData(transactionsResult ?? EMPTY_PAGE);
+      setWithdrawalData(withdrawalsResult ?? EMPTY_PAGE);
+      return true;
     } catch (requestError) {
+      if (loadRequestRef.current !== requestId) return false;
       setError(requestError.response?.data?.message ?? "Không thể tải Ví Enziu.");
+      return false;
     } finally {
-      setLoading(false);
+      if (loadRequestRef.current === requestId) setLoading(false);
     }
-  }, []);
+  }, [transactionPage, withdrawalPage]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => () => { loadRequestRef.current += 1; }, []);
   useRealtimeRefresh("NOTIFICATION_CREATED", load, { debounceMs: 120 });
 
   function change(event) {
     const { name, value } = event.target;
+    requestKeyRef.current = "";
     setForm((current) => ({ ...current, [name]: value }));
   }
 
-  async function submitWithdrawal(event) {
+  function validateAndConfirm(event) {
     event.preventDefault();
     setError("");
     setMessage("");
     const amount = Number(form.amount);
-    if (!Number.isFinite(amount) || amount < 10000) {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Số tiền rút phải lớn hơn 0 ₫.");
+      return;
+    }
+    if (amount < 10000) {
       setError("Số tiền rút tối thiểu là 10.000 ₫.");
       return;
     }
     if (amount > Number(wallet?.availableBalance ?? 0)) {
-      setError("Số dư khả dụng không đủ.");
+      setError("Số dư khả dụng không đủ cho yêu cầu này.");
       return;
     }
+    setConfirmOpen(true);
+  }
 
+  async function confirmWithdrawal() {
+    const amount = Number(form.amount);
+    if (!requestKeyRef.current) requestKeyRef.current = crypto.randomUUID();
     setSubmitting(true);
+    setError("");
     try {
-      await createWithdrawal({ ...form, amount });
+      await createWithdrawal({ ...form, amount }, requestKeyRef.current);
+      requestKeyRef.current = "";
+      setConfirmOpen(false);
       setForm((current) => ({ ...current, amount: "" }));
-      setMessage("Đã gửi yêu cầu rút tiền. Bạn có thể theo dõi trạng thái tại đây.");
+      setMessage("Yêu cầu đã được ghi nhận và tiền đã được giữ an toàn. System Admin sẽ chuyển khoản thủ công sau khi duyệt.");
+      setTransactionPage(1);
+      setWithdrawalPage(1);
       await load();
     } catch (requestError) {
       setError(requestError.response?.data?.message ?? "Không thể tạo yêu cầu rút tiền.");
+      setConfirmOpen(false);
     } finally {
       setSubmitting(false);
     }
   }
 
-  const cards = [
-    ["Số dư khả dụng", wallet?.availableBalance, WalletCards],
-    ["Đang chờ rút", wallet?.lockedBalance, LockKeyhole],
-    ["Tổng đã rút", wallet?.totalWithdrawn, ArrowDownToLine],
-  ];
+  const available = Number(wallet?.availableBalance ?? 0);
+  const locked = Number(wallet?.lockedBalance ?? 0);
+  const totalCustomerFunds = available + locked;
+  const requestedAmount = Number(form.amount || 0);
+  const afterRequest = Math.max(0, available - (Number.isFinite(requestedAmount) ? requestedAmount : 0));
 
-  const transactionPages = Math.max(1, Math.ceil(transactions.length / TABLE_PAGE_SIZE));
-  const withdrawalPages = Math.max(1, Math.ceil(withdrawals.length / TABLE_PAGE_SIZE));
-  const visibleTransactions = useMemo(
-    () => transactions.slice(
-      (transactionPage - 1) * TABLE_PAGE_SIZE,
-      transactionPage * TABLE_PAGE_SIZE,
-    ),
-    [transactionPage, transactions],
-  );
-  const visibleWithdrawals = useMemo(
-    () => withdrawals.slice(
-      (withdrawalPage - 1) * TABLE_PAGE_SIZE,
-      withdrawalPage * TABLE_PAGE_SIZE,
-    ),
-    [withdrawalPage, withdrawals],
-  );
+  const cards = useMemo(() => ([
+    { label: "Số dư khả dụng", value: wallet?.availableBalance, help: "Có thể sử dụng hoặc yêu cầu rút", icon: WalletCards },
+    { label: "Đang giữ để rút", value: wallet?.lockedBalance, help: "Chờ System Admin xử lý", icon: LockKeyhole },
+    { label: "Tổng tiền trong ví", value: totalCustomerFunds, help: "Khả dụng + đang giữ để rút", icon: CircleDollarSign },
+    { label: "Tổng đã rút", value: wallet?.totalWithdrawn, help: "Các yêu cầu đã hoàn tất", icon: ArrowDownToLine },
+  ]), [totalCustomerFunds, wallet]);
 
-  useEffect(() => {
-    setTransactionPage((current) => Math.min(current, transactionPages));
-  }, [transactionPages]);
-
-  useEffect(() => {
-    setWithdrawalPage((current) => Math.min(current, withdrawalPages));
-  }, [withdrawalPages]);
-
-  if (loading && !wallet) {
-    return <Loading message="Đang tải Ví Enziu..." />;
-  }
+  if (loading && !wallet) return <Loading message="Đang tải Ví Enziu..." />;
 
   return (
     <main className="wallet-page customer-wallet-page">
       <PageHeader
         className="wallet-page-heading"
-        eyebrow="Ví khách hàng"
-        title="Ví Enziu"
-        description="Tiền hoàn được cộng vào đây. Bạn có thể dùng ví để thanh toán đơn đặt phòng hoặc yêu cầu rút về ngân hàng."
+        eyebrow="Trung tâm tài chính cá nhân"
+        title="Enziu Wallet"
+        description="Theo dõi số dư, tiền hoàn chênh lệch đổi phòng và yêu cầu rút tiền trong một nơi an toàn."
         icon={<WalletCards size={22} />}
         actions={(
           <button className="wallet-refresh-button" type="button" onClick={load} disabled={loading}>
-          <RefreshCw size={18} className={loading ? "spin" : ""} /> Làm mới
+            <RefreshCw size={18} className={loading ? "spin" : ""} /> Làm mới
           </button>
         )}
       />
@@ -184,121 +207,128 @@ export default function CustomerWalletPage() {
       {message ? <div className="wallet-message" role="status">{message}</div> : null}
 
       {!wallet ? (
-        <EmptyState
-          icon={<WalletCards size={28} />}
-          title="Ví chưa có giao dịch"
-          description="Số dư chưa thể hiển thị. Hãy thử làm mới sau ít phút."
-        />
+        <EmptyState icon={<WalletCards size={28} />} title="Chưa thể hiển thị ví" description="Hãy thử làm mới sau ít phút." />
       ) : (
         <>
+          <section className="wallet-balance-grid customer-wallet-balance-grid" aria-label="Tổng quan số dư">
+            {cards.map(({ label, value, help, icon: Icon }) => (
+              <article className="wallet-balance-card" key={label}>
+                <div className="icon"><Icon size={21} /></div>
+                <div><small>{label}</small><strong>{money(value)}</strong><span className="wallet-card-help">{help}</span></div>
+              </article>
+            ))}
+          </section>
 
-      <section className="wallet-balance-grid">
-        {cards.map(([label, value, Icon]) => (
-          <article className="wallet-balance-card" key={label}>
-            <div className="icon"><Icon size={21} /></div>
-            <div><small>{label}</small><strong>{money(value)}</strong></div>
-          </article>
-        ))}
-      </section>
+          <section className="wallet-content-grid customer-wallet-content-grid">
+            <div className="wallet-panel">
+              <div className="wallet-panel-header">
+                <h2><History size={18} /> Lịch sử giao dịch</h2>
+                <span>{Number(transactionData.totalElements ?? 0).toLocaleString("vi-VN")} giao dịch</span>
+              </div>
+              <div className="wallet-table-wrap">
+                <table className="wallet-table">
+                  <thead><tr><th>Thời gian</th><th>Loại</th><th>Tham chiếu</th><th>Số dư sau</th><th>Số tiền</th></tr></thead>
+                  <tbody>
+                    {(transactionData.content ?? []).map((item) => (
+                      <tr key={item.id}>
+                        <td data-label="Thời gian">{dateTime(item.createdAt)}</td>
+                        <td data-label="Loại"><strong>{transactionTypeLabel(item.type, item.referenceType)}</strong><small className="wallet-row-description">{item.description || "—"}</small></td>
+                        <td data-label="Tham chiếu">{item.referenceId ? <code>{item.referenceId.slice(0, 12)}…</code> : "—"}</td>
+                        <td data-label="Số dư sau">{money(item.balanceAfter)}</td>
+                        <td data-label="Số tiền" className={Number(item.amount) >= 0 ? "wallet-money-positive" : "wallet-money-negative"}>
+                          {Number(item.amount) > 0 ? "+" : ""}{money(item.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                    {!loading && (transactionData.content ?? []).length === 0 ? (
+                      <tr><td colSpan="5" className="wallet-empty">Chưa có giao dịch nào.</td></tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination currentPage={transactionPage} totalPages={Math.max(1, Number(transactionData.totalPages ?? 0))} onPageChange={setTransactionPage} ariaLabel="Phân trang lịch sử Ví Enziu" />
+            </div>
 
-      <section className="wallet-content-grid">
-        <div className="wallet-panel">
-          <div className="wallet-panel-header">
-            <h2><History size={18} /> Lịch sử Ví Enziu</h2>
-            <span>{transactions.length} giao dịch</span>
-          </div>
-          <div className="wallet-table-wrap">
-            <table className="wallet-table">
-              <thead><tr><th>Thời gian</th><th>Loại</th><th>Nội dung</th><th>Số tiền</th></tr></thead>
-              <tbody>
-                {visibleTransactions.map((item) => (
-                  <tr key={item.id}>
-                    <td data-label="Thời gian">{dateTime(item.createdAt)}</td>
-                    <td data-label="Loại"><strong>{transactionTypeLabel(item.type)}</strong></td>
-                    <td data-label="Nội dung">{item.description || "Chưa có nội dung"}</td>
-                    <td data-label="Số tiền" className={Number(item.amount) >= 0 ? "wallet-money-positive" : "wallet-money-negative"}>
-                      {Number(item.amount) > 0 ? "+" : ""}{money(item.amount)}
-                    </td>
-                  </tr>
-                ))}
-                {!loading && transactions.length === 0 ? (
-                  <tr><td colSpan="4" className="wallet-empty">Chưa có giao dịch ví.</td></tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-          <Pagination
-            currentPage={transactionPage}
-            totalPages={transactionPages}
-            onPageChange={setTransactionPage}
-            ariaLabel="Phân trang lịch sử Ví Enziu"
-          />
-        </div>
+            <aside className="wallet-side-stack">
+              <div className="wallet-panel customer-withdrawal-card">
+                <div className="wallet-panel-header"><h2><Banknote size={18} /> Yêu cầu rút tiền</h2></div>
+                <div className="wallet-manual-settlement-note">
+                  <ShieldCheck size={19} />
+                  <p><strong>System Admin xử lý thủ công</strong><span>Gửi yêu cầu chưa có nghĩa là tiền đã được chuyển. Trạng thái sẽ được cập nhật sau khi đối soát hoàn tất.</span></p>
+                </div>
+                <form className="wallet-form" onSubmit={validateAndConfirm}>
+                  <div className="wallet-available-inline"><span>Số dư có thể rút</span><strong>{money(wallet.availableBalance)}</strong></div>
+                  <label>Số tiền rút
+                    <input name="amount" type="number" min="10000" step="1000" value={form.amount} onChange={change} placeholder="1.250.000" required />
+                  </label>
+                  <label>Ngân hàng
+                    <input name="bankName" value={form.bankName} onChange={change} placeholder="Ví dụ: ACB" required />
+                  </label>
+                  <div className="wallet-form-row">
+                    <label>Mã BIN 6 số
+                      <input name="bankBin" value={form.bankBin} onChange={change} inputMode="numeric" pattern="[0-9]{6}" placeholder="970416" required />
+                    </label>
+                    <label>Số tài khoản
+                      <input name="accountNumber" value={form.accountNumber} onChange={change} inputMode="numeric" pattern="[0-9]{6,30}" required />
+                    </label>
+                  </div>
+                  <label>Tên chủ tài khoản
+                    <input name="accountName" value={form.accountName} onChange={change} autoComplete="name" required />
+                  </label>
+                  <div className="wallet-helper">Tiền được chuyển sang trạng thái đang giữ ngay khi yêu cầu được ghi nhận. Nếu bị từ chối, tiền tự động trở lại số dư khả dụng.</div>
+                  <button className="wallet-primary-button" type="submit" disabled={submitting || requestedAmount > available}>
+                    {submitting ? "Đang gửi..." : "Kiểm tra yêu cầu"}
+                  </button>
+                </form>
+              </div>
+            </aside>
+          </section>
 
-        <div className="wallet-side-stack">
-          <aside className="wallet-panel">
-            <div className="wallet-panel-header"><h2><Banknote size={18} /> Rút tiền về ngân hàng</h2></div>
-            <form className="wallet-form" onSubmit={submitWithdrawal}>
-              <label>Số tiền rút
-                <input name="amount" type="number" min="10000" step="1000" value={form.amount} onChange={change} placeholder="100000" required />
-              </label>
-              <label>Ngân hàng
-                <input name="bankName" value={form.bankName} onChange={change} placeholder="ACB" required />
-              </label>
-              <label>Mã BIN 6 số
-                <input name="bankBin" value={form.bankBin} onChange={change} pattern="[0-9]{6}" placeholder="970416" required />
-              </label>
-              <label>Số tài khoản
-                <input name="accountNumber" value={form.accountNumber} onChange={change} pattern="[0-9]{6,30}" required />
-              </label>
-              <label>Tên chủ tài khoản
-                <input name="accountName" value={form.accountName} onChange={change} required />
-              </label>
-              <div className="wallet-helper">Tiền sẽ được khóa ngay khi gửi yêu cầu. Nếu bị từ chối, số dư tự động được hoàn lại.</div>
-              <button className="wallet-primary-button" type="submit" disabled={submitting}>
-                {submitting ? "Đang gửi..." : "Gửi yêu cầu rút"}
-              </button>
-            </form>
-          </aside>
-        </div>
-      </section>
-
-      <section className="wallet-panel">
-        <div className="wallet-panel-header"><h2>Lịch sử yêu cầu rút</h2><span>{withdrawals.length} yêu cầu</span></div>
-        <div className="wallet-table-wrap">
-          <table className="wallet-table">
-            <thead><tr><th>Ngày tạo</th><th>Số tiền</th><th>Ngân hàng</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead>
-            <tbody>
-              {visibleWithdrawals.map((item) => (
-                <tr key={item.id}>
-                  <td data-label="Ngày tạo">{dateTime(item.requestedAt)}</td>
-                  <td data-label="Số tiền"><strong>{money(item.amount)}</strong></td>
-                  <td data-label="Ngân hàng">{item.bankName || "Chưa xác định"}<br /><small>{item.accountNumber || "Chưa có số tài khoản"}</small></td>
-                  <td data-label="Trạng thái">
-                    <StatusBadge
-                      status={item.status}
-                      label={withdrawalStatusLabel(item.status)}
-                      size="sm"
-                    />
-                  </td>
-                  <td data-label="Ghi chú">{item.reviewNote ?? item.failureReason ?? "—"}</td>
-                </tr>
-              ))}
-              {!loading && withdrawals.length === 0 ? (
-                <tr><td colSpan="5" className="wallet-empty">Chưa có yêu cầu rút tiền.</td></tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-        <Pagination
-          currentPage={withdrawalPage}
-          totalPages={withdrawalPages}
-          onPageChange={setWithdrawalPage}
-          ariaLabel="Phân trang yêu cầu rút tiền"
-        />
-      </section>
+          <section className="wallet-panel">
+            <div className="wallet-panel-header"><h2>Lịch sử yêu cầu rút</h2><span>{Number(withdrawalData.totalElements ?? 0).toLocaleString("vi-VN")} yêu cầu</span></div>
+            <div className="wallet-table-wrap">
+              <table className="wallet-table">
+                <thead><tr><th>Ngày tạo</th><th>Số tiền</th><th>Điểm đến</th><th>Trạng thái</th><th>Cập nhật</th></tr></thead>
+                <tbody>
+                  {(withdrawalData.content ?? []).map((item) => (
+                    <tr key={item.id}>
+                      <td data-label="Ngày tạo">{dateTime(item.requestedAt)}</td>
+                      <td data-label="Số tiền"><strong>{money(item.amount)}</strong></td>
+                      <td data-label="Điểm đến">{item.bankName || "Chưa xác định"}<br /><small>{item.accountNumber || "Chưa có số tài khoản"}</small></td>
+                      <td data-label="Trạng thái"><StatusBadge status={item.status} label={withdrawalStatusLabel(item.status)} size="sm" /></td>
+                      <td data-label="Cập nhật">{item.paidAt ? dateTime(item.paidAt) : item.reviewedAt ? dateTime(item.reviewedAt) : "—"}<small className="wallet-row-description">{item.reviewNote ?? item.failureReason ?? ""}</small></td>
+                    </tr>
+                  ))}
+                  {!loading && (withdrawalData.content ?? []).length === 0 ? (
+                    <tr><td colSpan="5" className="wallet-empty">Bạn chưa có yêu cầu rút tiền.</td></tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            <Pagination currentPage={withdrawalPage} totalPages={Math.max(1, Number(withdrawalData.totalPages ?? 0))} onPageChange={setWithdrawalPage} ariaLabel="Phân trang yêu cầu rút tiền" />
+          </section>
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Xác nhận yêu cầu rút tiền"
+        description={`Bạn đang yêu cầu rút ${money(requestedAmount)}.`}
+        confirmLabel="Gửi yêu cầu"
+        confirmTone="primary"
+        busy={submitting}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => void confirmWithdrawal()}
+      >
+        <div className="customer-withdrawal-confirm">
+          <dl>
+            <div><dt>Số dư khả dụng hiện tại</dt><dd>{money(available)}</dd></div>
+            <div><dt>Số dư sau khi gửi yêu cầu</dt><dd>{money(afterRequest)}</dd></div>
+            <div><dt>Tài khoản nhận</dt><dd>{form.bankName} · ••••{form.accountNumber.slice(-4)}</dd></div>
+          </dl>
+          <p>Yêu cầu sẽ được System Admin xử lý thủ công. Đây chưa phải xác nhận tiền đã được chuyển.</p>
+        </div>
+      </ConfirmDialog>
     </main>
   );
 }

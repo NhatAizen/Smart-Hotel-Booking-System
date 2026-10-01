@@ -77,7 +77,9 @@ public class SecurityConfig {
                                 "/api/withdrawals/*/transfer-proof")
                         .hasAnyRole("CUSTOMER", "HOTEL_ADMIN", "SYSTEM_ADMIN")
                         .requestMatchers("/api/wallets/me", "/api/wallets/me/transactions",
-                                "/api/withdrawals", "/api/withdrawals/me")
+                                "/api/wallets/me/transactions/page",
+                                "/api/withdrawals", "/api/withdrawals/me",
+                                "/api/withdrawals/me/page")
                         .hasAnyRole("CUSTOMER", "HOTEL_ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/payments/*/refund").hasRole("SYSTEM_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/payments").hasRole("SYSTEM_ADMIN")

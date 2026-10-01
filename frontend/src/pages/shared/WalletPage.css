@@ -1008,6 +1008,96 @@
 }
 /* HOTEL ADMIN - XEM CHỨNG TỪ RÚT TIỀN */
 .wallet-withdrawal-note { margin-bottom: 7px; color: #586d84; font-size: .82rem; line-height: 1.45; }
+
+.customer-wallet-balance-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.wallet-card-help,
+.wallet-row-description {
+  display: block;
+  margin-top: 5px;
+  color: #70849a;
+  font-size: .76rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.customer-wallet-content-grid {
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, .75fr);
+  align-items: start;
+}
+
+.customer-withdrawal-card {
+  position: sticky;
+  top: 18px;
+}
+
+.wallet-manual-settlement-note {
+  display: flex;
+  gap: 11px;
+  margin: 0 0 18px;
+  padding: 13px 14px;
+  border: 1px solid #bcddec;
+  border-radius: 13px;
+  background: #f1f9fd;
+  color: #176489;
+}
+
+.wallet-manual-settlement-note > svg { flex: 0 0 auto; margin-top: 2px; }
+.wallet-manual-settlement-note p { margin: 0; }
+.wallet-manual-settlement-note strong,
+.wallet-manual-settlement-note span { display: block; }
+.wallet-manual-settlement-note span { margin-top: 4px; color: #50768b; font-size: .8rem; line-height: 1.45; }
+
+.wallet-available-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 13px;
+  border: 1px solid #d8e5ee;
+  border-radius: 12px;
+  background: #f8fbfd;
+}
+
+.wallet-available-inline span { color: #60788e; font-size: .82rem; }
+.wallet-available-inline strong { color: #08734c; font-size: 1rem; }
+
+.customer-withdrawal-confirm dl {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+}
+
+.customer-withdrawal-confirm dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e7edf3;
+}
+
+.customer-withdrawal-confirm dt { color: #667b90; }
+.customer-withdrawal-confirm dd { margin: 0; color: #173957; font-weight: 750; text-align: right; }
+.customer-withdrawal-confirm p { margin: 16px 0 0; color: #6c552e; line-height: 1.55; }
+
+.customer-wallet-page code {
+  color: #46647d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .75rem;
+}
+
+@media (max-width: 1100px) {
+  .customer-wallet-balance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .customer-wallet-content-grid { grid-template-columns: 1fr; }
+  .customer-withdrawal-card { position: static; }
+}
+
+@media (max-width: 620px) {
+  .customer-wallet-balance-grid { grid-template-columns: 1fr; }
+  .customer-withdrawal-confirm dl > div { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .customer-withdrawal-confirm dd { text-align: left; }
+}
 .wallet-withdrawal-failure { margin-bottom: 7px; color: #b32e2e; font-size: .82rem; line-height: 1.45; }
 
 .wallet-payout-reference {

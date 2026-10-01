@@ -15,6 +15,8 @@ public record RoomChangeQuoteResponse(
         BigDecimal priceDifference,
         BigDecimal additionalPaymentDue,
         String paymentOption,
-        Integer depositPercent
+        Integer depositPercent,
+        boolean roomChangeWalletCreditEnabled,
+        boolean walletCreditMayApply
 ) {
 }

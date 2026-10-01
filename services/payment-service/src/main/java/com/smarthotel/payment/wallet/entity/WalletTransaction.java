@@ -33,6 +33,20 @@ public class WalletTransaction {
     private String description;
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+    @Column(name = "balance_before", precision = 16, scale = 2)
+    private BigDecimal balanceBefore;
+    @Column(name = "balance_after", precision = 16, scale = 2)
+    private BigDecimal balanceAfter;
+    @Column(name = "reference_type", length = 60)
+    private String referenceType;
+    @Column(name = "reference_id", length = 160)
+    private String referenceId;
+    @Column(name = "idempotency_key", length = 200)
+    private String idempotencyKey;
+    @Column(name = "actor_type", length = 40)
+    private String actorType;
+    @Column(name = "actor_id")
+    private UUID actorId;
 
     public WalletTransaction(UUID walletId, UUID paymentId, UUID withdrawalId,
                              WalletTransactionType type, BigDecimal amount, String description) {
@@ -77,6 +91,43 @@ public class WalletTransaction {
         return transaction;
     }
 
+    public static WalletTransaction audited(
+            UUID walletId,
+            UUID withdrawalId,
+            WalletTransactionType type,
+            BigDecimal amount,
+            String description,
+            BigDecimal balanceBefore,
+            BigDecimal balanceAfter,
+            String referenceType,
+            String referenceId,
+            String idempotencyKey,
+            String actorType,
+            UUID actorId
+    ) {
+        WalletTransaction transaction = new WalletTransaction(
+                walletId, null, withdrawalId, type, amount, description
+        );
+        transaction.balanceBefore = money(balanceBefore);
+        transaction.balanceAfter = money(balanceAfter);
+        transaction.referenceType = clean(referenceType);
+        transaction.referenceId = clean(referenceId);
+        transaction.idempotencyKey = clean(idempotencyKey);
+        transaction.actorType = clean(actorType);
+        transaction.actorId = actorId;
+        return transaction;
+    }
+
+    private static BigDecimal money(BigDecimal value) {
+        return value == null ? null : value.setScale(0, RoundingMode.HALF_UP);
+    }
+
+    private static String clean(String value) {
+        if (value == null) return null;
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
     public UUID getId() { return id; }
     public UUID getWalletId() { return walletId; }
     public UUID getPaymentId() { return paymentId; }
@@ -87,4 +138,11 @@ public class WalletTransaction {
     public BigDecimal getAmount() { return amount; }
     public String getDescription() { return description; }
     public Instant getCreatedAt() { return createdAt; }
+    public BigDecimal getBalanceBefore() { return balanceBefore; }
+    public BigDecimal getBalanceAfter() { return balanceAfter; }
+    public String getReferenceType() { return referenceType; }
+    public String getReferenceId() { return referenceId; }
+    public String getIdempotencyKey() { return idempotencyKey; }
+    public String getActorType() { return actorType; }
+    public UUID getActorId() { return actorId; }
 }

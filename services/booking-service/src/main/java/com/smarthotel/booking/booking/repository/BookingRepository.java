@@ -3,6 +3,7 @@ package com.smarthotel.booking.booking.repository;
 import com.smarthotel.booking.booking.entity.Booking;
 import com.smarthotel.booking.booking.entity.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.jpa.repository.Query;
@@ -14,8 +15,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import jakarta.persistence.LockModeType;
 
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from Booking b where b.id = :id")
+    Optional<Booking> findForRoomChangeUpdate(@Param("id") UUID id);
 
     @Query(value = """
             SELECT * FROM bookings

@@ -109,6 +109,9 @@ public class Booking {
     @Column(name = "remaining_amount", nullable = false, precision = 14, scale = 2)
     private BigDecimal remainingAmount;
 
+    @Column(name = "room_change_financial_version", nullable = false)
+    private long roomChangeFinancialVersion;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_option", nullable = false, length = 30)
     private PaymentOption paymentOption;
@@ -423,6 +426,24 @@ public class Booking {
             BigDecimal newWeekendSurchargeAmount,
             BigDecimal newSpecialDateSurchargeAmount
     ) {
+        applyRoomChange(
+                newRoomTypeId,
+                newRoomId,
+                newBaseAccommodationAmount,
+                newWeekendSurchargeAmount,
+                newSpecialDateSurchargeAmount,
+                false
+        );
+    }
+
+    public void applyRoomChange(
+            UUID newRoomTypeId,
+            UUID newRoomId,
+            BigDecimal newBaseAccommodationAmount,
+            BigDecimal newWeekendSurchargeAmount,
+            BigDecimal newSpecialDateSurchargeAmount,
+            boolean allowWalletCreditReconciliation
+    ) {
         ensureStatus(BookingStatus.CONFIRMED);
 
         if (newRoomId == null || newRoomTypeId == null) {
@@ -452,9 +473,11 @@ public class Booking {
                         .add(money(this.lateCheckoutFee))
         );
 
-        BigDecimal alreadyPaid = money(this.paidAmount);
+        BigDecimal alreadyPaid = allowWalletCreditReconciliation
+                ? effectivePaidAfterWalletReconciliation()
+                : money(this.paidAmount);
 
-        if (alreadyPaid.compareTo(newTotal) > 0) {
+        if (!allowWalletCreditReconciliation && alreadyPaid.compareTo(newTotal) > 0) {
             throw new IllegalStateException(
                     "Phòng thay thế rẻ hơn số tiền khách đã thanh toán; cần xử lý hoàn tiền riêng"
             );
@@ -469,6 +492,15 @@ public class Booking {
         this.grossAmount = newGross;
 
         this.totalPrice = newTotal;
+        if (allowWalletCreditReconciliation) {
+            // paidAmount is Booking's net retained amount after a wallet-credit
+            // reconciliation request. Payment Service still independently derives
+            // the authoritative settled amount and actual credit from its ledger.
+            this.paidAmount = money(alreadyPaid.min(newTotal));
+            this.roomChangeFinancialVersion = Math.addExact(
+                    this.roomChangeFinancialVersion, 1L
+            );
+        }
         this.remainingAmount = money(
                 newTotal.subtract(alreadyPaid).max(BigDecimal.ZERO)
         );
@@ -482,6 +514,27 @@ public class Booking {
         }
 
         this.updatedAt = Instant.now();
+    }
+
+    /**
+     * The current total minus the current remaining amount is the net amount still
+     * attached to this booking. Before the first wallet reconciliation this equals
+     * the ordinary paid amount; after reconciliation {@code paidAmount} is also
+     * normalized to this net value so Booking responses remain internally coherent.
+     *
+     * Keeping this value in the existing total/remaining invariant also makes a
+     * later upgrade charge the previously credited difference instead of letting
+     * the customer retain a wallet credit while treating the gross payment as if
+     * it still covered the booking.
+     */
+    public BigDecimal getEffectivePaidAfterWalletReconciliation() {
+        return effectivePaidAfterWalletReconciliation();
+    }
+
+    private BigDecimal effectivePaidAfterWalletReconciliation() {
+        BigDecimal currentTotal = money(this.totalPrice);
+        BigDecimal currentRemaining = money(this.remainingAmount).max(BigDecimal.ZERO);
+        return money(currentTotal.subtract(currentRemaining).max(BigDecimal.ZERO));
     }
 
     public void applyTermsSnapshot(
@@ -862,6 +915,7 @@ public class Booking {
     public Instant getLateFeeAssessedAt() { return lateFeeAssessedAt; }
     public BigDecimal getPaidAmount() { return paidAmount; }
     public BigDecimal getRemainingAmount() { return remainingAmount; }
+    public long getRoomChangeFinancialVersion() { return roomChangeFinancialVersion; }
     public PaymentOption getPaymentOption() { return paymentOption; }
     public BookingPaymentStatus getPaymentStatus() { return paymentStatus; }
     public Integer getDepositPercent() { return depositPercent; }

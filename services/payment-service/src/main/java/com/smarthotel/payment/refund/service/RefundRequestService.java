@@ -65,6 +65,7 @@ public class RefundRequestService {
         if ("REFUNDED".equalsIgnoreCase(booking.paymentStatus())) {
             throw new IllegalStateException("Booking này đã được hoàn tiền");
         }
+        paymentService.ensureRoomChangeRefundCompatibility(booking.id());
 
         refundRequestRepository.findFirstByBookingIdAndStatusInOrderByRequestedAtDesc(
                 booking.id(), ACTIVE_STATUSES
@@ -166,7 +167,7 @@ public class RefundRequestService {
 
     @Transactional
     public RefundRequestResponse approve(UUID hotelAdminId, UUID requestId, String note) {
-        RefundRequest item = find(requestId);
+        RefundRequest item = findForMutation(requestId);
         ensureHotelOwner(item, hotelAdminId);
         item.approve(hotelAdminId, note);
         refundRequestRepository.save(item);
@@ -191,7 +192,7 @@ public class RefundRequestService {
 
     @Transactional
     public RefundRequestResponse reject(UUID hotelAdminId, UUID requestId, String note) {
-        RefundRequest item = find(requestId);
+        RefundRequest item = findForMutation(requestId);
         ensureHotelOwner(item, hotelAdminId);
         item.reject(hotelAdminId, note);
         refundRequestRepository.save(item);
@@ -211,7 +212,7 @@ public class RefundRequestService {
             String reference,
             MultipartFile proof
     ) {
-        RefundRequest item = find(requestId);
+        RefundRequest item = findForMutation(requestId);
         ensureHotelOwner(item, hotelAdminId);
         StoredImage image = readImage(proof, "chứng từ hoàn tiền");
         item.attachHotelRefundProof(image.data(), image.contentType(), image.fileName(), reference);
@@ -229,7 +230,7 @@ public class RefundRequestService {
 
     @Transactional
     public RefundRequestResponse executePlatformRefund(UUID requestId) {
-        RefundRequest item = find(requestId);
+        RefundRequest item = findForMutation(requestId);
         ensureApproved(item);
         if (item.getPlatformHeldAmount().signum() <= 0) {
             throw new IllegalStateException("Yêu cầu này không có khoản EnziuRooms đang giữ để hoàn tự động");
@@ -270,7 +271,7 @@ public class RefundRequestService {
 
     @Transactional
     public RefundRequestResponse markManualResolved(UUID adminId, UUID requestId, String note) {
-        RefundRequest item = find(requestId);
+        RefundRequest item = findForMutation(requestId);
         ensureApproved(item);
         item.markManualResolved(adminId, note);
         refundRequestRepository.save(item);
@@ -338,6 +339,14 @@ public class RefundRequestService {
 
     private RefundRequest find(UUID id) {
         return refundRequestRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu hoàn tiền"));
+    }
+
+    private RefundRequest findForMutation(UUID id) {
+        UUID bookingId = refundRequestRepository.findBookingIdById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu hoàn tiền"));
+        paymentService.ensureRoomChangeRefundCompatibility(bookingId);
+        return refundRequestRepository.findForUpdateById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu hoàn tiền"));
     }
 

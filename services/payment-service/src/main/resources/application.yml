@@ -44,6 +44,11 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+  health:
+    # With the V13 feature disabled (the safe default), merely having the AMQP
+    # client on the classpath must not make Payment health depend on RabbitMQ.
+    rabbit:
+      enabled: ${ROOM_CHANGE_CUSTOMER_WALLET_CREDIT_ENABLED:false}
 
 clients:
   identity:
@@ -80,3 +85,7 @@ wallet:
   settlement:
     initial-delay-ms: ${WALLET_SETTLEMENT_INITIAL_DELAY_MS:10000}
     scan-delay-ms: ${WALLET_SETTLEMENT_SCAN_DELAY_MS:15000}
+
+features:
+  room-change-customer-wallet-credit-enabled: ${ROOM_CHANGE_CUSTOMER_WALLET_CREDIT_ENABLED:false}
+  room-change-financial-hmac-secret: ${ROOM_CHANGE_FINANCIAL_HMAC_SECRET:}

@@ -9,6 +9,7 @@ import com.smarthotel.payment.wallet.entity.WalletTransactionType;
 import com.smarthotel.payment.wallet.repository.HotelCustomerTransferRepository;
 import com.smarthotel.payment.wallet.repository.WalletRepository;
 import com.smarthotel.payment.wallet.repository.WalletTransactionRepository;
+import com.smarthotel.payment.wallet.roomchange.BookingFinancialLockService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.stereotype.Service;
@@ -29,17 +30,20 @@ public class HotelCustomerWalletTransferService {
     private final WalletRepository wallets;
     private final WalletTransactionRepository transactions;
     private final HotelCustomerTransferRepository transfers;
+    private final BookingFinancialLockService bookingFinancialLockService;
 
     public HotelCustomerWalletTransferService(
             JdbcTemplate jdbc,
             WalletRepository wallets,
             WalletTransactionRepository transactions,
-            HotelCustomerTransferRepository transfers
+            HotelCustomerTransferRepository transfers,
+            BookingFinancialLockService bookingFinancialLockService
     ) {
         this.jdbc = jdbc;
         this.wallets = wallets;
         this.transactions = transactions;
         this.transfers = transfers;
+        this.bookingFinancialLockService = bookingFinancialLockService;
     }
 
     @Transactional
@@ -58,6 +62,9 @@ public class HotelCustomerWalletTransferService {
         } catch (ArithmeticException exception) {
             throw new IllegalArgumentException("Số tiền chuyển ví phải là số đồng nguyên", exception);
         }
+
+        bookingFinancialLockService.lock(bookingId);
+        assertNoRoomChangeCreditWhileLocked(bookingId);
 
         // PostgreSQL ON CONFLICT waits for a concurrent insert with the same ID.
         // MERGE can instead throw a uniqueness error, so it is only used by H2 tests.
@@ -95,6 +102,22 @@ public class HotelCustomerWalletTransferService {
                 wholeDong, "Nhận tiền đổi phòng booking " + bookingId));
         transfer.complete();
         return transfer;
+    }
+
+    private void assertNoRoomChangeCreditWhileLocked(UUID bookingId) {
+        BigDecimal credited = jdbc.queryForObject("""
+                SELECT COALESCE(SUM(credited_amount), 0)
+                FROM financial_event_inbox
+                WHERE operation_type = 'ROOM_CHANGE_CREDIT'
+                  AND booking_id = ?
+                  AND credited_amount > 0
+                """, BigDecimal.class, bookingId);
+        if (credited != null && credited.signum() > 0) {
+            throw new IllegalStateException(
+                    "ROOM_CHANGE_RECONCILIATION_REQUIRED: booking đã được cộng chênh lệch "
+                            + "bằng Customer Wallet credit"
+            );
+        }
     }
 
     private void insertTransferIfAbsent(
