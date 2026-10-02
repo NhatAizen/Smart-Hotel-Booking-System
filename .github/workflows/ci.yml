@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, develop, ui/enziu-home-creative-rebuild, feat/manual-daily-pricing, feat/hotel-wallet-foundation]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, ui/enziu-home-creative-rebuild]
 
 permissions:
   contents: read
