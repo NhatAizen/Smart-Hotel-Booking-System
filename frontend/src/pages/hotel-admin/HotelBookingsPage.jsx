@@ -186,7 +186,9 @@ function customerName(booking) {
   return value || booking?.bookerEmail || "Khách hàng";
 }
 
-function paymentLabel(value) {
+function paymentLabel(value, booking = null) {
+  if (booking?.roomChangeReconciliationState === "PENDING") return "Đang đối soát thanh toán";
+  if (booking?.roomChangeReconciliationState === "RECONCILIATION_REQUIRED") return "Cần đối soát thủ công";
   return {
     UNPAID: "Chưa thanh toán",
     PARTIALLY_PAID: "Đã thanh toán một phần",
@@ -408,8 +410,10 @@ export default function HotelBookingsPage() {
     setReviewError("");
     setMessage("");
     try {
-      await approveRoomChangeRequest(reviewRequest.id, reviewNote);
-      setMessage("Đã duyệt phòng khách yêu cầu. Đơn đặt phòng và số tiền cần thanh toán đã được cập nhật.");
+      const approved = await approveRoomChangeRequest(reviewRequest.id, reviewNote);
+      setMessage(approved.financialReconciliationStatus === "PENDING"
+        ? "Đã duyệt phòng khách yêu cầu. Phần thanh toán và số tiền chênh lệch đang được đối soát."
+        : "Đã duyệt phòng khách yêu cầu. Đơn đặt phòng và số tiền cần thanh toán đã được cập nhật.");
       setReviewRequest(null);
       await loadHotelData();
     } catch (requestError) {
@@ -608,14 +612,14 @@ export default function HotelBookingsPage() {
                     <div className="hotel-booking-payment-tile">
                       <div className="hotel-booking-payment-top">
                         <div><small>Tổng tiền</small><strong>{money(booking.totalPrice)}</strong></div>
-                        <span>{paymentLabel(booking.paymentStatus)}</span>
+                        <span>{paymentLabel(booking.paymentStatus, booking)}</span>
                       </div>
                       <div className="hotel-booking-payment-bar" aria-label={`Đã thanh toán ${progress}%`}>
                         <i style={{ width: `${progress}%` }} />
                       </div>
                       <div className="hotel-booking-payment-bottom">
                         <small>Đã trả <b>{money(booking.paidAmount)}</b></small>
-                        <small>Còn lại <b>{money(booking.remainingAmount)}</b></small>
+                        <small>Còn lại <b>{["PENDING", "RECONCILIATION_REQUIRED"].includes(booking.roomChangeReconciliationState) ? "Chưa xác định" : money(booking.remainingAmount)}</b></small>
                       </div>
                     </div>
                   </div>
@@ -657,7 +661,7 @@ export default function HotelBookingsPage() {
                 <span>Phòng {roomMap[String(selectedBooking.roomId)]?.roomNumber ?? "—"}</span>
               </div>
               <div><CalendarDays size={18} /><small>Lưu trú</small><strong>{date(selectedBooking.checkIn)} → {date(selectedBooking.checkOut)}</strong></div>
-              <div><CreditCard size={18} /><small>Thanh toán</small><strong>{paymentLabel(selectedBooking.paymentStatus)}</strong><span>Còn {money(selectedBooking.remainingAmount)}</span>
+              <div><CreditCard size={18} /><small>Thanh toán</small><strong>{paymentLabel(selectedBooking.paymentStatus, selectedBooking)}</strong><span>Còn {["PENDING", "RECONCILIATION_REQUIRED"].includes(selectedBooking.roomChangeReconciliationState) ? "Chưa xác định" : money(selectedBooking.remainingAmount)}</span>
                 {["PENDING", "RECONCILIATION_REQUIRED"].includes(selectedBooking.roomChangeReconciliationState) ? (
                   <span role="status">{selectedBooking.roomChangeReconciliationState === "PENDING"
                     ? "Đổi phòng đang chờ Payment xác nhận đối soát; chưa xác nhận cộng Ví."
@@ -721,7 +725,7 @@ export default function HotelBookingsPage() {
                 <div><small>Tổng cũ</small><strong>{money(quote.oldTotalPrice)}</strong></div>
                 <div><small>Tổng mới</small><strong>{money(quote.newTotalPrice)}</strong></div>
                 <div><small>Chênh lệch</small><strong className={Number(quote.priceDifference) > 0 ? "danger" : "success"}>{money(quote.priceDifference)}</strong></div>
-                <div className="room-change-payment-due"><small>Khách cần thanh toán bổ sung ngay</small><strong>{money(quote.additionalPaymentDue)}</strong><span>{quote.paymentOption === "DEPOSIT" ? `Bù đến mức cọc ${quote.depositPercent ?? 0}% của phòng mới` : quote.paymentOption === "FULL_PAYMENT" ? "Thanh toán phần chênh lệch còn thiếu" : "Thanh toán phần còn lại tại khách sạn"}</span></div>
+                <div className="room-change-payment-due"><small>{quote.roomChangeWalletCreditEnabled ? "Ước tính khoản bổ sung — chưa xác nhận" : "Khách cần thanh toán bổ sung ngay"}</small><strong>{money(quote.additionalPaymentDue)}</strong><span>{quote.roomChangeWalletCreditEnabled ? "Số tiền chính thức chỉ có sau khi Payment xác nhận đối soát." : quote.paymentOption === "DEPOSIT" ? `Bù đến mức cọc ${quote.depositPercent ?? 0}% của phòng mới` : quote.paymentOption === "FULL_PAYMENT" ? "Thanh toán phần chênh lệch còn thiếu" : "Thanh toán phần còn lại tại khách sạn"}</span></div>
                 {quote.roomChangeWalletCreditEnabled && quote.walletCreditMayApply ? (
                   <div className="room-change-wallet-credit-note">
                     <small>Enziu Wallet</small>

@@ -3,6 +3,7 @@ package com.smarthotel.booking.booking.roomchange.financial;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smarthotel.booking.booking.entity.*;
 import com.smarthotel.booking.booking.repository.BookingRepository;
+import com.smarthotel.booking.booking.roomchange.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,10 +29,12 @@ class RoomChangeFinancialResultServiceTest {
     @Autowired BookingRepository bookings;
     @Autowired RoomChangeFinancialOutboxRepository outbox;
     @Autowired RoomChangeFinancialResultService service;
+    @Autowired RoomChangeRequestRepository requests;
+    private RoomChangeRequest request;
     private Booking booking;
     private RoomChangeFinancialOutboxEvent command;
     @BeforeEach void prepare() {
-        outbox.deleteAll(); bookings.deleteAll();
+        outbox.deleteAll(); requests.deleteAll(); bookings.deleteAll();
         booking = new Booking("EZR-RESULT", UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), LocalDate.now().plusDays(10), LocalDate.now().plusDays(12),
                 2, 0, new BigDecimal("2000000"), PaymentOption.PAY_AT_HOTEL, null, null,
@@ -42,9 +45,15 @@ class RoomChangeFinancialResultServiceTest {
     }
     private void change(String total) {
         BigDecimal paid = booking.getPaidAmount();
+        BigDecimal oldTotal = booking.getTotalPrice();
+        request = new RoomChangeRequest(booking.getId(), booking.getCustomerId(), booking.getHotelId(),
+                booking.getRoomId(), booking.getRoomTypeId(), UUID.randomUUID(), UUID.randomUUID(), "Test");
         booking.applyRoomChange(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal(total), BigDecimal.ZERO, BigDecimal.ZERO, true);
         booking = bookings.saveAndFlush(booking);
-        command = outbox.saveAndFlush(new RoomChangeFinancialOutboxEvent(UUID.randomUUID(), booking.getId(),
+        request.approve(booking.getHotelId(), request.getTargetRoomId(), request.getTargetRoomTypeId(), oldTotal,
+                booking.getTotalPrice(), booking.getTotalPrice().subtract(oldTotal), null, null);
+        request.awaitFinancialConfirmation(); request = requests.saveAndFlush(request);
+        command = outbox.saveAndFlush(new RoomChangeFinancialOutboxEvent(request.getId(), booking.getId(),
                 booking.getCustomerId(), booking.getTotalPrice(), paid, booking.getRoomChangeFinancialVersion(), Instant.now(), null));
     }
     private RoomChangeFinancialResult result(String outcome, String credit) {
@@ -61,18 +70,25 @@ class RoomChangeFinancialResultServiceTest {
         assertThat(reload().getPaidAmount()).isEqualByComparingTo("1600000");
         assertThat(reload().getRoomChangeReconciliationState()).isEqualTo("CONFIRMED");
         assertThat(outbox.findById(command.getEventId()).orElseThrow().getResultPayload()).isNotNull();
+        assertThat(reloadRequest().getFinancialReconciliationStatus()).isEqualTo("CONFIRMED");
+        assertThat(reloadRequest().getAdditionalPaymentDue()).isZero();
     }
     @Test void zeroCreditConfirmationDoesNotInventPayment() throws Exception {
         service.apply(result("CONFIRMED", "400000"));
         booking = reload(); change("1900000");
         assertThat(reload().getPaymentDueAmount()).isZero();
+        assertThat(reloadRequest().getFinancialReconciliationStatus()).isEqualTo("PENDING");
+        assertThat(reloadRequest().getAdditionalPaymentDue()).isNull();
         service.apply(result("CONFIRMED", "0"));
         assertThat(reload().getPaidAmount()).isEqualByComparingTo("1600000");
         assertThat(reload().getPaymentDueAmount()).isEqualByComparingTo("300000");
+        assertThat(reloadRequest().getAdditionalPaymentDue()).isEqualByComparingTo("300000");
     }
     @Test void failedResultPreservesTwoMillionAndBlocksBothNextChanges() throws Exception {
         service.apply(result("RECONCILIATION_REQUIRED", null));
         Booking actual = reload();
+        assertThat(reloadRequest().getFinancialReconciliationStatus()).isEqualTo("RECONCILIATION_REQUIRED");
+        assertThat(reloadRequest().getAdditionalPaymentDue()).isNull();
         assertThat(actual.getPaidAmount()).isEqualByComparingTo("2000000");
         assertThat(actual.getPaymentDueAmount()).isZero();
         for (String total : new String[]{"1900000", "1400000"}) {
@@ -82,6 +98,7 @@ class RoomChangeFinancialResultServiceTest {
     }
     @Test void delayedResultKeepsPendingAndNoAssumedCredit() {
         assertThat(reload().getRoomChangeReconciliationState()).isEqualTo("PENDING");
+        assertThat(reloadRequest().getAdditionalPaymentDue()).isNull();
         assertThat(reload().getPaidAmount()).isEqualByComparingTo("2000000");
         assertThatThrownBy(() -> reload().requireResolvedRoomChangeFinancialPosition()).hasMessageContaining("RECONCILIATION_REQUIRED");
     }
@@ -91,13 +108,18 @@ class RoomChangeFinancialResultServiceTest {
         Instant updated = reload().getUpdatedAt();
         service.apply(first);
         assertThat(reload().getUpdatedAt()).isEqualTo(updated);
+        assertThat(reloadRequest().getAdditionalPaymentDue()).isZero();
         booking = reload(); change("1400000");
         service.apply(first);
+        assertThat(reloadRequest().getFinancialReconciliationStatus()).isEqualTo("PENDING");
+        assertThat(reloadRequest().getAdditionalPaymentDue()).isNull();
         assertThat(reload().getRoomChangeReconciliationState()).isEqualTo("PENDING");
         assertThat(reload().getPaidAmount()).isEqualByComparingTo("1600000");
         service.apply(result("CONFIRMED", "200000"));
         assertThat(reload().getPaidAmount()).isEqualByComparingTo("1400000");
+        assertThat(reloadRequest().getAdditionalPaymentDue()).isZero();
     }
+    private RoomChangeRequest reloadRequest() { return requests.findById(request.getId()).orElseThrow(); }
     @Test void alteredReplayAndInvalidNetCannotMutateBooking() throws Exception {
         var valid = result("CONFIRMED", "400000");
         var wrong = new RoomChangeFinancialResult(valid.eventId(), valid.bookingId(), valid.customerId(), 1,

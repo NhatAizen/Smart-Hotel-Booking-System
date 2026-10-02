@@ -58,6 +58,7 @@ class BookingRoomChangeOutboxPostgresUpgradeTest {
         UUID customerId = UUID.randomUUID();
         UUID hotelId = UUID.randomUUID();
         UUID roomId = UUID.randomUUID();
+        UUID historicalRequestId = UUID.randomUUID();
         try (Connection connection = DriverManager.getConnection(url, user, password)) {
             execute(connection, """
                     INSERT INTO bookings (
@@ -75,17 +76,36 @@ class BookingRoomChangeOutboxPostgresUpgradeTest {
                     """, bookingId, customerId, hotelId, roomId,
                     "EZR-MIG-" + bookingId.toString().substring(0, 20),
                     "ENZIU-CHECKIN:" + bookingId);
+            execute(connection, """
+                    INSERT INTO room_change_requests (id, booking_id, customer_id, hotel_id,
+                        original_room_id, target_room_id, reason, status, old_total_price,
+                        new_total_price, price_difference, additional_payment_due, requested_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 'Historical approval', 'APPROVED',
+                        900000, 1000000, 100000, 0, CURRENT_TIMESTAMP)
+                    """, historicalRequestId, bookingId, customerId, hotelId, roomId, UUID.randomUUID());
         }
 
         Flyway upgraded = Flyway.configure()
                 .dataSource(url, user, password)
                 .locations("classpath:db/migration")
                 .load();
-        assertEquals(3, upgraded.migrate().migrationsExecuted);
+        assertEquals(4, upgraded.migrate().migrationsExecuted);
         upgraded.validate();
         assertEquals(0, upgraded.migrate().migrationsExecuted);
 
         try (Connection connection = DriverManager.getConnection(url, user, password)) {
+            assertEquals(1, scalarLong(connection, "SELECT count(*) FROM flyway_schema_history WHERE version = '20261002.03' AND success"));
+            assertEquals(1, scalarLong(connection, "SELECT count(*) FROM bookings WHERE id = '" + bookingId + "' AND row_version = 0"));
+            assertEquals(1, scalarLong(connection, "SELECT count(*) FROM room_change_requests WHERE id = '"
+                    + historicalRequestId + "' AND financial_reconciliation_status = 'LEGACY' AND additional_payment_due = 0"
+                    + " AND status = 'APPROVED' AND old_total_price = 900000 AND new_total_price = 1000000"));
+            assertConstraintExists(connection, "bookings", "ck_booking_row_version");
+            assertConstraintExists(connection, "room_change_requests", "ck_room_change_request_financial_status");
+            assertConstraintExists(connection, "room_change_requests", "ck_room_change_request_resolved_due");
+            assertThrows(SQLException.class, () -> execute(connection,
+                    "UPDATE room_change_requests SET financial_reconciliation_status = 'PENDING' WHERE id = ?", historicalRequestId));
+            assertThrows(SQLException.class, () -> execute(connection,
+                    "UPDATE room_change_requests SET financial_reconciliation_status = 'CONFIRMED', additional_payment_due = NULL WHERE id = ?", historicalRequestId));
             assertEquals(1, scalarLong(connection, "SELECT count(*) FROM flyway_schema_history WHERE version = '20261002.01' AND success"));
             assertEquals(1, scalarLong(connection, "SELECT count(*) FROM bookings WHERE room_change_reconciliation_state = 'NONE'"));
             assertConstraintExists(connection, "bookings", "ck_booking_room_change_reconciliation_state");

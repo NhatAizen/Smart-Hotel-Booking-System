@@ -73,7 +73,7 @@ public class RoomChangeService {
             UUID bookingId,
             CreateRoomChangeRequest request
     ) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         if (!booking.getCustomerId().equals(customerId)) {
             throw new IllegalStateException("Bạn không có quyền yêu cầu đổi phòng cho booking này");
         }
@@ -159,10 +159,10 @@ public class RoomChangeService {
             UUID requestId,
             ApproveRoomChangeRequest body
     ) {
-        RoomChangeRequest request = findRequest(requestId);
+        Booking booking = findBookingForUpdate(findRequestBookingId(requestId));
+        RoomChangeRequest request = findRequestForUpdate(requestId);
         ensurePending(request);
         requireHotelOwner(hotelAdminId, request.getHotelId());
-        Booking booking = findBookingForRoomChangeUpdate(request.getBookingId());
         ensureChangeable(booking);
 
         UUID targetRoomId = requestedTargetRoomId(request);
@@ -210,7 +210,8 @@ public class RoomChangeService {
             replaceNightlyPricing(booking.getId(), plan.pricing());
 
             BigDecimal newTotal = booking.getTotalPrice();
-            BigDecimal additionalDue = calculateAdditionalPaymentDue(booking);
+            BigDecimal additionalDue = roomChangeCreditFeature.isEnabled()
+                    ? null : calculateAdditionalPaymentDue(booking);
             request.approve(
                     hotelAdminId,
                     plan.room().id(),
@@ -221,6 +222,7 @@ public class RoomChangeService {
                     additionalDue,
                     body.note()
             );
+            if (roomChangeCreditFeature.isEnabled()) request.awaitFinancialConfirmation();
             requestRepository.save(request);
 
             if (roomChangeCreditFeature.isEnabled()) {
@@ -247,14 +249,12 @@ public class RoomChangeService {
                 notificationClient.sendUser(
                         booking.getCustomerId(),
                         "Yêu cầu đổi phòng đã được duyệt",
-                        additionalDue.signum() > 0
+                        roomChangeCreditFeature.isEnabled()
+                                ? "Khách sạn đã duyệt đổi phòng. Hệ thống đang đối soát phần thanh toán và số tiền chênh lệch."
+                                : additionalDue.signum() > 0
                                 ? "Khách sạn đã đổi phòng cho booking " + booking.getBookingCode()
                                     + ". Bạn cần thanh toán bổ sung " + moneyText(additionalDue)
                                     + " để đủ mức thanh toán yêu cầu."
-                                : roomChangeCreditFeature.isEnabled()
-                                    && newTotal.compareTo(oldTotal) < 0
-                                ? "Khách sạn đã đổi phòng cho booking " + booking.getBookingCode()
-                                    + ". Payment Service đang đối soát phần chênh lệch hợp lệ để cộng vào Ví Enziu; đây không phải hoàn tiền PayOS."
                                 : "Khách sạn đã đổi phòng cho booking " + booking.getBookingCode()
                                     + ". Không phát sinh khoản thanh toán bổ sung ngay lúc này.",
                         "ROOM_CHANGE_APPROVED",
@@ -276,13 +276,13 @@ public class RoomChangeService {
             UUID requestId,
             RejectRoomChangeRequest body
     ) {
-        RoomChangeRequest request = findRequest(requestId);
+        Booking booking = findBookingForUpdate(findRequestBookingId(requestId));
+        RoomChangeRequest request = findRequestForUpdate(requestId);
         ensurePending(request);
         requireHotelOwner(hotelAdminId, request.getHotelId());
         request.reject(hotelAdminId, body.note());
         requestRepository.save(request);
 
-        Booking booking = findBooking(request.getBookingId());
         afterCommit(() -> notificationClient.sendUser(
                 booking.getCustomerId(),
                 "Yêu cầu đổi phòng chưa được chấp thuận",
@@ -470,9 +470,19 @@ public class RoomChangeService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy booking"));
     }
 
-    private Booking findBookingForRoomChangeUpdate(UUID bookingId) {
-        return bookingRepository.findForRoomChangeUpdate(bookingId)
+    private Booking findBookingForUpdate(UUID bookingId) {
+        return bookingRepository.findForUpdate(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy booking"));
+    }
+
+    private UUID findRequestBookingId(UUID requestId) {
+        return requestRepository.findBookingId(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu đổi phòng"));
+    }
+
+    private RoomChangeRequest findRequestForUpdate(UUID requestId) {
+        return requestRepository.findForUpdate(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu đổi phòng"));
     }
 
     private RoomChangeRequest findRequest(UUID requestId) {

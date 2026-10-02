@@ -473,3 +473,150 @@ Fresh screenshots (ignored, never committed):
 
 The computer-use skill guided the isolated session, synthetic manual-flow
 confirmations, responsive observations and screenshot evidence. Production touched: NO.
+
+## PR #6 P1/P2 blocker remediation — 2026-10-02
+
+Status: PASS. This section supersedes the earlier 98-test Booking validation
+for the final blocker-remediation source. Prior implementation/history is preserved;
+the follow-up commit is pushed normally to the same feature branch only.
+No merge, deployment, production change or CI workflow edit was performed.
+
+### P1: serialize Booking mutations before external effects
+
+A real PostgreSQL two-transaction test first reproduced the original stale-write
+bug: transaction A loaded resolved Booking state, transaction B committed the
+room-change PENDING/version/snapshot/outbox, and A then committed check-in and
+overwrote the financial fields. The passing before-fix reproduction log is
+`services/booking-service/target/pr6-blocker-before.log` (ignored local evidence).
+The final regression asserts safe rejection instead of the unsafe baseline.
+
+- Generic `BookingRepository.findForUpdate` uses PESSIMISTIC_WRITE. Both check-in
+  paths acquire it before evaluating financial guards and before Hotel OCCUPIED.
+  Check-in lookup/readiness also reports unresolved reconciliation as blocked.
+- Audited existing-Booking writes: room-change create/approve/reject, result
+  consumption, payment callback/failure/refund, confirmation, identity verification,
+  check-in, checkout, late-fee assessment, no-show, cancellation, customer hiding
+  and payment expiry. These reuse the Booking lock; ordinary read-only Booking
+  endpoints are not mechanically locked. `markCollectedAtHotel` currently has no
+  service caller; any future caller must use the same mutation lock. New Booking
+  creation does not update a stale existing row.
+- Batch late-fee/current-stay/expiry paths select scalar IDs in stable order,
+  then lock fresh rows and revalidate eligibility. They do not preload managed
+  entities before locking. Invoice delivery only reads Booking; its timestamp-only
+  bulk update increments row_version and cannot overwrite financial columns.
+- Shared lock order: Booking -> room-change request -> original command outbox.
+  Approval/rejection first obtain only the request's scalar Booking ID. The outbox
+  publisher locks outbox rows only, never acquiring Booking/request in reverse.
+- Additive `@Version`/BIGINT `row_version` is defense-in-depth, not a replacement
+  for pessimistic locking before remote effects. Historical values start at 0.
+  Schema compatibility does not make old unversioned application writers safe:
+  any future rollout must drain old writers before relying on these guarantees.
+  No distributed atomicity guarantee is claimed for unrelated remote failures.
+
+`BookingMutationPostgresConcurrencyTest` ran seven real-PostgreSQL tests with
+bounded, coordinated transactions: stale whole-row write rejection; room-change
+first vs both check-in paths; check-in first vs fresh room-change guard; result
+consumer first vs check-in; cancellation/payment-failure serialization; normal
+resolved check-in; unresolved readiness. No deadlock occurred in the tested order,
+and blocked check-in made zero external OCCUPIED calls.
+
+### P2: unknown due is NULL until authoritative confirmation
+
+- With the flag ON, Hotel approval stores APPROVED + financial PENDING and
+  additionalPaymentDue=NULL. Approval is not financial success. OFF keeps the
+  legacy calculator and NOT_REQUIRED status without command publication.
+- Per-request states are LEGACY, NOT_REQUIRED, PENDING, CONFIRMED and
+  RECONCILIATION_REQUIRED. Historical requests remain LEGACY; migration does not
+  infer confirmation from an old amount (including 0).
+- A validated matching signed result updates Booking, request status/amount and
+  immutable received-result audit in one transaction under the shared lock order.
+  CONFIRMED due = max(new total - result.netRetainedAmount, 0).
+  RECONCILIATION_REQUIRED retains NULL. Duplicate/stale results cannot overwrite
+  a newer request or its amount; altered replay remains rejected.
+- The public request DTO adds financialReconciliationStatus and preserves nullable
+  additionalPaymentDue; no Rabbit/outbox internals are exposed. Payment's result
+  contract/source is unchanged.
+- Customer approved-result views remain readable while unresolved, but new change
+  and payment actions remain blocked. PENDING never claims no extra payment,
+  confirmed Wallet credit or PayOS refund. Only CONFIRMED zero uses the no-additional
+  wording; CONFIRMED 300,000 displays that amount. REQUIRED shows manual handling,
+  unknown due and no fake payment action. Customer/Hotel payment badges and remaining
+  labels also avoid presenting unresolved legacy projections as settled amounts.
+  Hotel quote is explicitly estimated; approval toast says reconciliation is pending.
+
+### Additive migration and fresh final gates
+
+New Booking migration:
+`V20261002.03__booking_mutation_version_and_request_financial_status.sql`.
+It follows .02, has zero DROP/destructive rewrite, preserves existing Bookings and
+requests, initializes row_version=0 and historical request status=LEGACY, and adds
+constraints forbidding non-NULL unresolved due or NULL/negative confirmed due.
+Real PostgreSQL 16 upgrade/Flyway validation and second-migrate idempotency passed.
+Previous migration files, production config, credentials, feature defaults and
+CI workflows are unchanged. ROOM_CHANGE_CUSTOMER_WALLET_CREDIT_ENABLED defaults
+false; Customer automatic PayOS payout remains unreachable.
+
+| Final gate | Result |
+| --- | --- |
+| Before-fix real PostgreSQL reproduction | PASS: unsafe overwrite demonstrated before remediation |
+| Final targeted Booking tests | PASS: 16/16, zero failure/error/skip |
+| Full Booking suite, PostgreSQL/Rabbit/Redis opt-ins enabled | PASS: 107/107, zero failure/error/skip |
+| Full Payment suite, PostgreSQL/Rabbit opt-ins enabled | PASS: 90/90, zero failure/error/skip |
+| Booking PostgreSQL upgrade through .03 | PASS: preserved amounts/requests, version 0, LEGACY and constraints |
+| Payment PostgreSQL V12 -> V13 and V13 -> V14 | PASS in fresh full suite |
+| Real Rabbit command/result/signature/replay integration | PASS in fresh full suites and local end-to-end smoke |
+| Cumulative credit/exposure/refund/revenue/transfer guards | PASS: 31 RoomChangeCreditService tests |
+| Hotel Wallet/ownership/PayOS/Customer Withdrawal regressions | PASS in fresh full Payment suite |
+| Frontend lint/build, after final badge/copy changes | PASS |
+| Frontend financial semantics + complaint workflow tests | PASS: 8/8 |
+| Authenticated isolated local browser smoke | PASS: details below |
+| Final whitespace/scope/security review | PASS; only intended source/tests/migration/report; no generated artifacts tracked |
+
+Maven suites ran sequentially in the approved local context, not concurrently.
+Final Booking full suite completed at 16:35:25 +07 and Payment at 16:10:16 +07.
+Only frontend wording changed afterward; its lint/build/tests were rerun.
+Test logs, runtime harness/seeds and screenshots remain ignored under target/.
+
+### Fresh blocker browser proof (synthetic local data only)
+
+Real isolated Booking/Payment APIs, PostgreSQL 16, Redis and signed Rabbit results
+were used through loopback 18080/18083/18084; Identity/Hotel were synthetic fixtures.
+The final smoke uses an isolated Rabbit `pr6-smoke` vhost, separate from integration
+test topology. No production session, provider charge or actual transfer was used.
+
+- OFF: cheaper-than-paid legacy quote rejected, approval disabled; financial
+  command/inbox inactive. ON with Payment OFF: approvals remained PENDING with
+  NULL per-request due and durable unroutable commands; no silent success.
+- More-expensive fixture: retained 1,600,000 -> total 1,900,000. Pending Customer
+  view showed unknown due and reconciliation wording. After Payment confirmed,
+  the request and UI both showed additional due 300,000 (not 0).
+- Cheaper fixture: paid 2,000,000 -> total 1,600,000 produced one confirmed 400,000
+  credit and request due 0. Customer then submitted exactly one Economy request
+  and Hotel approved once: total 1,400,000, version 2, exactly one additional
+  200,000 credit, CONFIRMED due 0. Ledger has exactly two ROOM_CHANGE references
+  (400,000 and 200,000); final available balance 1,100,000, locked/withdrawn 0.
+  This fresh fixture differs from the earlier historical smoke's 100,000 withdrawal.
+- Released-revenue fixture: REQUIRED, NULL request due, retained paid snapshot
+  2,000,000, zero credit. Customer view showed manual reconciliation, unknown
+  remaining and disabled next-change/payment; no false settled badge.
+- Check-in during PENDING returned the expected 400 reconciliation guard and
+  made zero OCCUPIED updates. Final readiness UI disabled confirmation before
+  submission. This expected business rejection is not a server error.
+- Final observed gateway segment: 80 API requests after the initial startup
+  probes, zero 5xx, zero 401/403, zero OCCUPIED calls. Four approvals and one new
+  request each succeeded once; no duplicate financial mutation. Two initial 502
+  probes occurred before local services finished starting, then were excluded
+  from the healthy smoke segment. The legacy quote 400 and pending check-in 400
+  were intentional guards. Browser console warn/error list was empty; no CORS,
+  auth loop or React runtime failure. Both local services were health UP.
+- Final 390x844 confirmed modal remained readable and scrollable; viewport override
+  was reset afterward. This is focused responsive smoke, not full WCAG certification.
+
+Fresh ignored screenshots: `pr6-blocker-pending.jpg`, `pr6-blocker-checkin.jpg`,
+`pr6-blocker-confirmed.jpg`, `pr6-blocker-required.jpg`, `pr6-blocker-repeated.jpg`,
+`pr6-blocker-wallet.jpg`, `pr6-blocker-mobile.jpg` under
+`services/payment-service/target/v13-smoke/`.
+The computer-use skill guided local-only interaction and screenshot verification.
+
+Production touched: NO. CI: NOT STARTED — trigger mismatch; workflows unchanged.
+No amend, force push, merge, production flag enablement or deployment is permitted.

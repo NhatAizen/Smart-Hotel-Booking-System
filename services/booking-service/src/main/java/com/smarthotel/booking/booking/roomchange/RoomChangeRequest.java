@@ -65,6 +65,9 @@ public class RoomChangeRequest {
     @Column(name = "additional_payment_due", precision = 14, scale = 2)
     private BigDecimal additionalPaymentDue;
 
+    @Column(name = "financial_reconciliation_status", nullable = false, length = 30)
+    private String financialReconciliationStatus = "NOT_REQUIRED";
+
     @Column(name = "requested_at", nullable = false, updatable = false)
     private Instant requestedAt;
 
@@ -115,6 +118,8 @@ public class RoomChangeRequest {
         this.newTotalPrice = newTotalPrice;
         this.priceDifference = priceDifference;
         this.additionalPaymentDue = additionalPaymentDue;
+        // A newly approved legacy flow has a calculated due; historical rows alone are not confirmation proof.
+        this.financialReconciliationStatus = "NOT_REQUIRED";
         this.reviewNote = normalizeNullable(reviewNote);
         this.status = RoomChangeRequestStatus.APPROVED;
         this.reviewedAt = Instant.now();
@@ -126,6 +131,28 @@ public class RoomChangeRequest {
         this.reviewNote = normalizeNullable(reviewNote);
         this.status = RoomChangeRequestStatus.REJECTED;
         this.reviewedAt = Instant.now();
+    }
+
+    public void awaitFinancialConfirmation() {
+        if (status != RoomChangeRequestStatus.APPROVED) throw new IllegalStateException("REQUEST_NOT_APPROVED");
+        this.financialReconciliationStatus = "PENDING";
+        this.additionalPaymentDue = null;
+    }
+
+    public void applyFinancialResult(BigDecimal newTotal, BigDecimal netRetained, String outcome) {
+        if (status != RoomChangeRequestStatus.APPROVED
+                || !("PENDING".equals(financialReconciliationStatus) || "LEGACY".equals(financialReconciliationStatus))
+                || newTotalPrice == null || newTotalPrice.compareTo(newTotal) != 0) {
+            throw new IllegalStateException("REQUEST_FINANCIAL_RESULT_MISMATCH");
+        }
+        if ("CONFIRMED".equals(outcome) && netRetained != null && netRetained.signum() >= 0) {
+            additionalPaymentDue = newTotal.subtract(netRetained).max(BigDecimal.ZERO);
+        } else if ("RECONCILIATION_REQUIRED".equals(outcome) && netRetained == null) {
+            additionalPaymentDue = null;
+        } else {
+            throw new IllegalArgumentException("INVALID_REQUEST_FINANCIAL_RESULT");
+        }
+        financialReconciliationStatus = outcome;
     }
 
     private void ensurePending() {
@@ -163,6 +190,7 @@ public class RoomChangeRequest {
     public BigDecimal getNewTotalPrice() { return newTotalPrice; }
     public BigDecimal getPriceDifference() { return priceDifference; }
     public BigDecimal getAdditionalPaymentDue() { return additionalPaymentDue; }
+    public String getFinancialReconciliationStatus() { return financialReconciliationStatus; }
     public Instant getRequestedAt() { return requestedAt; }
     public Instant getReviewedAt() { return reviewedAt; }
     public UUID getReviewedBy() { return reviewedBy; }

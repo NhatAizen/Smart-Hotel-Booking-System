@@ -21,7 +21,19 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select b from Booking b where b.id = :id")
-    Optional<Booking> findForRoomChangeUpdate(@Param("id") UUID id);
+    Optional<Booking> findForUpdate(@Param("id") UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from Booking b where b.checkInCode = :code")
+    Optional<Booking> findByCheckInCodeForUpdate(@Param("code") String code);
+
+    // Select scalar IDs first: loading entities before acquiring locks would retain stale managed state.
+    @Query("select b.id from Booking b where b.status = :status order by b.id")
+    List<UUID> findMutationIdsByStatus(@Param("status") BookingStatus status);
+
+    @Query("select b.id from Booking b where b.status = com.smarthotel.booking.booking.entity.BookingStatus.PENDING_PAYMENT "
+            + "and b.paymentExpiresAt <= :now order by b.id")
+    List<UUID> findExpiredMutationIds(@Param("now") Instant now);
 
     @Query(value = """
             SELECT * FROM bookings
@@ -35,7 +47,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     @Transactional
     @Modifying
-    @Query("UPDATE Booking b SET b.invoiceEmailSentAt = :sentAt WHERE b.id = :id AND b.invoiceEmailSentAt IS NULL")
+    @Query("UPDATE Booking b SET b.invoiceEmailSentAt = :sentAt, b.rowVersion = b.rowVersion + 1 WHERE b.id = :id AND b.invoiceEmailSentAt IS NULL")
     int markInvoiceEmailSent(@Param("id") UUID id, @Param("sentAt") Instant sentAt);
 
     List<Booking> findAllByCustomerIdAndCustomerHiddenFalseOrderByCreatedAtDesc(

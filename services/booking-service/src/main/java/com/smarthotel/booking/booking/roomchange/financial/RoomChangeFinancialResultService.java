@@ -2,6 +2,7 @@ package com.smarthotel.booking.booking.roomchange.financial;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smarthotel.booking.booking.repository.BookingRepository;
+import com.smarthotel.booking.booking.roomchange.RoomChangeRequestRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
@@ -11,18 +12,25 @@ public class RoomChangeFinancialResultService {
     private final BookingRepository bookings;
     private final RoomChangeFinancialOutboxRepository outbox;
     private final ObjectMapper mapper;
+    private final RoomChangeRequestRepository requests;
     public RoomChangeFinancialResultService(BookingRepository bookings,
-            RoomChangeFinancialOutboxRepository outbox, ObjectMapper mapper) {
+            RoomChangeFinancialOutboxRepository outbox, ObjectMapper mapper, RoomChangeRequestRepository requests) {
         this.bookings = bookings; this.outbox = outbox; this.mapper = mapper;
+        this.requests = requests;
     }
     @Transactional
     public void apply(RoomChangeFinancialResult result) throws Exception {
         if (result == null || result.eventId() == null || result.bookingId() == null) {
             throw new IllegalArgumentException("Missing financial result identity");
         }
-        var booking = bookings.findForRoomChangeUpdate(result.bookingId()).orElseThrow();
+        var booking = bookings.findForUpdate(result.bookingId()).orElseThrow();
+        // Shared order: Booking -> request -> command outbox. Publisher locks only outbox, never Booking.
+        var request = requests.findForUpdate(result.eventId()).orElseThrow();
         var command = outbox.findForResultUpdate(result.eventId()).orElseThrow();
-        if (!command.getBookingId().equals(result.bookingId())
+        if (!request.getBookingId().equals(result.bookingId())
+                || !request.getCustomerId().equals(result.customerId())
+                || !command.getRoomChangeId().equals(request.getId())
+                || !command.getBookingId().equals(result.bookingId())
                 || !command.getCustomerId().equals(result.customerId())
                 || command.getRoomChangeVersion() != result.roomChangeVersion()
                 || !equalMoney(command.getNewBookingTotal(), result.newWholeBookingTotal())
@@ -50,9 +58,10 @@ public class RoomChangeFinancialResultService {
         }
         booking.applyRoomChangeFinancialResult(result.roomChangeVersion(), result.expectedNetRetainedAmount(),
                 result.newWholeBookingTotal(), result.creditedAmount(), result.outcome());
+        request.applyFinancialResult(result.newWholeBookingTotal(), result.netRetainedAmount(), result.outcome());
         command.recordResult(payload);
-        // Booking financial state and immutable received result commit atomically.
-        bookings.save(booking); outbox.save(command);
+        // Booking, per-request amount/status and immutable received audit commit atomically.
+        bookings.save(booking); requests.save(request); outbox.save(command);
     }
     private boolean equalMoney(BigDecimal expected, BigDecimal actual) {
         return actual != null && expected.compareTo(actual) == 0;
