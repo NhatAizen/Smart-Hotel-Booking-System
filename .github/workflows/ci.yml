@@ -57,12 +57,12 @@ jobs:
         include:
           - { service: ai-service, database: ai_ci }
           - { service: api-gateway, database: gateway_ci }
-          - { service: booking-service, database: booking_db }
-          - { service: chat-service, database: chat_db }
-          - { service: hotel-service, database: hotel_db }
-          - { service: identity-service, database: identity_db }
-          - { service: notification-service, database: notification_db }
-          - { service: payment-service, database: payment_db }
+          - { service: booking-service, database: booking_ci }
+          - { service: chat-service, database: chat_ci }
+          - { service: hotel-service, database: hotel_ci }
+          - { service: identity-service, database: identity_ci }
+          - { service: notification-service, database: notification_ci }
+          - { service: payment-service, database: payment_ci }
           - { service: realtime-service, database: realtime_ci }
     services:
       postgres:
@@ -82,6 +82,9 @@ jobs:
       DB_URL: jdbc:postgresql://localhost:5432/${{ matrix.database }}
       DB_USERNAME: ci_user
       DB_PASSWORD: ci-${{ github.run_id }}-${{ matrix.service }}
+      TEST_DB_URL: jdbc:postgresql://localhost:5432/${{ matrix.database }}
+      TEST_DB_USERNAME: ci_user
+      TEST_DB_PASSWORD: ci-${{ github.run_id }}-${{ matrix.service }}
       SPRING_RABBITMQ_HOST: localhost
       SPRING_DATA_REDIS_HOST: localhost
     steps:

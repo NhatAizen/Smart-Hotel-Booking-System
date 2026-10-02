@@ -1,6 +1,7 @@
 package com.smarthotel.payment.wallet.migration;
 
 import org.flywaydb.core.Flyway;
+import com.smarthotel.testing.IsolatedDatabaseInitializer;
 import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -24,6 +25,7 @@ class PaymentV12PostgresUpgradeTest {
         String user = System.getenv("DB_USERNAME");
         String password = System.getenv("DB_PASSWORD");
         assertNotNull(url);
+        IsolatedDatabaseInitializer.validate(url, user);
         assertTrue(url.startsWith("jdbc:postgresql://localhost:5432/payment_migration_ci"));
 
         Flyway preUpgrade = Flyway.configure().dataSource(url, user, password)

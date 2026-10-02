@@ -1,6 +1,7 @@
 package com.smarthotel.hotel.pricing.migration;
 
 import org.flywaydb.core.Flyway;
+import com.smarthotel.testing.IsolatedDatabaseInitializer;
 import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -24,6 +25,7 @@ class HotelDailyPricingPostgresUpgradeTest {
         String user = System.getenv("DB_USERNAME");
         String password = System.getenv("DB_PASSWORD");
         assertNotNull(url);
+        IsolatedDatabaseInitializer.validate(url, user);
         assertTrue(url.startsWith("jdbc:postgresql://localhost:5432/hotel_migration_ci"));
 
         Flyway preUpgrade = Flyway.configure().dataSource(url, user, password)

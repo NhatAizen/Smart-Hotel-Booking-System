@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    # Required explicit disposable test configuration; no runtime fallback.
+    url: ${TEST_DB_URL}
+    username: ${TEST_DB_USERNAME}
+    password: ${TEST_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
