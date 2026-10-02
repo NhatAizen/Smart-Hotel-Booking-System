@@ -1,0 +1,42 @@
+spring:
+  datasource:
+    # Required explicit disposable test configuration; no runtime fallback.
+    url: ${TEST_DB_URL}
+    username: ${TEST_DB_USERNAME}
+    password: ${TEST_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  mail:
+    host: localhost
+    port: 29998
+    properties:
+      mail.smtp.auth: false
+      mail.smtp.starttls.enable: false
+      mail.smtp.starttls.required: false
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: synthetic-test-google-id
+            client-secret: synthetic-test-google-secret
+            provider: isolated-test-google
+          facebook:
+            client-id: synthetic-test-facebook-id
+            client-secret: synthetic-test-facebook-secret
+            provider: isolated-test-facebook
+        provider:
+          isolated-test-google:
+            authorization-uri: http://localhost:29999/oauth/authorize
+            token-uri: http://localhost:29999/oauth/token
+            user-info-uri: http://localhost:29999/oauth/userinfo
+            jwk-set-uri: http://localhost:29999/oauth/jwks
+            user-name-attribute: sub
+          isolated-test-facebook:
+            authorization-uri: http://localhost:29999/oauth/authorize
+            token-uri: http://localhost:29999/oauth/token
+            user-info-uri: http://localhost:29999/oauth/userinfo
+            user-name-attribute: id

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, develop, ui/enziu-home-creative-rebuild, feat/manual-daily-pricing, feat/hotel-wallet-foundation]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, ui/enziu-home-creative-rebuild]
 
 permissions:
   contents: read
@@ -57,12 +57,12 @@ jobs:
         include:
           - { service: ai-service, database: ai_ci }
           - { service: api-gateway, database: gateway_ci }
-          - { service: booking-service, database: booking_db }
-          - { service: chat-service, database: chat_db }
-          - { service: hotel-service, database: hotel_db }
-          - { service: identity-service, database: identity_db }
-          - { service: notification-service, database: notification_db }
-          - { service: payment-service, database: payment_db }
+          - { service: booking-service, database: booking_ci }
+          - { service: chat-service, database: chat_ci }
+          - { service: hotel-service, database: hotel_ci }
+          - { service: identity-service, database: identity_ci }
+          - { service: notification-service, database: notification_ci }
+          - { service: payment-service, database: payment_ci }
           - { service: realtime-service, database: realtime_ci }
     services:
       postgres:
@@ -82,6 +82,9 @@ jobs:
       DB_URL: jdbc:postgresql://localhost:5432/${{ matrix.database }}
       DB_USERNAME: ci_user
       DB_PASSWORD: ci-${{ github.run_id }}-${{ matrix.service }}
+      TEST_DB_URL: jdbc:postgresql://localhost:5432/${{ matrix.database }}
+      TEST_DB_USERNAME: ci_user
+      TEST_DB_PASSWORD: ci-${{ github.run_id }}-${{ matrix.service }}
       SPRING_RABBITMQ_HOST: localhost
       SPRING_DATA_REDIS_HOST: localhost
     steps:
@@ -118,7 +121,7 @@ jobs:
             services/ekyc-service/requirements.txt
             services/ekyc-service/requirements-test.txt
       - run: pip install -r requirements-test.txt
-      - run: pytest -q
+      - run: python -m pytest -q
 
   security-scan:
     name: Dependency and configuration scan
@@ -127,7 +130,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -174,7 +177,7 @@ jobs:
 
   hotel-daily-pricing-postgres-upgrade:
     name: Hotel daily pricing upgrade on PostgreSQL 16
-    if: github.ref == 'refs/heads/feat/manual-daily-pricing' || github.ref == 'refs/heads/ui/enziu-home-creative-rebuild'
+    if: github.ref == 'refs/heads/feat/manual-daily-pricing' || github.ref == 'refs/heads/ui/enziu-home-creative-rebuild' || (github.event_name == 'pull_request' && github.base_ref == 'ui/enziu-home-creative-rebuild')
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -211,7 +214,7 @@ jobs:
 
   payment-v12-postgres-upgrade:
     name: Payment V12 upgrade on PostgreSQL 16
-    if: github.ref == 'refs/heads/feat/hotel-wallet-foundation' || github.ref == 'refs/heads/ui/enziu-home-creative-rebuild'
+    if: github.ref == 'refs/heads/feat/hotel-wallet-foundation' || github.ref == 'refs/heads/ui/enziu-home-creative-rebuild' || (github.event_name == 'pull_request' && github.base_ref == 'ui/enziu-home-creative-rebuild')
     runs-on: ubuntu-latest
     services:
       postgres:
