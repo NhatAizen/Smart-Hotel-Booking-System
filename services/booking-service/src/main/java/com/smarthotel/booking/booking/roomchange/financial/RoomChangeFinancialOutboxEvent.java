@@ -50,6 +50,17 @@ public class RoomChangeFinancialOutboxEvent {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "result_payload", columnDefinition = "TEXT")
+    private String resultPayload;
+    @Column(name = "result_received_at")
+    private Instant resultReceivedAt;
+
+    public String getResultPayload() { return resultPayload; }
+    public void recordResult(String payload) {
+        this.resultPayload = payload;
+        this.resultReceivedAt = Instant.now();
+    }
+
     public RoomChangeFinancialOutboxEvent(
             UUID roomChangeId,
             UUID bookingId,

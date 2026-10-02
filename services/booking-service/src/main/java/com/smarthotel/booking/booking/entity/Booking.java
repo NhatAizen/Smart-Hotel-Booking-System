@@ -112,6 +112,12 @@ public class Booking {
     @Column(name = "room_change_financial_version", nullable = false)
     private long roomChangeFinancialVersion;
 
+    @Column(name = "room_change_reconciliation_state", nullable = false, length = 30)
+    private String roomChangeReconciliationState = "NONE";
+
+    @Column(name = "room_change_retained_paid_amount", precision = 14, scale = 2)
+    private BigDecimal roomChangeRetainedPaidAmount;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_option", nullable = false, length = 30)
     private PaymentOption paymentOption;
@@ -445,6 +451,7 @@ public class Booking {
             boolean allowWalletCreditReconciliation
     ) {
         ensureStatus(BookingStatus.CONFIRMED);
+        requireResolvedRoomChangeFinancialPosition();
 
         if (newRoomId == null || newRoomTypeId == null) {
             throw new IllegalArgumentException("Phòng thay thế không hợp lệ");
@@ -473,9 +480,7 @@ public class Booking {
                         .add(money(this.lateCheckoutFee))
         );
 
-        BigDecimal alreadyPaid = allowWalletCreditReconciliation
-                ? effectivePaidAfterWalletReconciliation()
-                : money(this.paidAmount);
+        BigDecimal alreadyPaid = money(getPaidAmount());
 
         if (!allowWalletCreditReconciliation && alreadyPaid.compareTo(newTotal) > 0) {
             throw new IllegalStateException(
@@ -493,9 +498,13 @@ public class Booking {
 
         this.totalPrice = newTotal;
         if (allowWalletCreditReconciliation) {
-            // paidAmount is Booking's net retained amount after a wallet-credit
-            // reconciliation request. Payment Service still independently derives
-            // the authoritative settled amount and actual credit from its ledger.
+            // The room change commits, but paid money is NOT reduced until a
+            // durable authoritative Payment result is consumed.
+            this.roomChangeReconciliationState = "PENDING";
+            // Existing SQL requires paid_amount <= total_price. Preserve the
+            // real confirmed position separately while the legacy projection
+            // follows that constraint; it is never evidence of wallet credit.
+            this.roomChangeRetainedPaidAmount = alreadyPaid;
             this.paidAmount = money(alreadyPaid.min(newTotal));
             this.roomChangeFinancialVersion = Math.addExact(
                     this.roomChangeFinancialVersion, 1L
@@ -516,25 +525,55 @@ public class Booking {
         this.updatedAt = Instant.now();
     }
 
-    /**
-     * The current total minus the current remaining amount is the net amount still
-     * attached to this booking. Before the first wallet reconciliation this equals
-     * the ordinary paid amount; after reconciliation {@code paidAmount} is also
-     * normalized to this net value so Booking responses remain internally coherent.
-     *
-     * Keeping this value in the existing total/remaining invariant also makes a
-     * later upgrade charge the previously credited difference instead of letting
-     * the customer retain a wallet credit while treating the gross payment as if
-     * it still covered the booking.
-     */
+    /** Last confirmed financial position; never infer a credit from total/remaining. */
     public BigDecimal getEffectivePaidAfterWalletReconciliation() {
         return effectivePaidAfterWalletReconciliation();
     }
 
     private BigDecimal effectivePaidAfterWalletReconciliation() {
-        BigDecimal currentTotal = money(this.totalPrice);
-        BigDecimal currentRemaining = money(this.remainingAmount).max(BigDecimal.ZERO);
-        return money(currentTotal.subtract(currentRemaining).max(BigDecimal.ZERO));
+        return money(getPaidAmount());
+    }
+
+    public boolean isRoomChangeFinancialUnresolved() {
+        return "PENDING".equals(getRoomChangeReconciliationState())
+                || "RECONCILIATION_REQUIRED".equals(getRoomChangeReconciliationState());
+    }
+
+    public void requireResolvedRoomChangeFinancialPosition() {
+        if (isRoomChangeFinancialUnresolved()) {
+            throw new IllegalStateException("ROOM_CHANGE_RECONCILIATION_REQUIRED: "
+                    + "Vị thế thanh toán đổi phòng đang chờ đối soát; chưa thể đổi phòng/thanh toán tiếp.");
+        }
+    }
+
+    public void applyRoomChangeFinancialResult(long version, BigDecimal expectedPaid,
+            BigDecimal targetTotal, BigDecimal credit, String outcome) {
+        if (version != roomChangeFinancialVersion || !"PENDING".equals(roomChangeReconciliationState)
+                || money(expectedPaid).compareTo(money(getPaidAmount())) != 0
+                || money(targetTotal).compareTo(money(totalPrice)) != 0) {
+            throw new IllegalStateException("FINANCIAL_RESULT_POSITION_MISMATCH");
+        }
+        if ("RECONCILIATION_REQUIRED".equals(outcome)) {
+            roomChangeReconciliationState = outcome;
+        } else if ("CONFIRMED".equals(outcome) && credit != null
+                && money(credit).compareTo(money(expectedPaid.subtract(targetTotal).max(BigDecimal.ZERO))) == 0) {
+            paidAmount = money(expectedPaid.subtract(credit));
+            roomChangeRetainedPaidAmount = null;
+            remainingAmount = money(totalPrice.subtract(paidAmount).max(BigDecimal.ZERO));
+            paymentStatus = remainingAmount.signum() == 0 ? BookingPaymentStatus.PAID
+                    : paidAmount.signum() > 0 ? BookingPaymentStatus.PARTIALLY_PAID : BookingPaymentStatus.UNPAID;
+            roomChangeReconciliationState = outcome;
+        } else {
+            throw new IllegalArgumentException("INVALID_FINANCIAL_RESULT");
+        }
+        updatedAt = Instant.now();
+    }
+
+    public String getRoomChangeReconciliationState() {
+        // Existing pre-confirmation commands have no authoritative result proof.
+        // Migration does not rewrite their money or assume they succeeded.
+        return "NONE".equals(roomChangeReconciliationState) && roomChangeFinancialVersion > 0
+                ? "RECONCILIATION_REQUIRED" : roomChangeReconciliationState;
     }
 
     public void applyTermsSnapshot(
@@ -548,6 +587,7 @@ public class Booking {
         this.updatedAt = Instant.now();
     }
     public void assessLateCheckoutFee(BigDecimal fee, Instant assessedAt) {
+        requireResolvedRoomChangeFinancialPosition();
         ensureStatus(BookingStatus.CHECKED_IN);
 
         BigDecimal normalizedFee = money(fee == null ? BigDecimal.ZERO : fee);
@@ -588,6 +628,9 @@ public class Booking {
     }
 
     public BigDecimal getPaymentDueAmount() {
+        // Read DTOs remain available, but payment creation receives no actionable
+        // due until the authoritative async position is resolved.
+        if (isRoomChangeFinancialUnresolved()) return BigDecimal.ZERO.setScale(2);
         if (paymentOption == PaymentOption.PAY_AT_HOTEL) {
             return remainingAmount.max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
         }
@@ -615,6 +658,7 @@ public class Booking {
     }
 
     public void applyPayment(BigDecimal amount, BookingPaymentType paymentType) {
+        requireResolvedRoomChangeFinancialPosition();
         if (status == BookingStatus.CANCELLED) {
             throw new IllegalStateException("Booking đã bị hủy");
         }
@@ -689,6 +733,7 @@ public class Booking {
     }
 
     public void markCollectedAtHotel() {
+        requireResolvedRoomChangeFinancialPosition();
         ensureStatus(BookingStatus.CONFIRMED);
         if (remainingAmount.signum() <= 0 || paymentStatus == BookingPaymentStatus.PAID) {
             return;
@@ -702,6 +747,7 @@ public class Booking {
     }
 
     public void checkIn() {
+        requireResolvedRoomChangeFinancialPosition();
         ensureStatus(BookingStatus.CONFIRMED);
         if (paymentStatus != BookingPaymentStatus.PAID
                 || remainingAmount.signum() > 0) {
@@ -913,7 +959,9 @@ public class Booking {
     public BigDecimal getSpecialDateSurchargeAmount() { return specialDateSurchargeAmount; }
     public BigDecimal getLateCheckoutFee() { return lateCheckoutFee; }
     public Instant getLateFeeAssessedAt() { return lateFeeAssessedAt; }
-    public BigDecimal getPaidAmount() { return paidAmount; }
+    public BigDecimal getPaidAmount() {
+        return roomChangeRetainedPaidAmount == null ? paidAmount : roomChangeRetainedPaidAmount;
+    }
     public BigDecimal getRemainingAmount() { return remainingAmount; }
     public long getRoomChangeFinancialVersion() { return roomChangeFinancialVersion; }
     public PaymentOption getPaymentOption() { return paymentOption; }

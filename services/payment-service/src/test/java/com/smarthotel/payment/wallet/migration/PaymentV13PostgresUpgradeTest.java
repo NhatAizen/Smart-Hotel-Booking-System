@@ -135,7 +135,7 @@ class PaymentV13PostgresUpgradeTest {
         }
 
         Flyway upgraded = Flyway.configure().dataSource(url, user, password)
-                .locations("classpath:db/migration").load();
+                .locations("classpath:db/migration").target(MigrationVersion.fromVersion("13")).load();
         upgraded.migrate();
         upgraded.validate();
         assertEquals(0, upgraded.migrate().migrationsExecuted);
@@ -350,6 +350,30 @@ class PaymentV13PostgresUpgradeTest {
                     """, UUID.randomUUID(), UUID.randomUUID(),
                     partialResultBookingId, partialResultCustomerId));
         }
+    }
+
+    @Test
+    void additiveV14UpgradesV13AndPreservesResultOutboxOnRerun() throws Exception {
+        String url = System.getenv("DB_URL"), user = System.getenv("DB_USERNAME"), password = System.getenv("DB_PASSWORD");
+        assertTrue(url != null && url.matches("^jdbc:postgresql://(?:localhost|127\\.0\\.0\\.1):[0-9]+/payment_migration_ci(?:\\?.*)?$"));
+        Flyway.configure().dataSource(url, user, password).cleanDisabled(false).load().clean();
+        Flyway.configure().dataSource(url, user, password).locations("classpath:db/migration")
+                .target(MigrationVersion.fromVersion("13")).load().migrate();
+        UUID walletId = UUID.randomUUID(), owner = UUID.randomUUID();
+        try (Connection c = DriverManager.getConnection(url, user, password)) {
+            execute(c, "INSERT INTO wallets(id, owner_type, owner_id, available_balance, pending_balance, locked_balance, commission_debt, total_earned, total_withdrawn) VALUES (?, 'CUSTOMER', ?, 123456, 0, 0, 0, 123456, 0)", walletId, owner);
+        }
+        var upgraded = Flyway.configure().dataSource(url, user, password).locations("classpath:db/migration").load();
+        assertEquals(1, upgraded.migrate().migrationsExecuted); upgraded.validate();
+        UUID event = UUID.randomUUID(), booking = UUID.randomUUID();
+        try (Connection c = DriverManager.getConnection(url, user, password)) {
+            assertMoney("123456", scalarMoney(c, "SELECT available_balance FROM wallets WHERE id = '" + walletId + "'"));
+            execute(c, "INSERT INTO room_change_result_outbox(event_id, booking_id, room_change_version, command_payload, result_payload) VALUES (?, ?, 1, '{}', '{}')", event, booking);
+            assertThrows(SQLException.class, () -> execute(c, "INSERT INTO room_change_result_outbox(event_id, booking_id, room_change_version, command_payload, result_payload) VALUES (?, ?, 1, '{}', '{}')", UUID.randomUUID(), booking));
+            assertEquals(1, scalarLong(c, "SELECT count(*) FROM pg_indexes WHERE tablename = 'room_change_result_outbox' AND indexname = 'ix_room_change_result_pending'"));
+        }
+        assertEquals(0, upgraded.migrate().migrationsExecuted);
+        try (Connection c = DriverManager.getConnection(url, user, password)) { assertEquals(1, scalarLong(c, "SELECT count(*) FROM room_change_result_outbox WHERE event_id = '" + event + "'")); }
     }
 
     private static void execute(Connection connection, String sql, Object... values) throws Exception {

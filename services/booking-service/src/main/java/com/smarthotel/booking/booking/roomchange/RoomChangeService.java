@@ -195,9 +195,7 @@ public class RoomChangeService {
             UUID oldRoomId = booking.getRoomId();
             BigDecimal oldTotal = booking.getTotalPrice();
             BigDecimal expectedNetRetainedAmount = money(
-                    booking.getTotalPrice()
-                            .subtract(booking.getRemainingAmount())
-                            .max(BigDecimal.ZERO)
+                    booking.getPaidAmount()
             );
 
             booking.applyRoomChange(
@@ -441,6 +439,7 @@ public class RoomChangeService {
     }
 
     private void ensureChangeable(Booking booking) {
+        booking.requireResolvedRoomChangeFinancialPosition();
         if (booking.getStatus() != BookingStatus.CONFIRMED) {
             throw new IllegalStateException("Chỉ booking đã xác nhận và chưa check-in mới được yêu cầu đổi phòng");
         }

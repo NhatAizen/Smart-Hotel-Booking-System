@@ -26,6 +26,13 @@ public class RoomChangeFinancialRabbitConfig {
     public static final String DEAD_LETTER_QUEUE = "enziurooms.payment.room-change-credit.dlq";
     public static final String DEAD_LETTER_ROUTING_KEY = "booking.room-change.credit.failed";
 
+    @Bean(name = "roomChangeResultRabbitTemplate")
+    org.springframework.amqp.rabbit.core.RabbitTemplate roomChangeResultRabbitTemplate(ConnectionFactory connectionFactory) {
+        var template = new org.springframework.amqp.rabbit.core.RabbitTemplate(connectionFactory);
+        template.setMandatory(true);
+        return template;
+    }
+
     @Bean
     TopicExchange financialExchange() {
         return new TopicExchange(EXCHANGE, true, false);

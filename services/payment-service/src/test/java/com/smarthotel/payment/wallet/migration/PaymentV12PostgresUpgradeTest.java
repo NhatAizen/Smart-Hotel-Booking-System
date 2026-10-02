@@ -63,7 +63,7 @@ class PaymentV12PostgresUpgradeTest {
         upgraded.validate();
 
         try (Connection connection = DriverManager.getConnection(url, user, password)) {
-            assertEquals(13, scalarLong(connection,
+            assertEquals(14, scalarLong(connection,
                     "SELECT count(*) FROM flyway_schema_history WHERE success"));
             assertEquals(1, scalarLong(connection,
                     "SELECT count(*) FROM flyway_schema_history WHERE version = '13' AND success"));

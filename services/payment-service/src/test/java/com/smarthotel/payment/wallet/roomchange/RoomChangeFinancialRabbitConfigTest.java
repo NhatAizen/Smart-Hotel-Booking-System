@@ -16,13 +16,16 @@ class RoomChangeFinancialRabbitConfigTest {
             .withUserConfiguration(TestConfiguration.class)
             .withBean(ConnectionFactory.class, () -> mock(ConnectionFactory.class))
             .withBean(ObjectMapper.class, () -> new ObjectMapper().findAndRegisterModules())
-            .withBean(RoomChangeCreditService.class, () -> mock(RoomChangeCreditService.class));
+            .withBean(RoomChangeResultOutboxRepository.class, () -> mock(RoomChangeResultOutboxRepository.class))
+            .withBean(RoomChangeReconciliationService.class, () -> mock(RoomChangeReconciliationService.class));
 
     @Test
     void featureOffCreatesNoFinancialConsumerOrTopology() {
         contextRunner.run(context -> {
             assertThat(context).doesNotHaveBean(RoomChangeFinancialRabbitConfig.class);
             assertThat(context).doesNotHaveBean(RoomChangeFinancialCommandListener.class);
+            assertThat(context).doesNotHaveBean(RoomChangeResultOutboxPublisher.class);
+            assertThat(context).doesNotHaveBean("roomChangeResultRabbitTemplate");
             assertThat(context).doesNotHaveBean("roomChangeCreditQueue");
             assertThat(context).doesNotHaveBean("roomChangeFinancialListenerContainerFactory");
         });
@@ -84,6 +87,7 @@ class RoomChangeFinancialRabbitConfigTest {
             RoomChangeFinancialRabbitConfig.class,
             RoomChangeFinancialMessageVerifier.class,
             RoomChangeFinancialCommandListener.class
+            , RoomChangeResultOutboxPublisher.class
     })
     static class TestConfiguration {}
 }

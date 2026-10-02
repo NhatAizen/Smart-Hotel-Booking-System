@@ -610,7 +610,8 @@ public class BookingService {
 
     @Transactional
     public BookingResponse applyPayment(UUID bookingId, ApplyPaymentRequest request) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = bookingRepository.findForRoomChangeUpdate(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy booking"));
         booking.applyPayment(request.amount(), request.paymentType());
         HotelClient.HotelDetails hotel = hotelClient.getHotel(booking.getHotelId());
         String paymentTitle = booking.getPaymentStatus() == BookingPaymentStatus.PAID

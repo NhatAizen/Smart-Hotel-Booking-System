@@ -254,7 +254,8 @@ function canChatWithHotel(booking) {
 }
 
 function canContinuePayment(booking) {
-  return booking.paymentOption !== "PAY_AT_HOTEL"
+  return !["PENDING", "RECONCILIATION_REQUIRED"].includes(booking.roomChangeReconciliationState)
+    && booking.paymentOption !== "PAY_AT_HOTEL"
     && Number(booking.remainingAmount ?? 0) > 0
     && ["PENDING_PAYMENT", "CONFIRMED"].includes(booking.status)
     && booking.paymentStatus !== "PAID";
@@ -1116,7 +1117,7 @@ export default function BookingsPage() {
                           <button
                             type="button"
                             className="booking-v2-room-change-action"
-                            disabled={working}
+                            disabled={working || ["PENDING", "RECONCILIATION_REQUIRED"].includes(booking.roomChangeReconciliationState)}
                             onClick={() => openRoomChangeRequest(booking)}
                           >
                             <ArrowRightLeft size={17} />
@@ -1129,6 +1130,11 @@ export default function BookingsPage() {
                         );
                       })() : null}
 
+                      {["PENDING", "RECONCILIATION_REQUIRED"].includes(booking.roomChangeReconciliationState) ? (
+                        <p role="status">{booking.roomChangeReconciliationState === "PENDING"
+                          ? "Đổi phòng đang chờ Payment xác nhận đối soát. Số tiền đã thanh toán chưa bị giảm; chưa thể thanh toán/đổi phòng tiếp."
+                          : "Đổi phòng cần đối soát thủ công. Chưa xác nhận cộng Ví; vui lòng liên hệ hỗ trợ trước khi thanh toán/đổi phòng tiếp."}</p>
+                      ) : null}
                       {canContinuePayment(booking) ? (
                         <button
                           type="button"

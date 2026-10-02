@@ -657,7 +657,13 @@ export default function HotelBookingsPage() {
                 <span>Phòng {roomMap[String(selectedBooking.roomId)]?.roomNumber ?? "—"}</span>
               </div>
               <div><CalendarDays size={18} /><small>Lưu trú</small><strong>{date(selectedBooking.checkIn)} → {date(selectedBooking.checkOut)}</strong></div>
-              <div><CreditCard size={18} /><small>Thanh toán</small><strong>{paymentLabel(selectedBooking.paymentStatus)}</strong><span>Còn {money(selectedBooking.remainingAmount)}</span></div>
+              <div><CreditCard size={18} /><small>Thanh toán</small><strong>{paymentLabel(selectedBooking.paymentStatus)}</strong><span>Còn {money(selectedBooking.remainingAmount)}</span>
+                {["PENDING", "RECONCILIATION_REQUIRED"].includes(selectedBooking.roomChangeReconciliationState) ? (
+                  <span role="status">{selectedBooking.roomChangeReconciliationState === "PENDING"
+                    ? "Đổi phòng đang chờ Payment xác nhận đối soát; chưa xác nhận cộng Ví."
+                    : "Cần đối soát thủ công; chưa xác nhận cộng Ví."}</span>
+                ) : null}
+              </div>
               <div><CircleDollarSign size={18} /><small>Tổng tiền</small><strong>{money(selectedBooking.totalPrice)}</strong><span>Đã trả {money(selectedBooking.paidAmount)}</span></div>
               <div><ShieldCheck size={18} /><small>Trạng thái</small><strong>{statusLabel(selectedBooking.status)}</strong></div>
             </div>

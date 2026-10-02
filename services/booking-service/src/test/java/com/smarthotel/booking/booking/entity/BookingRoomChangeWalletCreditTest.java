@@ -34,7 +34,8 @@ class BookingRoomChangeWalletCreditTest {
         );
 
         assertThat(booking.getTotalPrice()).isEqualByComparingTo("600000");
-        assertThat(booking.getPaidAmount()).isEqualByComparingTo("600000");
+        assertThat(booking.getPaidAmount()).isEqualByComparingTo("1000000");
+        assertThat(booking.getRoomChangeReconciliationState()).isEqualTo("PENDING");
         assertThat(booking.getRemainingAmount()).isZero();
         assertThat(booking.getPaymentStatus()).isEqualTo(BookingPaymentStatus.PAID);
         assertThat(booking.getRoomChangeFinancialVersion()).isEqualTo(1L);
@@ -48,6 +49,8 @@ class BookingRoomChangeWalletCreditTest {
                 UUID.randomUUID(), UUID.randomUUID(),
                 new BigDecimal("600000"), BigDecimal.ZERO, BigDecimal.ZERO, true
         );
+        booking.applyRoomChangeFinancialResult(1, new BigDecimal("1000000"), new BigDecimal("600000"),
+                new BigDecimal("400000"), "CONFIRMED");
         booking.applyRoomChange(
                 UUID.randomUUID(), UUID.randomUUID(),
                 new BigDecimal("800000"), BigDecimal.ZERO, BigDecimal.ZERO, true
@@ -60,6 +63,9 @@ class BookingRoomChangeWalletCreditTest {
                 .isEqualByComparingTo(booking.getTotalPrice());
         assertThat(booking.getPaymentStatus()).isEqualTo(BookingPaymentStatus.PARTIALLY_PAID);
         assertThat(booking.getRoomChangeFinancialVersion()).isEqualTo(2L);
+
+        booking.applyRoomChangeFinancialResult(2, new BigDecimal("600000"), new BigDecimal("800000"),
+                BigDecimal.ZERO, "CONFIRMED");
 
         booking.applyPayment(new BigDecimal("200000"), BookingPaymentType.REMAINING_PAYMENT);
 
@@ -82,6 +88,62 @@ class BookingRoomChangeWalletCreditTest {
         assertThat(booking.getRemainingAmount()).isEqualByComparingTo("200000");
         assertThat(booking.getPaymentStatus()).isEqualTo(BookingPaymentStatus.PARTIALLY_PAID);
         assertThat(booking.getRoomChangeFinancialVersion()).isZero();
+    }
+
+    @Test
+    void delayedResultPreservesPaidAndBlocksBothDirectionsAndPayment() {
+        Booking booking = fullyPaidBooking();
+        booking.applyRoomChange(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("600000"), BigDecimal.ZERO, BigDecimal.ZERO, true);
+        assertThat(booking.getPaidAmount()).isEqualByComparingTo("1000000");
+        assertThat(booking.getEffectivePaidAfterWalletReconciliation()).isEqualByComparingTo("1000000");
+        assertThat(booking.getPaymentDueAmount()).isZero();
+        for (String total : new String[]{"950000", "400000", "1200000"}) {
+            assertThatThrownBy(() -> booking.applyRoomChange(UUID.randomUUID(), UUID.randomUUID(),
+                    new BigDecimal(total), BigDecimal.ZERO, BigDecimal.ZERO, true)).hasMessageContaining("RECONCILIATION_REQUIRED");
+        }
+        assertThatThrownBy(() -> booking.applyPayment(new BigDecimal("300000"), BookingPaymentType.REMAINING_PAYMENT))
+                .hasMessageContaining("RECONCILIATION_REQUIRED");
+    }
+
+    @Test
+    void failClosedDoesNotAssumeCreditOrChargeAnotherRoomChange() {
+        Booking booking = fullyPaidBooking();
+        booking.applyRoomChange(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("800000"), BigDecimal.ZERO, BigDecimal.ZERO, true);
+        booking.applyRoomChangeFinancialResult(1, new BigDecimal("1000000"), new BigDecimal("800000"), null, "RECONCILIATION_REQUIRED");
+        assertThat(booking.getPaidAmount()).isEqualByComparingTo("1000000");
+        assertThat(booking.getRoomChangeReconciliationState()).isEqualTo("RECONCILIATION_REQUIRED");
+        assertThat(booking.getPaymentDueAmount()).isZero();
+        assertThatThrownBy(() -> booking.applyRoomChange(UUID.randomUUID(), UUID.randomUUID(),
+                new BigDecimal("950000"), BigDecimal.ZERO, BigDecimal.ZERO, true)).hasMessageContaining("RECONCILIATION_REQUIRED");
+    }
+
+    @Test
+    void requiredTwoMillionSequenceReducesPaidOnlyOnEachConfirmation() {
+        Booking booking = fullyPaidBooking();
+        booking.applyRoomChange(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("2000000"), BigDecimal.ZERO, BigDecimal.ZERO);
+        booking.applyPayment(new BigDecimal("1000000"), BookingPaymentType.REMAINING_PAYMENT);
+        booking.applyRoomChange(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("1600000"), BigDecimal.ZERO, BigDecimal.ZERO, true);
+        assertThat(booking.getPaidAmount()).isEqualByComparingTo("2000000");
+        booking.applyRoomChangeFinancialResult(1, new BigDecimal("2000000"), new BigDecimal("1600000"), new BigDecimal("400000"), "CONFIRMED");
+        booking.applyRoomChange(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("1400000"), BigDecimal.ZERO, BigDecimal.ZERO, true);
+        assertThat(booking.getPaidAmount()).isEqualByComparingTo("1600000");
+        booking.applyRoomChangeFinancialResult(2, new BigDecimal("1600000"), new BigDecimal("1400000"), new BigDecimal("200000"), "CONFIRMED");
+        assertThat(booking.getPaidAmount()).isEqualByComparingTo("1400000");
+    }
+
+    @Test
+    void failClosedTwoMillionExampleNeverInventsThreeHundredThousandDue() {
+        Booking booking = fullyPaidBooking();
+        booking.applyRoomChange(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("2000000"), BigDecimal.ZERO, BigDecimal.ZERO);
+        booking.applyPayment(new BigDecimal("1000000"), BookingPaymentType.REMAINING_PAYMENT);
+        booking.applyRoomChange(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("1600000"), BigDecimal.ZERO, BigDecimal.ZERO, true);
+        booking.applyRoomChangeFinancialResult(1, new BigDecimal("2000000"), new BigDecimal("1600000"), null, "RECONCILIATION_REQUIRED");
+        assertThat(booking.getPaidAmount()).isEqualByComparingTo("2000000");
+        assertThatThrownBy(() -> booking.applyRoomChange(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("1900000"),
+                BigDecimal.ZERO, BigDecimal.ZERO, true)).hasMessageContaining("RECONCILIATION_REQUIRED");
+        assertThatThrownBy(() -> booking.applyRoomChange(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("1400000"),
+                BigDecimal.ZERO, BigDecimal.ZERO, true)).hasMessageContaining("RECONCILIATION_REQUIRED");
+        assertThat(booking.getPaymentDueAmount()).isZero();
     }
 
     private Booking fullyPaidBooking() {

@@ -70,7 +70,8 @@ public record BookingResponse(
         Instant checkedInAt,
         Instant checkedOutAt,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        String roomChangeReconciliationState
 ) {
     public static BookingResponse from(Booking booking) {
         return new BookingResponse(
@@ -101,7 +102,7 @@ public record BookingResponse(
                 booking.getMinimumAgeSnapshot(), booking.getRoomRefundableSnapshot(),
                 booking.getPaymentExpiresAt(),
                 booking.getCancelledAt(), booking.getCheckedInAt(), booking.getCheckedOutAt(),
-                booking.getCreatedAt(), booking.getUpdatedAt()
+                booking.getCreatedAt(), booking.getUpdatedAt(), booking.getRoomChangeReconciliationState()
         );
     }
 }

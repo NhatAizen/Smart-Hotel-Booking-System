@@ -29,6 +29,7 @@ class RoomChangeFinancialRabbitConfigTest {
             .withBean(RoomChangeFinancialOutboxRepository.class,
                     () -> mock(RoomChangeFinancialOutboxRepository.class))
             .withBean(ObjectMapper.class, () -> new ObjectMapper().findAndRegisterModules())
+            .withBean(RoomChangeFinancialResultService.class, () -> mock(RoomChangeFinancialResultService.class))
             .withBean(RabbitTemplateConfigurer.class, () -> {
                 RabbitTemplateConfigurer configurer =
                         new RabbitTemplateConfigurer(new RabbitProperties());
@@ -44,6 +45,8 @@ class RoomChangeFinancialRabbitConfigTest {
             assertThat(context).doesNotHaveBean(RoomChangeFinancialOutboxPublisher.class);
             assertThat(context).doesNotHaveBean(RoomChangeFinancialRabbitConfig.class);
             assertThat(context).doesNotHaveBean(RoomChangeFinancialRabbitConfig.FINANCIAL_TEMPLATE);
+            assertThat(context).doesNotHaveBean(RoomChangeFinancialResultListener.class);
+            assertThat(context).doesNotHaveBean("roomChangeResultTopology");
             assertThat(context).hasBean(RoomChangeFinancialRabbitConfig.DEFAULT_TEMPLATE);
         });
     }
@@ -97,6 +100,7 @@ class RoomChangeFinancialRabbitConfigTest {
             RoomChangeFinancialRabbitConfig.class,
             RoomChangeFinancialMessageSigner.class,
             RoomChangeFinancialOutboxPublisher.class,
+            RoomChangeFinancialResultListener.class,
             RealtimeEventPublisher.class
     })
     static class TestConfiguration {

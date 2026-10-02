@@ -81,11 +81,17 @@ class BookingRoomChangeOutboxPostgresUpgradeTest {
                 .dataSource(url, user, password)
                 .locations("classpath:db/migration")
                 .load();
-        assertEquals(1, upgraded.migrate().migrationsExecuted);
+        assertEquals(3, upgraded.migrate().migrationsExecuted);
         upgraded.validate();
         assertEquals(0, upgraded.migrate().migrationsExecuted);
 
         try (Connection connection = DriverManager.getConnection(url, user, password)) {
+            assertEquals(1, scalarLong(connection, "SELECT count(*) FROM flyway_schema_history WHERE version = '20261002.01' AND success"));
+            assertEquals(1, scalarLong(connection, "SELECT count(*) FROM bookings WHERE room_change_reconciliation_state = 'NONE'"));
+            assertConstraintExists(connection, "bookings", "ck_booking_room_change_reconciliation_state");
+            assertConstraintExists(connection, "bookings", "ck_booking_room_change_retained_paid_amount");
+            assertConstraintExists(connection, "bookings", "ck_bookings_paid_amount");
+            assertEquals(1, scalarLong(connection, "SELECT count(*) FROM information_schema.columns WHERE table_name = 'bookings' AND column_name = 'room_change_retained_paid_amount' AND is_nullable = 'YES'"));
             assertEquals(1, scalarLong(connection, """
                     SELECT count(*) FROM flyway_schema_history
                     WHERE version = '20260930.01' AND success

@@ -16,6 +16,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.core.MessageDeliveryMode;
+import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -64,6 +65,9 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "wallet.settlement.initial-delay-ms=3600000",
                 "wallet.settlement.scan-delay-ms=3600000",
                 "spring.rabbitmq.listener.simple.prefetch=1"
+                , "spring.rabbitmq.publisher-confirm-type=correlated"
+                , "spring.rabbitmq.publisher-returns=true"
+                , "features.room-change-result.initial-delay-ms=3600000"
         }
 )
 @EnabledIfEnvironmentVariable(named = "CI_RABBIT_INTEGRATION", matches = "(?i)true")
@@ -78,6 +82,8 @@ class RoomChangeFinancialRabbitIntegrationTest {
     @Autowired AmqpAdmin rabbitAdmin;
     @Autowired RabbitListenerEndpointRegistry listenerRegistry;
     @Autowired ObjectMapper objectMapper;
+    @Autowired RoomChangeResultOutboxPublisher resultPublisher;
+    @Autowired RoomChangeResultOutboxRepository resultOutbox;
     @MockBean NotificationClient notificationClient;
 
     @DynamicPropertySource
@@ -97,6 +103,8 @@ class RoomChangeFinancialRabbitIntegrationTest {
 
     @BeforeEach
     void prepareDatabaseAndQueue() {
+        rabbitAdmin.deleteQueue("enziurooms.pr6.result-test");
+        jdbc.update("DELETE FROM room_change_result_outbox");
         rabbitAdmin.initialize();
         rabbitAdmin.purgeQueue(RoomChangeFinancialRabbitConfig.QUEUE, false);
         rabbitAdmin.purgeQueue(RoomChangeFinancialRabbitConfig.DEAD_LETTER_QUEUE, false);
@@ -140,6 +148,7 @@ class RoomChangeFinancialRabbitIntegrationTest {
 
     @AfterAll
     void stopListenerAndCleanDisposableTopology() {
+        rabbitAdmin.deleteQueue("enziurooms.pr6.result-test");
         listenerRegistry.stop();
         rabbitAdmin.deleteQueue(RoomChangeFinancialRabbitConfig.QUEUE);
         rabbitAdmin.deleteQueue(RoomChangeFinancialRabbitConfig.DEAD_LETTER_QUEUE);
@@ -219,6 +228,26 @@ class RoomChangeFinancialRabbitIntegrationTest {
         assertThat(rabbitAdmin.getQueueProperties(
                 RoomChangeFinancialRabbitConfig.DEAD_LETTER_QUEUE
         )).containsEntry(RabbitAdmin.QUEUE_MESSAGE_COUNT, 0);
+        assertThat(resultOutbox.count()).isEqualTo(1);
+        resultPublisher.publishPending(); // no result consumer topology yet
+        assertThat(resultOutbox.findById(eventId).orElseThrow().getStatus()).isEqualTo("PENDING");
+        assertThat(resultOutbox.findById(eventId).orElseThrow().getPublishAttempts()).isEqualTo(1);
+        var resultQueue = QueueBuilder.durable("enziurooms.pr6.result-test").build();
+        rabbitAdmin.declareQueue(resultQueue);
+        rabbitAdmin.declareBinding(org.springframework.amqp.core.BindingBuilder.bind(resultQueue)
+                .to(new org.springframework.amqp.core.TopicExchange(RoomChangeFinancialRabbitConfig.EXCHANGE, true, false))
+                .with(RoomChangeResultOutboxPublisher.ROUTING_KEY));
+        jdbc.update("UPDATE room_change_result_outbox SET next_attempt_at = CURRENT_TIMESTAMP WHERE event_id = ?", eventId);
+        resultPublisher.publishPending();
+        assertThat(resultOutbox.findById(eventId).orElseThrow().getStatus()).isEqualTo("PUBLISHED");
+        Message resultMessage = rabbitTemplate.receive(resultQueue.getName(), 5000);
+        assertThat(resultMessage).isNotNull();
+        new RoomChangeFinancialMessageVerifier(FINANCIAL_SECRET).verify(resultMessage.getBody(),
+                resultMessage.getMessageProperties().getHeader("X-Enziu-Financial-Signature"));
+        var result = objectMapper.readValue(resultMessage.getBody(), RoomChangeFinancialResult.class);
+        assertThat(result.outcome()).isEqualTo("CONFIRMED");
+        assertThat(result.netRetainedAmount()).isEqualByComparingTo("600000");
+        assertThat(result.creditedAmount()).isEqualByComparingTo("400000");
     }
 
     private void sendPersistent(byte[] json, UUID eventId) {

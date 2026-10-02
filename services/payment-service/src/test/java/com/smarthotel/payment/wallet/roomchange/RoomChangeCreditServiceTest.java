@@ -54,11 +54,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.jpa.show-sql=false",
+        "features.room-change-customer-wallet-credit-enabled=true",
         "spring.flyway.enabled=false"
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({
         RoomChangeCreditService.class,
+        RoomChangeReconciliationService.class,
+        RoomChangeCreditServiceTest.JsonConfig.class,
         BookingFinancialLockService.class,
         WalletService.class,
         PaymentService.class,
@@ -66,6 +69,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class RoomChangeCreditServiceTest {
+    @org.springframework.boot.test.context.TestConfiguration
+    static class JsonConfig {
+        @org.springframework.context.annotation.Bean
+        com.fasterxml.jackson.databind.ObjectMapper mapper() {
+            return new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
+        }
+    }
+    @Autowired RoomChangeReconciliationService reconciliation;
+    @Autowired RoomChangeResultOutboxRepository resultOutbox;
     @Autowired RoomChangeCreditService service;
     @Autowired WalletService walletService;
     @Autowired PaymentService paymentService;
@@ -87,6 +99,7 @@ class RoomChangeCreditServiceTest {
 
     @BeforeEach
     void prepareInbox() {
+        resultOutbox.deleteAll();
         transactions.deleteAll();
         hotelCustomerTransfers.deleteAll();
         refundRequests.deleteAll();
@@ -859,6 +872,61 @@ class RoomChangeCreditServiceTest {
         assertThatThrownBy(() -> service.process(command(
                 UUID.randomUUID(), bookingId, customerId, "600000")))
                 .hasMessageContaining("ROOM_CHANGE_RECONCILIATION_REQUIRED");
+    }
+
+    @Test
+    void successfulCreditAndDurableResultAreAtomicAndDuplicateCommandReplays() {
+        UUID bookingId = UUID.randomUUID(), customerId = UUID.randomUUID();
+        settled(bookingId, customerId, "2000000");
+        var first = command(UUID.randomUUID(), bookingId, customerId, "1600000");
+        reconciliation.settle(first);
+        reconciliation.settle(first);
+        assertThat(balance(customerId)).isEqualByComparingTo("400000");
+        assertThat(resultOutbox.count()).isEqualTo(1);
+        assertThat(resultOutbox.findById(first.eventId()).orElseThrow().getResultPayload()).contains("CONFIRMED", "1600000");
+        var second = command(UUID.randomUUID(), 2, bookingId, customerId, "1400000");
+        reconciliation.settle(second);
+        reconciliation.settle(second);
+        assertThat(balance(customerId)).isEqualByComparingTo("600000");
+        assertThat(resultOutbox.count()).isEqualTo(2);
+    }
+
+    @Test
+    void zeroCreditStillProducesDurableConfirmation() {
+        UUID bookingId = UUID.randomUUID(), customerId = UUID.randomUUID();
+        settled(bookingId, customerId, "1000000");
+        var command = command(UUID.randomUUID(), bookingId, customerId, "1200000");
+        reconciliation.settle(command);
+        assertThat(resultOutbox.findById(command.eventId()).orElseThrow().getResultPayload()).contains("CONFIRMED", "1000000");
+        assertThat(wallets.findByOwnerTypeAndOwnerId(WalletOwnerType.CUSTOMER, customerId)).isEmpty();
+    }
+
+    @Test
+    void unsafePositionRollsBackCreditThenFailureResultFreezesAutomaticReplay() {
+        UUID bookingId = UUID.randomUUID(), customerId = UUID.randomUUID();
+        Payment payment = settled(bookingId, customerId, "2000000");
+        payment.markRevenueReleased(); payments.saveAndFlush(payment);
+        var command = command(UUID.randomUUID(), bookingId, customerId, "1600000");
+        assertThatThrownBy(() -> reconciliation.settle(command)).hasMessageContaining("RECONCILIATION_REQUIRED");
+        assertThat(resultOutbox.count()).isZero();
+        reconciliation.reconciliationRequired(command);
+        reconciliation.settle(command);
+        assertThat(resultOutbox.findById(command.eventId()).orElseThrow().getResultPayload()).contains("RECONCILIATION_REQUIRED");
+        assertThat(wallets.findByOwnerTypeAndOwnerId(WalletOwnerType.CUSTOMER, customerId)).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM financial_event_inbox", Integer.class)).isZero();
+    }
+
+    @Test
+    void resultOutboxInsertFailureRollsBackWalletInboxAndVersion() {
+        UUID bookingId = UUID.randomUUID(), customerId = UUID.randomUUID();
+        settled(bookingId, customerId, "2000000");
+        var command = command(UUID.randomUUID(), bookingId, customerId, "1600000");
+        var collision = command(UUID.randomUUID(), bookingId, customerId, "1600000");
+        resultOutbox.saveAndFlush(new RoomChangeResultOutbox(collision, "fixture", "fixture"));
+        assertThatThrownBy(() -> reconciliation.settle(command)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThat(wallets.findByOwnerTypeAndOwnerId(WalletOwnerType.CUSTOMER, customerId)).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM financial_event_inbox", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM booking_financial_locks WHERE booking_id = ?", Long.class, bookingId)).isZero();
     }
 
     private Payment backedPayment(UUID bookingId, UUID customerId) {

@@ -39,4 +39,16 @@ public class RoomChangeFinancialMessageSigner {
             throw new IllegalStateException("Không thể ký financial command", exception);
         }
     }
+
+    public void verify(byte[] payload, String signature) {
+        if (signature == null) throw new SecurityException("Missing financial result signature");
+        try {
+            if (!java.security.MessageDigest.isEqual(Base64.getDecoder().decode(sign(payload)),
+                    Base64.getDecoder().decode(signature))) {
+                throw new SecurityException("Invalid financial result signature");
+            }
+        } catch (IllegalArgumentException invalid) {
+            throw new SecurityException("Invalid financial result signature", invalid);
+        }
+    }
 }

@@ -47,6 +47,8 @@ public class RoomChangeFinancialMessageVerifier {
         }
     }
 
+    public String sign(byte[] payload) { return Base64.getEncoder().encodeToString(signature(payload)); }
+
     private byte[] signature(byte[] payload) {
         try {
             Mac mac = Mac.getInstance(ALGORITHM);

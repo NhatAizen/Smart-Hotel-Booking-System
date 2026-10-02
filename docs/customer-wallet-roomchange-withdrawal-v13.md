@@ -5,7 +5,9 @@
 - Feature branch: `feature/customer-wallet-roomchange-withdrawal-v13`
 - Base HEAD: `4146b8c32f67f8c2621f8e856922cfe0541005ad`
 
-Production touched: NO. No merge, deployment, production migration, production flag change or push.
+Production touched: NO. The feature branch has been pushed and PR #6 opened against
+`ui/enziu-home-creative-rebuild`: https://github.com/NhatAizen/Smart-Hotel-Booking-System/pull/6.
+No merge, deployment, production migration, production flag change or production-branch push occurred.
 
 ## Scope and foundations
 
@@ -16,7 +18,9 @@ room-change workflow and price; Payment alone owns settled-money calculation,
 wallet balances, financial ledger and financial idempotency.
 
 Intended changes are limited to this feature, its shared financial safety
-guards, local/dev compose wiring, tests and this report. The production
+guards, base Compose wiring, tests and this report. Base `docker-compose.yml` may
+also be used in future production layering; it is NOT intrinsically local/dev-only.
+The feature flag defaults false in that base file. The production
 deployment report, .env.prod, production overlays, Cloudflare and credentials
 were not modified. The two initially dirty EOL-only markers
 (presentation.js and WalletTransactionType.java) have no content change.
@@ -101,9 +105,13 @@ exposure guards run before credit. netRetained below the Booking snapshot rolls
 back with SETTLEMENT_NOT_YET_VISIBLE for retry; above the snapshot fails closed.
 Only exact agreement permits automatic reconciliation.
 
-Booking normalizes paidAmount to net value retained for the booking and computes
-remainingAmount accordingly. A later more-expensive room needs additional
-payment; earlier wallet credits are not silently treated as still-paid money.
+Booking keeps the public/confirmed retained-paid position unchanged while
+reconciliation is PENDING, using a nullable snapshot. The legacy DB paid_amount
+column is a bounded compatibility projection (existing paid <= total constraint),
+not proof of wallet credit. The snapshot is cleared and financial position
+normalized only after a durable authoritative CONFIRMED Payment result. A later
+more-expensive room needs additional payment only against the confirmed net
+position; unresolved or failed reconciliation blocks further financial room changes.
 
 Versions must equal lastProcessedVersion+1. Gaps roll back for retry; stale/new
 event-ID collisions and reused event IDs with changed payloads are rejected.
@@ -158,7 +166,8 @@ DLQ monitoring and audited replay remain operational requirements.
 ## Feature flag behavior
 
 ROOM_CHANGE_CUSTOMER_WALLET_CREDIT_ENABLED defaults to false in both services
-and local/dev compose. Production configuration was not changed.
+and base Compose (which can participate in production layering). Production
+configuration was not changed or enabled.
 
 OFF: legacy cheaper-than-paid rejection remains; the new publisher, financial
 topology, signer/verifier and consumer beans are inactive. Payment's newly added
@@ -217,7 +226,11 @@ Real PostgreSQL 16.14 validation executed (not skipped):
 - Flyway migration/validation succeeded for both services.
 - The V13 zero-DROP migration contract also passed.
 
-## Fresh validation results
+## Original implementation validation (historical, commit f6fdd943)
+
+The results and browser observations below belong to the original implementation
+validation. PR #6 subsequently identified premature Booking financial normalization;
+they are not proof that the new async-confirmation remediation has passed its gates.
 
 | Gate | Result |
 |---|---|
@@ -246,7 +259,7 @@ test framework was invented. Expected negative-test warnings include mocked
 Redis/email failures, real NO_ROUTE/NACK/signature rejection and Flyway's
 PostgreSQL-16 support-version warning; they did not fail migration or tests.
 
-## Authenticated isolated browser smoke
+## Original authenticated isolated browser smoke (historical, commit f6fdd943)
 
 Only loopback test infrastructure was used: separate PostgreSQL 16 databases,
 RabbitMQ 3.13 and Redis 7, real Payment/Booking application JARs and the actual
@@ -316,7 +329,9 @@ observations, confirmations and screenshot evidence. The production tab was not 
 Positive credit intentionally blocks subsequent automatic full refund, hotel
 revenue release and legacy transfer for that booking until explicit audited
 counterparty reconciliation exists. Booking approval can succeed while unsafe
-Payment reconciliation fails closed; monitor pending outbox/DLQ and reconcile
+Payment reconciliation fails closed. The PR remediation keeps paid funds unchanged,
+marks/retains PENDING or RECONCILIATION_REQUIRED and blocks dependent room-change,
+payment and check-in actions. Monitor pending outbox/result outbox/DLQ and reconcile
 manually instead of implying confirmed credit in the UI.
 
 No partial-reversal/clawback subsystem or Customer cancel workflow was added.
@@ -327,4 +342,134 @@ outbox/inbox/ledger or destructively downgrade these additive migrations.
 All final gates above passed before the feature-only commit was authorized.
 No production container, database, flag, PayOS operation, Cloudflare state,
 production backup or rollback image was changed. No merge or deployment was
-performed. Stop after the commit and wait for user review.
+performed. The original commit was pushed and PR #6 is open; further remediation
+commits must remain on the same feature branch, with no amend/force push/merge/deploy.
+
+## PR #6 async-confirmation remediation
+
+Status: PASS. Fresh local gates completed before the new feature-branch commit.
+The original f6fdd943 history is preserved. Normal push updates PR #6 only;
+no merge, production-branch push or deployment is authorized.
+
+Final flow: Booking room change -> durable command outbox -> Payment
+reconciliation -> wallet credit / reconciliation result -> durable Payment V14
+result outbox -> Booking result consumer -> CONFIRMED or RECONCILIATION_REQUIRED.
+
+- Blocker confirmed: the original Booking transaction used min(paid, newTotal)
+  before Payment credit existed. This could invent a 300,000 additional payment
+  after the 2,000,000 -> 1,600,000 fail-closed example.
+- Booking now commits the business change with PENDING and unchanged confirmed
+  retained-paid position. A nullable retained-paid snapshot backs public paidAmount
+  while unresolved. The old DB paid_amount remains a bounded compatibility projection
+  to preserve ck_bookings_paid_amount (paid <= total); it is never evidence of credit.
+  Only CONFIRMED replaces the financial position and clears the snapshot; failure
+  preserves the snapshot for audit.
+  Payment due is not actionable, subsequent room changes/payments/check-in are
+  blocked, and Customer/Hotel Admin responses expose reconciliation state.
+- Payment credit/inbox/version plus immutable result outbox are one transaction.
+  Success (including valid zero-credit) emits CONFIRMED; deterministic unsafe
+  exposure/ownership/stale failures roll back credit first, then durably record
+  RECONCILIATION_REQUIRED. Visibility gaps/infrastructure/invalid signature retain
+  retry/DLQ semantics. Result publication requires routed ACK and is HMAC signed.
+- Booking verifies signature, matches the originating outbox's event/customer/
+  version/total/snapshot, locks Booking then outbox, and atomically applies result
+  plus received-payload audit. Replay is idempotent; altered replay is rejected;
+  stale result cannot overwrite a newer version. Rabbit loss/delay does not reduce paid.
+- New additive migrations: Booking V20261002.01/.02 and Payment V14. Previous migration
+  files are unchanged. No historical money rewrite. Pre-confirmation versioned
+  Bookings lacking confirmation proof are treated as RECONCILIATION_REQUIRED,
+  never inferred successful; audited manual handling is required.
+- CI investigation: Platform CI pull_request only targets main/develop; its push
+  branches exclude this feature. Identity push paths do not match these changes
+  and its PR targets also exclude this base. Daily-pricing integration PR targets
+  feat/manual-daily-pricing; browser QA has no PR trigger. Thus no workflow matches
+  PR #6. CI: NOT STARTED — trigger mismatch. GitHub reads also returned zero
+  workflow runs and zero combined statuses for f6fdd943. A one-line Platform CI
+  PR-base addition was proposed previously; the final checklist explicitly defers
+  workflow changes until separately approved. .github/workflows/ci.yml is unchanged.
+  No assertion about uninspected repository Actions settings.
+
+### Fresh validation of the async-confirmation implementation
+
+| Gate | Result |
+| --- | --- |
+| Full Booking suite, all PostgreSQL/Rabbit/Redis opt-ins | PASS: 98 tests, 0 failures/errors/skips |
+| Full Payment suite, all PostgreSQL/Rabbit opt-ins | PASS: 90 tests, 0 failures/errors/skips |
+| Booking pending/confirmed/required, zero, delay, duplicate/stale/malformed result | PASS: 8 entity + 7 result-service tests |
+| Cumulative settlement, ownership, exposure/race guards, atomic result rollback | PASS: RoomChangeCreditServiceTest 31 tests |
+| Customer manual withdrawal / no automatic payout | PASS: 11 tests; local manual UI flow |
+| Hotel Wallet V12, ownership/PayOS callback regressions | PASS in fresh full Payment suite |
+| Real PostgreSQL 16 Booking pre-outbox upgrade | PASS through V20260930.01 and V20261002.01/.02; legacy paid constraint retained |
+| Real PostgreSQL 16 Payment upgrades | PASS: representative V12 -> V13 and V13 -> V14; balances/ledger/withdrawals/transfers preserved |
+| Real Rabbit integrations | PASS: Booking 4 + Payment 3 tests, including signed command/result, routed ACK, unroutable return/retry, duplicate and invalid command signature |
+| Result publisher failure guards | PASS: deterministic mock NACK, unavailable broker and return remain pending; routed ACK marks published |
+| Frontend lint / production bundle build | PASS |
+| Fresh authenticated isolated browser smoke | PASS; details below |
+| Final diff/security/config audit | PASS; additive SQL, unchanged old migrations/production overlays, flags default false, no generated artifacts tracked |
+
+Maven suites ran sequentially in the approved local build context. After the
+retained-paid snapshot correction both full suites were rerun. Windows held the
+active test JAR during repackage; only that verified local smoke process was
+stopped and package was rerun successfully (no source failure or production restart).
+
+### Fresh browser and real service/Rabbit evidence
+
+Only disposable PostgreSQL 16/Rabbit/Redis infrastructure and loopback services
+18080/18083/18084 were used. Identity/Hotel fixtures were synthetic; Booking,
+Payment, migrations, outbox/inbox, Rabbit results and wallet mutations were real
+isolated implementations. No production tab, PayOS charge, actual bank transfer
+or provider payout was used.
+
+- Customer Wallet: 500,000 initial balance, history pagination, required/invalid
+  input handling, confirmation and one synthetic 100,000 withdrawal passed.
+  Manual-processing wording, injected error/retry and delayed-loading recovery
+  were observed. The existing summary remains visible during refresh.
+- Admin Wallet: status filters/empty results, detail, manual approval with
+  executePayout=false, required reference/proof, one mark-paid confirmation and
+  paid proof/no repeat-payment action passed. Synthetic screenshot proof and
+  PR6-ISOLATED-NO-REAL-TRANSFER reference were used, not a real transfer.
+- OFF: cheaper-than-paid quote rejected by legacy rules, approval disabled,
+  no command/inbox/result-outbox rows before enabling the isolated feature.
+- ON with Payment OFF: business room change 2,000,000 -> 1,600,000 committed,
+  command remained PENDING/NO_ROUTE. Booking UI still showed paid 2,000,000,
+  pending explanation, disabled subsequent change and no actionable payment due.
+  Starting isolated Payment ON retried the same event, credited 400,000 and
+  durably returned CONFIRMED through Rabbit; Booking then showed paid 1,600,000.
+- Customer requested and Hotel Admin approved the next 1,400,000 room. Version 2
+  credited exactly 200,000, result was confirmed, Booking paid became 1,400,000.
+  Final wallet: available 1,000,000; locked 0; totalWithdrawn 100,000; exactly two
+  room-change credit rows (400,000 and 200,000).
+- Separate released-revenue fixture: business change succeeded but Payment
+  produced RECONCILIATION_REQUIRED with null credit/net, zero inbox/credit rows.
+  Booking retained the 2,000,000 snapshot, UI showed manual reconciliation and
+  disabled another change/payment. Service tests additionally block both
+  1,900,000 and 1,400,000 subsequent changes, so no invented 300,000 charge.
+- Mobile 390x844: Customer cards/inputs/stacked transaction rows and Admin table
+  cards remained readable; Admin document client/scroll widths were 375/375.
+  Customer was 375/381 (6px document-width difference, within 390px viewport),
+  with no visible content clipping. This is focused responsive/accessibility
+  smoke, not a claim of zero CSS overflow or full WCAG certification.
+- Final gateway segment: 49 financial requests, zero 5xx and zero 401/403;
+  four mutating requests each occurred once with successful responses. Two 400
+  reads were intentional wallet-error injection. Earlier withdrawal mutations
+  were separately verified by UI/DB/request rows. Console warning/error list was
+  empty; no CORS, auth loop or React runtime failure. Both local apps were UP.
+
+The initial ON smoke exposed the existing PostgreSQL paid <= total constraint
+against the first direct-retention design. That failed transaction rolled back;
+the additive nullable snapshot/projection design fixed it before the fresh full
+suites and clean browser rerun. Earlier gateway EADDRINUSE was a leftover ignored
+test harness, not application/production failure; it was replaced before resetting
+the final metrics segment. Expected NO_ROUTE logs proved pending/retry behavior.
+
+Fresh screenshots (ignored, never committed):
+
+- services/payment-service/target/v13-smoke/pr6-customer-final.jpg
+- services/payment-service/target/v13-smoke/pr6-admin-paid.jpg
+- services/payment-service/target/v13-smoke/pr6-admin-mobile.jpg
+- services/payment-service/target/v13-smoke/pr6-room-off.jpg
+- services/payment-service/target/v13-smoke/pr6-room-pending.jpg
+- services/payment-service/target/v13-smoke/pr6-room-failclosed.jpg
+
+The computer-use skill guided the isolated session, synthetic manual-flow
+confirmations, responsive observations and screenshot evidence. Production touched: NO.

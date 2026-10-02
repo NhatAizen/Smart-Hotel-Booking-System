@@ -9,6 +9,11 @@ import java.util.UUID;
 public interface RoomChangeFinancialOutboxRepository
         extends JpaRepository<RoomChangeFinancialOutboxEvent, UUID> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select e from RoomChangeFinancialOutboxEvent e where e.eventId = :id")
+    java.util.Optional<RoomChangeFinancialOutboxEvent> findForResultUpdate(
+            @org.springframework.data.repository.query.Param("id") UUID id);
+
     @Query(value = """
             SELECT candidate.*
             FROM room_change_financial_outbox candidate
