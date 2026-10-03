@@ -25,6 +25,12 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: false
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -85,3 +91,10 @@ pricing:
     grace-minutes: ${LATE_CHECKOUT_GRACE_MINUTES:60}
     up-to-3-hours-percent: ${LATE_CHECKOUT_3H_PERCENT:30}
     up-to-6-hours-percent: ${LATE_CHECKOUT_6H_PERCENT:50}
+
+features:
+  room-change-customer-wallet-credit-enabled: ${ROOM_CHANGE_CUSTOMER_WALLET_CREDIT_ENABLED:false}
+  room-change-financial-hmac-secret: ${ROOM_CHANGE_FINANCIAL_HMAC_SECRET:}
+  room-change-outbox:
+    initial-delay-ms: ${ROOM_CHANGE_OUTBOX_INITIAL_DELAY_MS:5000}
+    scan-delay-ms: ${ROOM_CHANGE_OUTBOX_SCAN_DELAY_MS:3000}

@@ -28,6 +28,7 @@ import {
   ConfirmDialog,
   Modal,
   PageHeader,
+  Pagination,
   StatCard,
   StatusBadge,
 } from "../../components/ui";
@@ -40,7 +41,7 @@ import {
   getPaymentsByStatus,
   getWithdrawalReceiverQr,
   getWithdrawalTransferProof,
-  getWithdrawals,
+  getWithdrawalsPage,
   markWithdrawalPaid,
   rejectWithdrawal,
   releaseHotelRevenue,
@@ -151,9 +152,12 @@ export default function PlatformWalletPage() {
   const withdrawalDocumentsRequestRef = useRef(0);
   const refundProofRequestRef = useRef(0);
   const loadRequestRef = useRef(0);
+  const completionKeysRef = useRef(new Map());
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
+  const [withdrawalPage, setWithdrawalPage] = useState(1);
+  const [withdrawalMeta, setWithdrawalMeta] = useState({ totalElements: 0, totalPages: 0 });
   const [paidPayments, setPaidPayments] = useState([]);
   const [refundRequests, setRefundRequests] = useState([]);
   const [userDirectory, setUserDirectory] = useState({});
@@ -206,7 +210,7 @@ export default function PlatformWalletPage() {
       ] = await Promise.allSettled([
         getPlatformWallet(),
         getPlatformWalletTransactions(),
-        getWithdrawals(status),
+        getWithdrawalsPage(status, withdrawalPage - 1, 20),
         getPaymentsByStatus("PAID"),
         getAdminRefundRequests(),
       ]);
@@ -217,12 +221,12 @@ export default function PlatformWalletPage() {
       const transactionsAvailable = transactionResult.status === "fulfilled"
         && Array.isArray(transactionResult.value);
       const withdrawalsAvailable = withdrawalResult.status === "fulfilled"
-        && Array.isArray(withdrawalResult.value);
+        && Array.isArray(withdrawalResult.value?.content);
       const paymentsAvailable = paymentResult.status === "fulfilled"
         && Array.isArray(paymentResult.value);
       const refundsAvailable = refundResult.status === "fulfilled"
         && Array.isArray(refundResult.value);
-      const safeWithdrawals = withdrawalsAvailable ? withdrawalResult.value : [];
+      const safeWithdrawals = withdrawalsAvailable ? withdrawalResult.value.content : [];
       const safePayments = paymentsAvailable ? paymentResult.value : [];
       const safeRefunds = refundsAvailable ? refundResult.value : [];
 
@@ -236,6 +240,10 @@ export default function PlatformWalletPage() {
       setWallet(walletAvailable ? walletResult.value : null);
       setTransactions(transactionsAvailable ? transactionResult.value : []);
       setWithdrawals(safeWithdrawals);
+      setWithdrawalMeta(withdrawalsAvailable ? {
+        totalElements: withdrawalResult.value.totalElements ?? 0,
+        totalPages: withdrawalResult.value.totalPages ?? 0,
+      } : { totalElements: 0, totalPages: 0 });
       setPaidPayments(safePayments);
       setRefundRequests(safeRefunds);
 
@@ -293,6 +301,7 @@ export default function PlatformWalletPage() {
       setWallet(null);
       setTransactions([]);
       setWithdrawals([]);
+      setWithdrawalMeta({ totalElements: 0, totalPages: 0 });
       setPaidPayments([]);
       setRefundRequests([]);
       setUserDirectory({});
@@ -318,7 +327,7 @@ export default function PlatformWalletPage() {
     } finally {
       if (loadRequestRef.current === requestId) setLoading(false);
     }
-  }, [status]);
+  }, [status, withdrawalPage]);
 
   useEffect(() => {
     load();
@@ -417,7 +426,7 @@ export default function PlatformWalletPage() {
     setError("");
     setMessage("");
     try {
-      const updated = await approveWithdrawal(item.id, note, false);
+      const updated = await approveWithdrawal(item.id, note);
       setSelectedWithdrawal((current) => current?.id === item.id ? { ...current, ...updated } : current);
       setWithdrawalDecision(null);
       setMessage("Đã duyệt. Hãy chuyển khoản theo thông tin nhận tiền, sau đó tải chứng từ để hoàn tất.");
@@ -482,10 +491,13 @@ export default function PlatformWalletPage() {
 
     let updated;
     try {
+      const completionKey = completionKeysRef.current.get(item.id) ?? crypto.randomUUID();
+      completionKeysRef.current.set(item.id, completionKey);
       updated = await markWithdrawalPaid(
         item.id,
         transferReference.trim(),
         transferProof,
+        completionKey,
       );
     } catch (requestError) {
       setError(
@@ -500,6 +512,7 @@ export default function PlatformWalletPage() {
     setSelectedWithdrawal((current) => (
       current?.id === item.id ? { ...current, ...updated } : current
     ));
+    completionKeysRef.current.delete(item.id);
     setMarkPaidConfirmOpen(false);
     setMessage(
       "Đã ghi nhận chuyển khoản. Số tiền đã được trừ khỏi phần đang giữ và chứng từ đã được lưu.",
@@ -650,7 +663,7 @@ export default function PlatformWalletPage() {
         <StatCard
           label={status ? "Yêu cầu rút theo bộ lọc" : "Yêu cầu rút"}
           value={sourceAvailable.withdrawals
-            ? withdrawals.length.toLocaleString("vi-VN")
+            ? Number(withdrawalMeta.totalElements).toLocaleString("vi-VN")
             : "—"}
           icon={<HandCoins size={21} />}
           tone="violet"
@@ -662,7 +675,7 @@ export default function PlatformWalletPage() {
           <h2><Banknote size={18} /> Yêu cầu rút tiền</h2>
           <label className="system-wallet-filter">
             <span>Trạng thái</span>
-            <select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <select value={status} onChange={(event) => { setStatus(event.target.value); setWithdrawalPage(1); }}>
               <option value="">Tất cả trạng thái</option>
               <option value="PENDING">Chờ duyệt</option>
               <option value="APPROVED">Đã duyệt - chờ chuyển khoản</option>
@@ -722,6 +735,12 @@ export default function PlatformWalletPage() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={withdrawalPage}
+          totalPages={Math.max(1, Number(withdrawalMeta.totalPages ?? 0))}
+          onPageChange={setWithdrawalPage}
+          ariaLabel="Phân trang yêu cầu rút tiền"
+        />
       </section>
 
       <section className="wallet-panel refund-workflow-panel">

@@ -10,9 +10,18 @@ import com.smarthotel.payment.payos.PayOsPayoutClient;
 import com.smarthotel.payment.wallet.dto.*;
 import com.smarthotel.payment.wallet.entity.*;
 import com.smarthotel.payment.wallet.repository.*;
+import com.smarthotel.payment.wallet.exception.FinancialOperationException;
+import com.smarthotel.payment.wallet.roomchange.BookingFinancialLockService;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ConnectionCallback;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -30,6 +39,8 @@ public class WalletService {
     private final PayOsPayoutClient payoutClient;
     private final NotificationClient notificationClient;
     private final HotelAdminDemotionFenceService hotelAdminDemotionFenceService;
+    private final JdbcTemplate jdbcTemplate;
+    private final BookingFinancialLockService bookingFinancialLockService;
 
     public WalletService(WalletRepository walletRepository,
                          WalletTransactionRepository transactionRepository,
@@ -38,7 +49,9 @@ public class WalletService {
                          BookingClient bookingClient,
                          PayOsPayoutClient payoutClient,
                          NotificationClient notificationClient,
-                         HotelAdminDemotionFenceService hotelAdminDemotionFenceService) {
+                         HotelAdminDemotionFenceService hotelAdminDemotionFenceService,
+                         JdbcTemplate jdbcTemplate,
+                         BookingFinancialLockService bookingFinancialLockService) {
         this.walletRepository = walletRepository;
         this.transactionRepository = transactionRepository;
         this.withdrawalRepository = withdrawalRepository;
@@ -47,10 +60,13 @@ public class WalletService {
         this.payoutClient = payoutClient;
         this.notificationClient = notificationClient;
         this.hotelAdminDemotionFenceService = hotelAdminDemotionFenceService;
+        this.jdbcTemplate = jdbcTemplate;
+        this.bookingFinancialLockService = bookingFinancialLockService;
     }
 
     @Transactional
     public void applySuccessfulPayment(Payment payment) {
+        bookingFinancialLockService.lock(payment.getBookingId());
         if (payment.isWalletApplied()) return;
         requirePaidWithHotel(payment);
         hotelAdminDemotionFenceService.ensureOwnerMutationAllowed(payment.getHotelOwnerId());
@@ -89,10 +105,14 @@ public class WalletService {
 
     @Transactional
     public void applyCashAtHotelPayment(Payment payment) {
+        bookingFinancialLockService.lock(payment.getBookingId());
         if (payment.isWalletApplied()) return;
         requirePaidWithHotel(payment);
         hotelAdminDemotionFenceService.ensureOwnerMutationAllowed(payment.getHotelOwnerId());
 
+        // All multi-wallet paths acquire PLATFORM before HOTEL/HOTEL_ADMIN
+        // and CUSTOMER. Cash used to invert the platform/hotel order.
+        getOrCreateForUpdate(WalletOwnerType.PLATFORM, Wallet.PLATFORM_OWNER_ID);
         Wallet hotel = getOrCreateForUpdate(
                 WalletOwnerType.HOTEL_ADMIN,
                 payment.getHotelOwnerId()
@@ -180,6 +200,7 @@ public class WalletService {
 
     @Transactional
     public void applyCustomerWalletPayment(Payment payment) {
+        bookingFinancialLockService.lock(payment.getBookingId());
         if (transactionRepository.existsByPaymentIdAndType(payment.getId(), WalletTransactionType.CUSTOMER_PAYMENT_DEBIT)) return;
         Wallet wallet = getOrCreateForUpdate(WalletOwnerType.CUSTOMER, payment.getCustomerId());
         wallet.spendAvailable(payment.getAmount());
@@ -193,6 +214,7 @@ public class WalletService {
 
     @Transactional
     public void creditCustomerRefund(Payment payment) {
+        assertNoRoomChangeCreditConflict(payment.getBookingId());
         if (transactionRepository.existsByPaymentIdAndType(payment.getId(), WalletTransactionType.CUSTOMER_REFUND_CREDIT)) return;
         Wallet wallet = getOrCreateForUpdate(WalletOwnerType.CUSTOMER, payment.getCustomerId());
         wallet.creditCustomerRefund(payment.getAmount());
@@ -235,6 +257,7 @@ public class WalletService {
 
     @Transactional
     public void reverseSuccessfulPayment(Payment payment) {
+        assertNoRoomChangeCreditConflict(payment.getBookingId());
         if (!payment.isWalletApplied()) return;
         if (payment.getHotelOwnerId() == null) throw new IllegalStateException("Giao dịch chưa xác định được chủ khách sạn");
 
@@ -271,8 +294,15 @@ public class WalletService {
 
     @Transactional
     public Payment releaseHotelRevenue(UUID paymentId, boolean force) {
+        UUID bookingId = paymentRepository.findBookingIdById(paymentId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch"));
+        bookingFinancialLockService.lock(bookingId);
+
         Payment payment = paymentRepository.findForUpdateById(paymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy giao dịch"));
+        if (!bookingId.equals(payment.getBookingId())) {
+            throw new IllegalStateException("Booking của giao dịch đã thay đổi trong lúc khóa tài chính");
+        }
 
         if (payment.getStatus() != PaymentStatus.PAID) {
             throw new IllegalStateException("Giao dịch chưa thanh toán thành công");
@@ -289,6 +319,7 @@ public class WalletService {
         if (payment.getHotelOwnerId() == null) {
             throw new IllegalStateException("Thiếu chủ khách sạn");
         }
+        assertNoRoomChangeCreditConflictWhileLocked(payment.getBookingId());
         hotelAdminDemotionFenceService.ensureOwnerMutationAllowed(payment.getHotelOwnerId());
 
         if (!force) {
@@ -354,6 +385,53 @@ public class WalletService {
         return payment;
     }
 
+    /**
+     * V13 issues a real Customer-wallet credit but deliberately does not model a
+     * partial reversal of the original payment allocation. Until that
+     * counterparty reconciliation exists, an automatic full refund or hotel
+     * revenue release would settle the same value twice. Fail closed and route
+     * the affected booking to an audited manual reconciliation instead.
+     */
+    @Transactional
+    public void assertNoRoomChangeCreditConflict(UUID bookingId) {
+        if (bookingId == null) {
+            throw new IllegalArgumentException("bookingId không được để trống");
+        }
+        bookingFinancialLockService.lock(bookingId);
+        assertNoRoomChangeCreditConflictWhileLocked(bookingId);
+    }
+
+    /** Acquire every booking mutex before ANY wallet lock in a multi-booking checkout. */
+    @Transactional
+    public void lockBookings(java.util.Collection<UUID> bookingIds) {
+        bookingIds.stream().distinct().sorted().forEach(bookingFinancialLockService::lock);
+    }
+
+    /** Platform is the common first lock for paths touching multiple wallets. */
+    @Transactional
+    public void lockCheckoutWallets(UUID hotelOwnerId) {
+        getOrCreateForUpdate(WalletOwnerType.PLATFORM, Wallet.PLATFORM_OWNER_ID);
+        getOrCreateForUpdate(WalletOwnerType.HOTEL_ADMIN, hotelOwnerId);
+    }
+
+    private void assertNoRoomChangeCreditConflictWhileLocked(UUID bookingId) {
+        BigDecimal credited = jdbcTemplate.queryForObject("""
+                SELECT COALESCE(SUM(credited_amount), 0)
+                FROM financial_event_inbox
+                WHERE operation_type = 'ROOM_CHANGE_CREDIT'
+                  AND booking_id = ?
+                  AND credited_amount > 0
+                """, BigDecimal.class, bookingId);
+        if (credited != null && credited.signum() > 0) {
+            throw financial(
+                    HttpStatus.CONFLICT,
+                    "ROOM_CHANGE_RECONCILIATION_REQUIRED",
+                    "Booking đã được cộng chênh lệch đổi phòng vào Ví Enziu; "
+                            + "phải đối soát thủ công trước khi hoàn tiền hoặc giải ngân."
+            );
+        }
+    }
+
     @Transactional(readOnly = true)
     public WalletResponse getWallet(UUID ownerId, WalletOwnerType ownerType) {
         return walletRepository.findByOwnerTypeAndOwnerId(ownerType, ownerId)
@@ -389,6 +467,16 @@ public class WalletService {
 
     @Transactional
     public WithdrawalResponse createWithdrawal(UUID ownerId, WalletOwnerType ownerType, CreateWithdrawalRequest request) {
+        return createWithdrawal(ownerId, ownerType, request, "legacy-" + UUID.randomUUID());
+    }
+
+    @Transactional
+    public WithdrawalResponse createWithdrawal(
+            UUID ownerId,
+            WalletOwnerType ownerType,
+            CreateWithdrawalRequest request,
+            String idempotencyKey
+    ) {
         if (ownerType != WalletOwnerType.HOTEL_ADMIN && ownerType != WalletOwnerType.CUSTOMER) {
             throw new IllegalArgumentException("Tài khoản này không hỗ trợ rút tiền");
         }
@@ -396,6 +484,24 @@ public class WalletService {
             hotelAdminDemotionFenceService.ensureOwnerMutationAllowed(ownerId);
         }
         Wallet wallet = getOrCreateForUpdate(ownerType, ownerId);
+
+        String normalizedKey = requireIdempotencyKey(idempotencyKey);
+        var replay = withdrawalRepository.findByOwnerTypeAndOwnerIdAndIdempotencyKey(
+                ownerType, ownerId, normalizedKey
+        );
+        if (replay.isPresent()) {
+            WithdrawalRequest existing = replay.get();
+            BigDecimal requested = request.amount().setScale(0, RoundingMode.HALF_UP);
+            if (existing.getAmount().compareTo(requested) != 0
+                    || !same(existing.getBankName(), request.bankName())
+                    || !same(existing.getBankBin(), request.bankBin())
+                    || !same(existing.getAccountNumber(), request.accountNumber())
+                    || !same(existing.getAccountName(), request.accountName())) {
+                throw financial(HttpStatus.CONFLICT, "DUPLICATE_FINANCIAL_OPERATION",
+                        "Idempotency-Key đã dùng cho yêu cầu khác");
+            }
+            return WithdrawalResponse.from(existing);
+        }
 
         if (ownerType == WalletOwnerType.HOTEL_ADMIN) {
             BigDecimal debtSettled = wallet.settleCommissionDebtFromAvailable();
@@ -412,14 +518,27 @@ public class WalletService {
         }
 
         BigDecimal amount = request.amount().setScale(0, RoundingMode.HALF_UP);
-        wallet.holdForWithdrawal(amount);
+        BigDecimal balanceBefore = wallet.getAvailableBalance();
+        try {
+            wallet.holdForWithdrawal(amount);
+        } catch (IllegalStateException exception) {
+            if (ownerType == WalletOwnerType.CUSTOMER) {
+                throw financial(HttpStatus.CONFLICT, "INSUFFICIENT_WALLET_BALANCE",
+                        exception.getMessage());
+            }
+            throw exception;
+        }
         WithdrawalRequest withdrawal = withdrawalRepository.save(new WithdrawalRequest(
                 wallet.getId(), ownerId, ownerType, amount, request.bankName(), request.bankBin(),
                 request.accountNumber(), request.accountName()
         ));
-        transactionRepository.save(new WalletTransaction(
-                wallet.getId(), null, withdrawal.getId(), WalletTransactionType.WITHDRAWAL_HOLD,
-                amount.negate(), "Khóa tiền cho yêu cầu rút " + withdrawal.getId()
+        withdrawal.assignIdempotencyKey(normalizedKey);
+        transactionRepository.save(WalletTransaction.audited(
+                wallet.getId(), withdrawal.getId(), WalletTransactionType.WITHDRAWAL_HOLD,
+                amount.negate(), "Khóa tiền cho yêu cầu rút " + withdrawal.getId(),
+                balanceBefore, wallet.getAvailableBalance(), "WITHDRAWAL",
+                withdrawal.getId().toString(), "WITHDRAWAL_CREATE:" + ownerType + ":" + ownerId + ":" + normalizedKey,
+                ownerType.name(), ownerId
         ));
         notificationClient.sendRole(
                 "SYSTEM_ADMIN",
@@ -496,8 +615,8 @@ public class WalletService {
     }
 
     @Transactional(readOnly = true)
-    public List<WithdrawalResponse> getMyWithdrawals(UUID ownerId) {
-        return withdrawalRepository.findAllByOwnerIdOrderByRequestedAtDesc(ownerId)
+    public List<WithdrawalResponse> getMyWithdrawals(UUID ownerId, WalletOwnerType ownerType) {
+        return withdrawalRepository.findAllByOwnerTypeAndOwnerIdOrderByRequestedAtDesc(ownerType, ownerId)
                 .stream().map(WithdrawalResponse::from).toList();
     }
 
@@ -509,9 +628,50 @@ public class WalletService {
         return rows.stream().map(WithdrawalResponse::fromAdmin).toList();
     }
 
+    @Transactional(readOnly = true)
+    public Page<WalletTransactionResponse> getTransactionsPage(
+            UUID ownerId, WalletOwnerType ownerType, int page, int size
+    ) {
+        Pageable pageable = stablePage(page, size, "createdAt");
+        return walletRepository.findByOwnerTypeAndOwnerId(ownerType, ownerId)
+                .map(wallet -> transactionRepository.findAllByWalletId(wallet.getId(), pageable)
+                        .map(WalletTransactionResponse::from))
+                .orElse(Page.empty(pageable));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<WithdrawalResponse> getMyWithdrawalsPage(
+            UUID ownerId, WalletOwnerType ownerType, int page, int size
+    ) {
+        return withdrawalRepository.findAllByOwnerTypeAndOwnerId(
+                        ownerType, ownerId, stablePage(page, size, "requestedAt")
+                )
+                .map(WithdrawalResponse::from);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<WithdrawalResponse> getAllWithdrawalsPage(
+            WithdrawalStatus status, int page, int size
+    ) {
+        Pageable pageable = stablePage(page, size, "requestedAt");
+        Page<WithdrawalRequest> rows = status == null
+                ? withdrawalRepository.findAll(pageable)
+                : withdrawalRepository.findAllByStatus(status, pageable);
+        return rows.map(WithdrawalResponse::fromAdmin);
+    }
+
     @Transactional
     public WithdrawalResponse approve(UUID withdrawalId, UUID adminId, String note, boolean executePayout) {
         WithdrawalRequest withdrawal = findWithdrawalForUpdate(withdrawalId);
+        if (executePayout && withdrawal.getOwnerType() == WalletOwnerType.CUSTOMER) {
+            throw financial(HttpStatus.CONFLICT, "INVALID_WITHDRAWAL_STATUS",
+                    "Customer withdrawal chỉ được System Admin đối soát và chuyển khoản thủ công"
+            );
+        }
+        if (withdrawal.getStatus() != WithdrawalStatus.PENDING) {
+            throw financial(HttpStatus.CONFLICT, "INVALID_WITHDRAWAL_STATUS",
+                    "Chỉ yêu cầu PENDING mới có thể được duyệt");
+        }
         withdrawal.approve(adminId, note);
         notifyWithdrawalOwner(withdrawal, "Yêu cầu rút tiền đã được duyệt",
                 "Yêu cầu rút " + withdrawal.getAmount().toPlainString() + " đ đã được System Admin phê duyệt.");
@@ -555,13 +715,21 @@ public class WalletService {
     @Transactional
     public WithdrawalResponse reject(UUID withdrawalId, UUID adminId, String note) {
         WithdrawalRequest withdrawal = findWithdrawalForUpdate(withdrawalId);
+        if (withdrawal.getStatus() != WithdrawalStatus.PENDING) {
+            throw financial(HttpStatus.CONFLICT, "INVALID_WITHDRAWAL_STATUS",
+                    "Chỉ yêu cầu PENDING mới có thể bị từ chối");
+        }
         withdrawal.reject(adminId, note);
         Wallet wallet = walletRepository.findById(withdrawal.getWalletId())
                 .orElseThrow(() -> new IllegalStateException("Không tìm thấy ví"));
+        BigDecimal balanceBefore = wallet.getAvailableBalance();
         wallet.releaseWithdrawalHold(withdrawal.getAmount());
-        transactionRepository.save(new WalletTransaction(
-                wallet.getId(), null, withdrawal.getId(), WalletTransactionType.WITHDRAWAL_RELEASED,
-                withdrawal.getAmount(), "Hoàn số dư do yêu cầu rút bị từ chối"
+        transactionRepository.save(WalletTransaction.audited(
+                wallet.getId(), withdrawal.getId(), WalletTransactionType.WITHDRAWAL_RELEASED,
+                withdrawal.getAmount(), "Hoàn số dư do yêu cầu rút bị từ chối",
+                balanceBefore, wallet.getAvailableBalance(), "WITHDRAWAL",
+                withdrawal.getId().toString(), "WITHDRAWAL_REJECT:" + withdrawal.getId(),
+                "SYSTEM_ADMIN", adminId
         ));
         notifyWithdrawalOwner(withdrawal, "Yêu cầu rút tiền bị từ chối",
                 "Yêu cầu rút " + withdrawal.getAmount().toPlainString() + " đ chưa được chấp thuận. Lý do: " + note);
@@ -573,21 +741,63 @@ public class WalletService {
             UUID withdrawalId,
             UUID adminId,
             String transferReference,
-            MultipartFile transferProof
+            MultipartFile transferProof,
+            String idempotencyKey
     ) {
+        WithdrawalRequest withdrawal = findWithdrawalForUpdate(withdrawalId);
+        String normalizedKey = requireIdempotencyKey(idempotencyKey);
+        if (withdrawal.getStatus() == WithdrawalStatus.PAID) {
+            if (withdrawal.getCompletionIdempotencyKey() != null
+                    && !withdrawal.getCompletionIdempotencyKey().equals(normalizedKey)) {
+                throw financial(HttpStatus.CONFLICT, "DUPLICATE_FINANCIAL_OPERATION",
+                        "Yêu cầu rút tiền đã hoàn tất bằng Idempotency-Key khác");
+            }
+            if (withdrawal.getPayoutReference() != null
+                    && transferReference != null
+                    && !withdrawal.getPayoutReference().equals(transferReference.trim())) {
+                throw financial(HttpStatus.CONFLICT, "DUPLICATE_FINANCIAL_OPERATION",
+                        "Payload hoàn tất không khớp lần xử lý trước");
+            }
+            return WithdrawalResponse.fromAdmin(withdrawal);
+        }
         requireText(transferReference, "Vui lòng nhập mã giao dịch/chứng từ ngân hàng");
         StoredImage proof = readOptionalImage(transferProof, true, "ảnh chứng từ chuyển khoản");
-        WithdrawalRequest withdrawal = findWithdrawalForUpdate(withdrawalId);
+        try {
+            withdrawal.assignCompletionIdempotencyKey(normalizedKey);
+        } catch (IllegalStateException exception) {
+            throw financial(HttpStatus.CONFLICT, "DUPLICATE_FINANCIAL_OPERATION",
+                    "Yêu cầu rút tiền đã dùng Idempotency-Key hoàn tất khác");
+        }
         withdrawal.attachTransferProof(proof.data(), proof.contentType(), proof.fileName());
-        completeWithdrawal(withdrawal, withdrawal.getPayoutId(), transferReference.trim(), adminId);
+        completeWithdrawal(
+                withdrawal, withdrawal.getPayoutId(), transferReference.trim(), adminId, normalizedKey
+        );
         return WithdrawalResponse.fromAdmin(withdrawal);
     }
 
+    @Transactional
+    public WithdrawalResponse markPaid(
+            UUID withdrawalId,
+            UUID adminId,
+            String transferReference,
+            MultipartFile transferProof
+    ) {
+        return markPaid(
+                withdrawalId, adminId, transferReference, transferProof,
+                "legacy-completion-" + withdrawalId
+        );
+    }
+
     @Transactional(readOnly = true)
-    public WithdrawalMedia getReceiverQr(UUID withdrawalId, UUID viewerId, boolean systemAdmin) {
+    public WithdrawalMedia getReceiverQr(
+            UUID withdrawalId,
+            UUID viewerId,
+            WalletOwnerType viewerOwnerType,
+            boolean systemAdmin
+    ) {
         WithdrawalRequest withdrawal = withdrawalRepository.findById(withdrawalId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu rút tiền"));
-        ensureCanViewMedia(withdrawal, viewerId, systemAdmin);
+        ensureCanViewMedia(withdrawal, viewerId, viewerOwnerType, systemAdmin);
         if (!withdrawal.hasReceiverQr()) {
             throw new IllegalArgumentException("Yêu cầu rút tiền này không có mã QR nhận tiền");
         }
@@ -599,10 +809,15 @@ public class WalletService {
     }
 
     @Transactional(readOnly = true)
-    public WithdrawalMedia getTransferProof(UUID withdrawalId, UUID viewerId, boolean systemAdmin) {
+    public WithdrawalMedia getTransferProof(
+            UUID withdrawalId,
+            UUID viewerId,
+            WalletOwnerType viewerOwnerType,
+            boolean systemAdmin
+    ) {
         WithdrawalRequest withdrawal = withdrawalRepository.findById(withdrawalId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu rút tiền"));
-        ensureCanViewMedia(withdrawal, viewerId, systemAdmin);
+        ensureCanViewMedia(withdrawal, viewerId, viewerOwnerType, systemAdmin);
         if (!withdrawal.hasTransferProof()) {
             throw new IllegalArgumentException("Yêu cầu rút tiền này chưa có chứng từ chuyển khoản");
         }
@@ -614,24 +829,52 @@ public class WalletService {
     }
 
     private void completeWithdrawal(WithdrawalRequest withdrawal, String payoutId, String reference, UUID adminId) {
+        completeWithdrawal(withdrawal, payoutId, reference, adminId,
+                "automatic-payout-" + withdrawal.getId());
+    }
+
+    private void completeWithdrawal(
+            WithdrawalRequest withdrawal,
+            String payoutId,
+            String reference,
+            UUID adminId,
+            String idempotencyKey
+    ) {
         if (withdrawal.getStatus() == WithdrawalStatus.PAID) return;
+        if (withdrawal.getStatus() != WithdrawalStatus.APPROVED
+                && withdrawal.getStatus() != WithdrawalStatus.PROCESSING) {
+            throw financial(HttpStatus.CONFLICT, "INVALID_WITHDRAWAL_STATUS",
+                    "Yêu cầu rút tiền chưa sẵn sàng để hoàn tất");
+        }
         Wallet wallet = walletRepository.findById(withdrawal.getWalletId())
                 .orElseThrow(() -> new IllegalStateException("Không tìm thấy ví"));
+        BigDecimal balanceBefore = wallet.getLockedBalance();
         wallet.completeWithdrawal(withdrawal.getAmount());
         withdrawal.markPaid(payoutId, reference, adminId);
-        transactionRepository.save(new WalletTransaction(
-                wallet.getId(), null, withdrawal.getId(), WalletTransactionType.WITHDRAWAL_PAID,
+        transactionRepository.save(WalletTransaction.audited(
+                wallet.getId(), withdrawal.getId(), WalletTransactionType.WITHDRAWAL_PAID,
                 withdrawal.getAmount().negate(),
-                "System Admin đã xác nhận chuyển tiền thật. Mã giao dịch: " + reference
+                "System Admin đã xác nhận chuyển tiền thật. Mã giao dịch: " + reference,
+                balanceBefore, wallet.getLockedBalance(), "WITHDRAWAL",
+                withdrawal.getId().toString(), "WITHDRAWAL_COMPLETE:" + idempotencyKey,
+                "SYSTEM_ADMIN", adminId
         ));
         notifyWithdrawalOwner(withdrawal, "Tiền rút đã được chuyển",
                 "System Admin đã xác nhận chuyển thật " + withdrawal.getAmount().toPlainString()
                         + " đ. Mã giao dịch: " + reference + ".");
     }
 
-    private void ensureCanViewMedia(WithdrawalRequest withdrawal, UUID viewerId, boolean systemAdmin) {
+    private void ensureCanViewMedia(
+            WithdrawalRequest withdrawal,
+            UUID viewerId,
+            WalletOwnerType viewerOwnerType,
+            boolean systemAdmin
+    ) {
         if (systemAdmin) return;
-        if (viewerId == null || !withdrawal.getOwnerId().equals(viewerId)) {
+        if (viewerId == null
+                || viewerOwnerType == null
+                || !withdrawal.getOwnerId().equals(viewerId)
+                || withdrawal.getOwnerType() != viewerOwnerType) {
             throw new IllegalStateException("Bạn không có quyền xem tài liệu rút tiền này");
         }
     }
@@ -717,12 +960,76 @@ public class WalletService {
 
     private WithdrawalRequest findWithdrawalForUpdate(UUID id) {
         return withdrawalRepository.findForUpdate(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu rút tiền"));
+                .orElseThrow(() -> financial(HttpStatus.NOT_FOUND, "WITHDRAWAL_NOT_FOUND",
+                        "Không tìm thấy yêu cầu rút tiền"));
     }
 
     private Wallet getOrCreateForUpdate(WalletOwnerType type, UUID ownerId) {
+        insertWalletIfAbsent(type, ownerId);
         return walletRepository.findForUpdate(type, ownerId)
-                .orElseGet(() -> walletRepository.save(new Wallet(type, ownerId)));
+                .orElseThrow(() -> new IllegalStateException("Không thể khóa ví"));
+    }
+
+    private void insertWalletIfAbsent(WalletOwnerType type, UUID ownerId) {
+        UUID walletId = UUID.randomUUID();
+        String product = jdbcTemplate.execute((ConnectionCallback<String>) connection ->
+                connection.getMetaData().getDatabaseProductName());
+        if ("PostgreSQL".equalsIgnoreCase(product)) {
+            jdbcTemplate.update("""
+                    INSERT INTO wallets
+                        (id, owner_type, owner_id, available_balance, pending_balance,
+                         locked_balance, commission_debt, total_earned, total_withdrawn,
+                         version, created_at, updated_at)
+                    VALUES (?, ?, ?, 0, 0, 0, 0, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT (owner_type, owner_id) DO NOTHING
+                    """, walletId, type.name(), ownerId);
+            return;
+        }
+        if ("H2".equalsIgnoreCase(product)) {
+            jdbcTemplate.update("""
+                    MERGE INTO wallets AS target
+                    USING (VALUES (?, ?, ?)) AS source (id, owner_type, owner_id)
+                    ON target.owner_type = source.owner_type AND target.owner_id = source.owner_id
+                    WHEN NOT MATCHED THEN INSERT
+                        (id, owner_type, owner_id, available_balance, pending_balance,
+                         locked_balance, commission_debt, total_earned, total_withdrawn,
+                         version, created_at, updated_at)
+                        VALUES (source.id, source.owner_type, source.owner_id, 0, 0, 0,
+                                0, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """, walletId, type.name(), ownerId);
+            return;
+        }
+        throw new IllegalStateException("Database chưa được kiểm chứng cho wallet locking: " + product);
+    }
+
+    private static Pageable stablePage(int page, int size, String timeProperty) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(100, Math.max(1, size));
+        return PageRequest.of(safePage, safeSize,
+                Sort.by(Sort.Order.desc(timeProperty), Sort.Order.desc("id")));
+    }
+
+    private static String requireIdempotencyKey(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("Idempotency-Key không được để trống");
+        }
+        String normalized = value.trim();
+        if (normalized.length() > 120) {
+            throw new IllegalArgumentException("Idempotency-Key tối đa 120 ký tự");
+        }
+        return normalized;
+    }
+
+    private static boolean same(String left, String right) {
+        String a = left == null ? null : left.trim();
+        String b = right == null ? null : right.trim();
+        return java.util.Objects.equals(a, b);
+    }
+
+    private static FinancialOperationException financial(
+            HttpStatus status, String code, String message
+    ) {
+        return new FinancialOperationException(status, code, message);
     }
 
     private WalletResponse emptyWallet(UUID ownerId, WalletOwnerType ownerType) {

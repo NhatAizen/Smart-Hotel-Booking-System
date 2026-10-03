@@ -7,6 +7,8 @@ import com.smarthotel.booking.booking.hold.RoomHoldService;
 import com.smarthotel.booking.booking.realtime.AvailabilityEvent;
 import com.smarthotel.booking.booking.realtime.AvailabilityRealtimeService;
 import com.smarthotel.booking.booking.repository.BookingRepository;
+import com.smarthotel.booking.booking.roomchange.financial.RoomChangeCreditFeature;
+import com.smarthotel.booking.booking.roomchange.financial.RoomChangeFinancialOutboxService;
 import com.smarthotel.booking.integration.hotel.HotelClient;
 import com.smarthotel.booking.integration.notification.NotificationClient;
 import com.smarthotel.booking.pricing.entity.BookingNightPrice;
@@ -38,6 +40,8 @@ public class RoomChangeService {
     private final RoomHoldService roomHoldService;
     private final AvailabilityRealtimeService realtimeService;
     private final NotificationClient notificationClient;
+    private final RoomChangeCreditFeature roomChangeCreditFeature;
+    private final RoomChangeFinancialOutboxService financialOutboxService;
 
     public RoomChangeService(
             RoomChangeRequestRepository requestRepository,
@@ -47,7 +51,9 @@ public class RoomChangeService {
             BookingNightPriceRepository nightPriceRepository,
             RoomHoldService roomHoldService,
             AvailabilityRealtimeService realtimeService,
-            NotificationClient notificationClient
+            NotificationClient notificationClient,
+            RoomChangeCreditFeature roomChangeCreditFeature,
+            RoomChangeFinancialOutboxService financialOutboxService
     ) {
         this.requestRepository = requestRepository;
         this.bookingRepository = bookingRepository;
@@ -57,6 +63,8 @@ public class RoomChangeService {
         this.roomHoldService = roomHoldService;
         this.realtimeService = realtimeService;
         this.notificationClient = notificationClient;
+        this.roomChangeCreditFeature = roomChangeCreditFeature;
+        this.financialOutboxService = financialOutboxService;
     }
 
     @Transactional
@@ -65,7 +73,7 @@ public class RoomChangeService {
             UUID bookingId,
             CreateRoomChangeRequest request
     ) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         if (!booking.getCustomerId().equals(customerId)) {
             throw new IllegalStateException("Bạn không có quyền yêu cầu đổi phòng cho booking này");
         }
@@ -151,10 +159,10 @@ public class RoomChangeService {
             UUID requestId,
             ApproveRoomChangeRequest body
     ) {
-        RoomChangeRequest request = findRequest(requestId);
+        Booking booking = findBookingForUpdate(findRequestBookingId(requestId));
+        RoomChangeRequest request = findRequestForUpdate(requestId);
         ensurePending(request);
         requireHotelOwner(hotelAdminId, request.getHotelId());
-        Booking booking = findBooking(request.getBookingId());
         ensureChangeable(booking);
 
         UUID targetRoomId = requestedTargetRoomId(request);
@@ -186,19 +194,24 @@ public class RoomChangeService {
             ChangePlan plan = buildPlan(booking, targetRoomId, false);
             UUID oldRoomId = booking.getRoomId();
             BigDecimal oldTotal = booking.getTotalPrice();
+            BigDecimal expectedNetRetainedAmount = money(
+                    booking.getPaidAmount()
+            );
 
             booking.applyRoomChange(
                     plan.room().roomTypeId(),
                     plan.room().id(),
                     plan.pricing().baseAmount(),
                     plan.pricing().weekendSurchargeAmount(),
-                    plan.pricing().specialDateSurchargeAmount()
+                    plan.pricing().specialDateSurchargeAmount(),
+                    roomChangeCreditFeature.isEnabled()
             );
             bookingRepository.save(booking);
             replaceNightlyPricing(booking.getId(), plan.pricing());
 
             BigDecimal newTotal = booking.getTotalPrice();
-            BigDecimal additionalDue = calculateAdditionalPaymentDue(booking);
+            BigDecimal additionalDue = roomChangeCreditFeature.isEnabled()
+                    ? null : calculateAdditionalPaymentDue(booking);
             request.approve(
                     hotelAdminId,
                     plan.room().id(),
@@ -209,7 +222,19 @@ public class RoomChangeService {
                     additionalDue,
                     body.note()
             );
+            if (roomChangeCreditFeature.isEnabled()) request.awaitFinancialConfirmation();
             requestRepository.save(request);
+
+            if (roomChangeCreditFeature.isEnabled()) {
+                financialOutboxService.enqueue(
+                        request.getId(),
+                        booking.getId(),
+                        booking.getCustomerId(),
+                        newTotal,
+                        expectedNetRetainedAmount,
+                        booking.getRoomChangeFinancialVersion()
+                );
+            }
 
             registerHoldReleaseAfterCompletion(hold);
             afterCommit(() -> {
@@ -224,7 +249,9 @@ public class RoomChangeService {
                 notificationClient.sendUser(
                         booking.getCustomerId(),
                         "Yêu cầu đổi phòng đã được duyệt",
-                        additionalDue.signum() > 0
+                        roomChangeCreditFeature.isEnabled()
+                                ? "Khách sạn đã duyệt đổi phòng. Hệ thống đang đối soát phần thanh toán và số tiền chênh lệch."
+                                : additionalDue.signum() > 0
                                 ? "Khách sạn đã đổi phòng cho booking " + booking.getBookingCode()
                                     + ". Bạn cần thanh toán bổ sung " + moneyText(additionalDue)
                                     + " để đủ mức thanh toán yêu cầu."
@@ -249,13 +276,13 @@ public class RoomChangeService {
             UUID requestId,
             RejectRoomChangeRequest body
     ) {
-        RoomChangeRequest request = findRequest(requestId);
+        Booking booking = findBookingForUpdate(findRequestBookingId(requestId));
+        RoomChangeRequest request = findRequestForUpdate(requestId);
         ensurePending(request);
         requireHotelOwner(hotelAdminId, request.getHotelId());
         request.reject(hotelAdminId, body.note());
         requestRepository.save(request);
 
-        Booking booking = findBooking(request.getBookingId());
         afterCommit(() -> notificationClient.sendUser(
                 booking.getCustomerId(),
                 "Yêu cầu đổi phòng chưa được chấp thuận",
@@ -348,18 +375,27 @@ public class RoomChangeService {
         BigDecimal lateFee = money(booking.getLateCheckoutFee());
         BigDecimal newTotal = money(pricing.totalAmount().subtract(totalDiscount).add(lateFee));
         BigDecimal paid = money(booking.getPaidAmount());
-        if (paid.compareTo(newTotal) > 0) {
+        if (!roomChangeCreditFeature.isEnabled() && paid.compareTo(newTotal) > 0) {
             throw new IllegalStateException(
                     "Phòng thay thế rẻ hơn số tiền khách đã thanh toán. "
                             + "Luồng đổi phòng hiện không tự hoàn phần chênh lệch; hãy chọn phòng khác hoặc xử lý hoàn tiền riêng."
             );
         }
 
-        return new ChangePlan(room, roomType, pricing, newTotal, previewAdditionalPaymentDue(booking, newTotal));
+        return new ChangePlan(
+                room,
+                roomType,
+                pricing,
+                newTotal,
+                previewAdditionalPaymentDue(booking, newTotal),
+                roomChangeCreditFeature.isEnabled()
+        );
     }
 
     private BigDecimal previewAdditionalPaymentDue(Booking booking, BigDecimal newTotal) {
-        BigDecimal paid = money(booking.getPaidAmount());
+        BigDecimal paid = roomChangeCreditFeature.isEnabled()
+                ? money(booking.getEffectivePaidAfterWalletReconciliation())
+                : money(booking.getPaidAmount());
         BigDecimal requiredPaid;
         if (booking.getPaymentOption() == PaymentOption.DEPOSIT) {
             int percent = booking.getDepositPercent() == null ? 0 : booking.getDepositPercent();
@@ -403,6 +439,7 @@ public class RoomChangeService {
     }
 
     private void ensureChangeable(Booking booking) {
+        booking.requireResolvedRoomChangeFinancialPosition();
         if (booking.getStatus() != BookingStatus.CONFIRMED) {
             throw new IllegalStateException("Chỉ booking đã xác nhận và chưa check-in mới được yêu cầu đổi phòng");
         }
@@ -431,6 +468,21 @@ public class RoomChangeService {
     private Booking findBooking(UUID bookingId) {
         return bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy booking"));
+    }
+
+    private Booking findBookingForUpdate(UUID bookingId) {
+        return bookingRepository.findForUpdate(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy booking"));
+    }
+
+    private UUID findRequestBookingId(UUID requestId) {
+        return requestRepository.findBookingId(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu đổi phòng"));
+    }
+
+    private RoomChangeRequest findRequestForUpdate(UUID requestId) {
+        return requestRepository.findForUpdate(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu đổi phòng"));
     }
 
     private RoomChangeRequest findRequest(UUID requestId) {
@@ -484,7 +536,8 @@ public class RoomChangeService {
             HotelClient.RoomTypeDetails roomType,
             PricingService.RoomPricing pricing,
             BigDecimal newTotal,
-            BigDecimal additionalPaymentDue
+            BigDecimal additionalPaymentDue,
+            boolean walletCreditEnabled
     ) {
         RoomChangeQuoteResponse toQuote(UUID requestId, Booking booking) {
             BigDecimal oldTotal = money(booking.getTotalPrice());
@@ -500,7 +553,9 @@ public class RoomChangeService {
                     money(newTotal.subtract(oldTotal)),
                     additionalPaymentDue,
                     booking.getPaymentOption().name(),
-                    booking.getDepositPercent()
+                    booking.getDepositPercent(),
+                    walletCreditEnabled,
+                    walletCreditEnabled && newTotal.compareTo(oldTotal) < 0
             );
         }
     }

@@ -20,6 +20,7 @@ public record RoomChangeRequestResponse(
         BigDecimal newTotalPrice,
         BigDecimal priceDifference,
         BigDecimal additionalPaymentDue,
+        String financialReconciliationStatus,
         Instant requestedAt,
         Instant reviewedAt,
         UUID reviewedBy
@@ -41,6 +42,7 @@ public record RoomChangeRequestResponse(
                 request.getNewTotalPrice(),
                 request.getPriceDifference(),
                 request.getAdditionalPaymentDue(),
+                request.getFinancialReconciliationStatus(),
                 request.getRequestedAt(),
                 request.getReviewedAt(),
                 request.getReviewedBy()

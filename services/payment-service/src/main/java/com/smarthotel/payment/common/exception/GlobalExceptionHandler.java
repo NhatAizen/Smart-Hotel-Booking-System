@@ -2,6 +2,7 @@ package com.smarthotel.payment.common.exception;
 
 import com.smarthotel.payment.common.response.ApiErrorResponse;
 import com.smarthotel.payment.wallet.exception.HotelAdminDemotionFenceException;
+import com.smarthotel.payment.wallet.exception.FinancialOperationException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,6 +69,19 @@ public class GlobalExceptionHandler {
         return build(
                 HttpStatus.CONFLICT,
                 "HOTEL_ADMIN_DEMOTION_IN_PROGRESS",
+                exception.getMessage(),
+                request
+        );
+    }
+
+    @ExceptionHandler(FinancialOperationException.class)
+    public ResponseEntity<ApiErrorResponse> handleFinancialOperation(
+            FinancialOperationException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                exception.getStatus(),
+                exception.getCode(),
                 exception.getMessage(),
                 request
         );

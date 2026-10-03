@@ -15,7 +15,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import ErrorMessage from "../../components/common/ErrorMessage";
@@ -47,6 +47,109 @@ const FILTERS = [
   ["NO_SHOW", "Không đến"],
   ["CANCELLED", "Đã hủy"],
 ];
+
+const DIALOG_FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
+function BookingManagementDialog({
+  ariaLabel,
+  children,
+  className = "",
+  onClose,
+}) {
+  const dialogRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      const firstTarget = dialogRef.current?.querySelector(DIALOG_FOCUSABLE_SELECTOR);
+      (firstTarget ?? dialogRef.current)?.focus();
+    });
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current?.();
+        return;
+      }
+
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll(DIALOG_FOCUSABLE_SELECTOR)]
+        .filter((element) => !element.hidden && element.getAttribute("aria-hidden") !== "true");
+
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+        previousFocus.focus();
+      }
+    };
+  }, []);
+
+  return (
+    <div
+      className="booking-management-modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onCloseRef.current?.();
+      }}
+    >
+      <section
+        ref={dialogRef}
+        className={`booking-management-modal ${className}`.trim()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel}
+        tabIndex={-1}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="booking-management-modal-close"
+          onClick={() => onCloseRef.current?.()}
+          aria-label="Đóng hộp thoại"
+        >
+          <X size={20} aria-hidden="true" />
+        </button>
+        {children}
+      </section>
+    </div>
+  );
+}
 
 function money(value) {
   const number = Number(value);
@@ -83,7 +186,9 @@ function customerName(booking) {
   return value || booking?.bookerEmail || "Khách hàng";
 }
 
-function paymentLabel(value) {
+function paymentLabel(value, booking = null) {
+  if (booking?.roomChangeReconciliationState === "PENDING") return "Đang đối soát thanh toán";
+  if (booking?.roomChangeReconciliationState === "RECONCILIATION_REQUIRED") return "Cần đối soát thủ công";
   return {
     UNPAID: "Chưa thanh toán",
     PARTIALLY_PAID: "Đã thanh toán một phần",
@@ -165,6 +270,7 @@ export default function HotelBookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [reviewRequest, setReviewRequest] = useState(null);
   const [reviewNote, setReviewNote] = useState("");
+  const [reviewError, setReviewError] = useState("");
   const [quote, setQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -267,22 +373,14 @@ export default function HotelBookingsPage() {
     roomChanges: pendingRequests.length,
   }), [bookings, pendingRequests]);
 
-  async function openRoomChange(request) {
-    const booking = bookingMap[String(request.bookingId)];
-    if (!booking) return;
-    setReviewRequest(request);
-    setReviewNote("");
+  async function loadRoomChangeQuote(request) {
+    setReviewError("");
     setQuote(null);
-    setError("");
-    if (!request.targetRoomId) {
-      setError("Yêu cầu này chưa ghi nhận phòng khách đã chọn. Hãy từ chối và đề nghị khách gửi lại.");
-      return;
-    }
     setQuoteLoading(true);
     try {
       setQuote(await getRoomChangeQuote(request.id));
     } catch (requestError) {
-      setError(messageOf(
+      setReviewError(messageOf(
         requestError,
         "Phòng khách chọn hiện không còn phù hợp hoặc không còn trống. Bạn có thể từ chối để khách chọn lại phòng khác.",
       ));
@@ -291,18 +389,35 @@ export default function HotelBookingsPage() {
     }
   }
 
+  async function openRoomChange(request) {
+    const booking = bookingMap[String(request.bookingId)];
+    if (!booking) return;
+    setReviewRequest(request);
+    setReviewNote("");
+    setQuote(null);
+    setError("");
+    setReviewError("");
+    if (!request.targetRoomId) {
+      setReviewError("Yêu cầu này chưa ghi nhận phòng khách đã chọn. Hãy từ chối và đề nghị khách gửi lại.");
+      return;
+    }
+    await loadRoomChangeQuote(request);
+  }
+
   async function approveChange() {
     if (!reviewRequest || !reviewRequest.targetRoomId || !quote || busy) return;
     setBusy(true);
-    setError("");
+    setReviewError("");
     setMessage("");
     try {
-      await approveRoomChangeRequest(reviewRequest.id, reviewNote);
-      setMessage("Đã duyệt phòng khách yêu cầu. Đơn đặt phòng và số tiền cần thanh toán đã được cập nhật.");
+      const approved = await approveRoomChangeRequest(reviewRequest.id, reviewNote);
+      setMessage(approved.financialReconciliationStatus === "PENDING"
+        ? "Đã duyệt phòng khách yêu cầu. Phần thanh toán và số tiền chênh lệch đang được đối soát."
+        : "Đã duyệt phòng khách yêu cầu. Đơn đặt phòng và số tiền cần thanh toán đã được cập nhật.");
       setReviewRequest(null);
       await loadHotelData();
     } catch (requestError) {
-      setError(messageOf(requestError, "Không thể duyệt yêu cầu đổi phòng."));
+      setReviewError(messageOf(requestError, "Không thể duyệt yêu cầu đổi phòng."));
     } finally {
       setBusy(false);
     }
@@ -311,7 +426,7 @@ export default function HotelBookingsPage() {
   async function rejectChange() {
     if (!reviewRequest || busy) return;
     setBusy(true);
-    setError("");
+    setReviewError("");
     setMessage("");
     try {
       await rejectRoomChangeRequest(reviewRequest.id, reviewNote);
@@ -319,7 +434,7 @@ export default function HotelBookingsPage() {
       setReviewRequest(null);
       await loadHotelData();
     } catch (requestError) {
-      setError(messageOf(requestError, "Không thể từ chối yêu cầu đổi phòng."));
+      setReviewError(messageOf(requestError, "Không thể từ chối yêu cầu đổi phòng."));
     } finally {
       setBusy(false);
     }
@@ -354,7 +469,11 @@ export default function HotelBookingsPage() {
           <p>Theo dõi đơn đặt phòng, thanh toán, khách không đến và các yêu cầu đổi phòng tại khách sạn.</p>
         </div>
         <div className="booking-management-hero-actions">
-          <select value={hotelId} onChange={(event) => setHotelId(event.target.value)}>
+          <select
+            value={hotelId}
+            onChange={(event) => setHotelId(event.target.value)}
+            aria-label="Chọn khách sạn để xem đơn đặt phòng"
+          >
             {hotels.map((hotel) => <option key={hotel.id} value={hotel.id}>{hotel.name}</option>)}
           </select>
           <button type="button" onClick={() => void loadHotelData()}><RefreshCw size={17} /> Làm mới</button>
@@ -417,9 +536,17 @@ export default function HotelBookingsPage() {
 
       <section className="booking-management-panel">
         <div className="booking-management-toolbar">
-          <div className="booking-management-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mã đặt phòng, tên khách, phòng..." /></div>
+          <div className="booking-management-search">
+            <Search size={17} aria-hidden="true" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Tìm mã đặt phòng, tên khách, phòng..."
+              aria-label="Tìm đơn đặt phòng theo mã, tên khách hoặc phòng"
+            />
+          </div>
           <div className="booking-management-filter-list">
-            {FILTERS.map(([value, label]) => <button key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{label}</button>)}
+            {FILTERS.map(([value, label]) => <button type="button" key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{label}</button>)}
           </div>
         </div>
 
@@ -485,14 +612,14 @@ export default function HotelBookingsPage() {
                     <div className="hotel-booking-payment-tile">
                       <div className="hotel-booking-payment-top">
                         <div><small>Tổng tiền</small><strong>{money(booking.totalPrice)}</strong></div>
-                        <span>{paymentLabel(booking.paymentStatus)}</span>
+                        <span>{paymentLabel(booking.paymentStatus, booking)}</span>
                       </div>
                       <div className="hotel-booking-payment-bar" aria-label={`Đã thanh toán ${progress}%`}>
                         <i style={{ width: `${progress}%` }} />
                       </div>
                       <div className="hotel-booking-payment-bottom">
                         <small>Đã trả <b>{money(booking.paidAmount)}</b></small>
-                        <small>Còn lại <b>{money(booking.remainingAmount)}</b></small>
+                        <small>Còn lại <b>{["PENDING", "RECONCILIATION_REQUIRED"].includes(booking.roomChangeReconciliationState) ? "Chưa xác định" : money(booking.remainingAmount)}</b></small>
                       </div>
                     </div>
                   </div>
@@ -517,9 +644,10 @@ export default function HotelBookingsPage() {
       </section>
 
       {selectedBooking ? (
-        <div className="booking-management-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setSelectedBooking(null)}>
-          <section className="booking-management-modal" role="dialog" aria-modal="true">
-            <button className="booking-management-modal-close" onClick={() => setSelectedBooking(null)}><X size={20} /></button>
+        <BookingManagementDialog
+          ariaLabel={`Chi tiết đơn đặt phòng ${selectedBooking.bookingCode}`}
+          onClose={() => setSelectedBooking(null)}
+        >
             <span className="booking-management-eyebrow">CHI TIẾT ĐƠN ĐẶT PHÒNG</span>
             <h2>{selectedBooking.bookingCode}</h2>
             <div className="booking-management-detail-grid">
@@ -533,7 +661,13 @@ export default function HotelBookingsPage() {
                 <span>Phòng {roomMap[String(selectedBooking.roomId)]?.roomNumber ?? "—"}</span>
               </div>
               <div><CalendarDays size={18} /><small>Lưu trú</small><strong>{date(selectedBooking.checkIn)} → {date(selectedBooking.checkOut)}</strong></div>
-              <div><CreditCard size={18} /><small>Thanh toán</small><strong>{paymentLabel(selectedBooking.paymentStatus)}</strong><span>Còn {money(selectedBooking.remainingAmount)}</span></div>
+              <div><CreditCard size={18} /><small>Thanh toán</small><strong>{paymentLabel(selectedBooking.paymentStatus, selectedBooking)}</strong><span>Còn {["PENDING", "RECONCILIATION_REQUIRED"].includes(selectedBooking.roomChangeReconciliationState) ? "Chưa xác định" : money(selectedBooking.remainingAmount)}</span>
+                {["PENDING", "RECONCILIATION_REQUIRED"].includes(selectedBooking.roomChangeReconciliationState) ? (
+                  <span role="status">{selectedBooking.roomChangeReconciliationState === "PENDING"
+                    ? "Đổi phòng đang chờ Payment xác nhận đối soát; chưa xác nhận cộng Ví."
+                    : "Cần đối soát thủ công; chưa xác nhận cộng Ví."}</span>
+                ) : null}
+              </div>
               <div><CircleDollarSign size={18} /><small>Tổng tiền</small><strong>{money(selectedBooking.totalPrice)}</strong><span>Đã trả {money(selectedBooking.paidAmount)}</span></div>
               <div><ShieldCheck size={18} /><small>Trạng thái</small><strong>{statusLabel(selectedBooking.status)}</strong></div>
             </div>
@@ -541,17 +675,26 @@ export default function HotelBookingsPage() {
               <Link to="/hotel-admin/stays?tab=check-in">Nhận phòng</Link>
               <Link to="/hotel-admin/stays?tab=check-out">Trả phòng</Link>
             </div>
-          </section>
-        </div>
+        </BookingManagementDialog>
       ) : null}
 
       {reviewRequest && reviewBooking ? (
-        <div className="booking-management-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setReviewRequest(null)}>
-          <section className="booking-management-modal room-change-review-modal" role="dialog" aria-modal="true">
-            <button className="booking-management-modal-close" onClick={() => setReviewRequest(null)}><X size={20} /></button>
+        <BookingManagementDialog
+          ariaLabel={`Xét duyệt đổi phòng cho đơn ${reviewBooking.bookingCode}`}
+          className="room-change-review-modal"
+          onClose={() => setReviewRequest(null)}
+        >
             <span className="booking-management-eyebrow">XÉT DUYỆT ĐỔI PHÒNG</span>
             <h2>{reviewBooking.bookingCode}</h2>
             <p>Khách <strong>{customerName(reviewBooking)}</strong>: “{reviewRequest.reason}”</p>
+
+            <ErrorMessage
+              message={reviewError}
+              onRetry={reviewRequest.targetRoomId
+                ? () => void loadRoomChangeQuote(reviewRequest)
+                : undefined}
+              retryLabel="Tính lại giá"
+            />
 
             <div className="room-change-old-summary">
               <div><small>Phòng hiện tại</small><strong>{roomTypeMap[String(reviewBooking.roomTypeId)]?.name ?? "—"} · {roomMap[String(reviewBooking.roomId)]?.roomNumber ?? "—"}</strong></div>
@@ -582,7 +725,14 @@ export default function HotelBookingsPage() {
                 <div><small>Tổng cũ</small><strong>{money(quote.oldTotalPrice)}</strong></div>
                 <div><small>Tổng mới</small><strong>{money(quote.newTotalPrice)}</strong></div>
                 <div><small>Chênh lệch</small><strong className={Number(quote.priceDifference) > 0 ? "danger" : "success"}>{money(quote.priceDifference)}</strong></div>
-                <div className="room-change-payment-due"><small>Khách cần thanh toán bổ sung ngay</small><strong>{money(quote.additionalPaymentDue)}</strong><span>{quote.paymentOption === "DEPOSIT" ? `Bù đến mức cọc ${quote.depositPercent ?? 0}% của phòng mới` : quote.paymentOption === "FULL_PAYMENT" ? "Thanh toán phần chênh lệch còn thiếu" : "Thanh toán phần còn lại tại khách sạn"}</span></div>
+                <div className="room-change-payment-due"><small>{quote.roomChangeWalletCreditEnabled ? "Ước tính khoản bổ sung — chưa xác nhận" : "Khách cần thanh toán bổ sung ngay"}</small><strong>{money(quote.additionalPaymentDue)}</strong><span>{quote.roomChangeWalletCreditEnabled ? "Số tiền chính thức chỉ có sau khi Payment xác nhận đối soát." : quote.paymentOption === "DEPOSIT" ? `Bù đến mức cọc ${quote.depositPercent ?? 0}% của phòng mới` : quote.paymentOption === "FULL_PAYMENT" ? "Thanh toán phần chênh lệch còn thiếu" : "Thanh toán phần còn lại tại khách sạn"}</span></div>
+                {quote.roomChangeWalletCreditEnabled && quote.walletCreditMayApply ? (
+                  <div className="room-change-wallet-credit-note">
+                    <small>Enziu Wallet</small>
+                    <strong>Có thể phát sinh tiền cộng ví</strong>
+                    <span>Payment Service sẽ đối soát số tiền đã thanh toán hợp lệ sau khi đổi phòng được xác nhận. Đây chưa phải số tiền đã cộng vào ví và không phải PayOS refund.</span>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -592,8 +742,7 @@ export default function HotelBookingsPage() {
               <button type="button" className="reject" disabled={busy} onClick={() => void rejectChange()}><XCircle size={17} /> Từ chối</button>
               <button type="button" className="approve" disabled={busy || !quote || !reviewRequest.targetRoomId} onClick={() => void approveChange()}><CheckCircle2 size={17} /> Duyệt đúng phòng khách chọn</button>
             </div>
-          </section>
-        </div>
+        </BookingManagementDialog>
       ) : null}
     </section>
   );

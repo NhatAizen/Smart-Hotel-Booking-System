@@ -394,6 +394,9 @@ services:
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-enziu}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-enziu_dev}
 
+      ROOM_CHANGE_CUSTOMER_WALLET_CREDIT_ENABLED: ${ROOM_CHANGE_CUSTOMER_WALLET_CREDIT_ENABLED:-false}
+      ROOM_CHANGE_FINANCIAL_HMAC_SECRET: ${ROOM_CHANGE_FINANCIAL_HMAC_SECRET:-}
+
       REVIEW_MEDIA_UPLOAD_DIR: /app/uploads/reviews
       PUBLIC_REVIEW_MEDIA_BASE_URL: http://localhost:8080/api/reviews/media
       COMPLAINT_MEDIA_UPLOAD_DIR: /app/uploads/reviews/complaints
@@ -463,6 +466,16 @@ services:
       PAYOS_COMMISSION_RATE: ${PAYOS_COMMISSION_RATE:-10.00}
       PAYOS_AUTO_RELEASE_HOTEL_REVENUE: ${PAYOS_AUTO_RELEASE_HOTEL_REVENUE:-false}
       PAYOS_PAYOUT_ENABLED: ${PAYOS_PAYOUT_ENABLED:-false}
+
+      # V13 room-change settlement stays off unless explicitly enabled in this
+      # base Compose environment (may also participate in production layering).
+      # The feature stays false by default; no production overlay is changed.
+      ROOM_CHANGE_CUSTOMER_WALLET_CREDIT_ENABLED: ${ROOM_CHANGE_CUSTOMER_WALLET_CREDIT_ENABLED:-false}
+      ROOM_CHANGE_FINANCIAL_HMAC_SECRET: ${ROOM_CHANGE_FINANCIAL_HMAC_SECRET:-}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-enziu}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-enziu_dev}
 
       JPA_SHOW_SQL: "false"
 

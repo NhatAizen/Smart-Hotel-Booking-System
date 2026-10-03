@@ -1,6 +1,7 @@
 package com.smarthotel.booking.booking.service;
 
 import com.smarthotel.booking.booking.entity.Booking;
+import com.smarthotel.booking.booking.entity.BookingStatus;
 import com.smarthotel.booking.booking.hold.RoomHoldService;
 import com.smarthotel.booking.booking.realtime.AvailabilityEvent;
 import com.smarthotel.booking.booking.realtime.AvailabilityRealtimeService;
@@ -40,7 +41,12 @@ public class ExpiredBookingCleanupService {
     @Transactional
     public void cancelExpiredPendingPayments() {
         Instant now = Instant.now();
-        List<Booking> expired = bookingRepository.findExpiredPendingPayments(now);
+        List<Booking> expired = bookingRepository.findExpiredMutationIds(now).stream()
+                .map(id -> bookingRepository.findForUpdate(id).orElseThrow())
+                .filter(booking -> booking.getStatus() == BookingStatus.PENDING_PAYMENT
+                        && booking.getPaymentExpiresAt() != null
+                        && !booking.getPaymentExpiresAt().isAfter(now))
+                .toList();
         if (expired.isEmpty()) return;
 
         Map<UUID, List<Booking>> byGroup = expired.stream()

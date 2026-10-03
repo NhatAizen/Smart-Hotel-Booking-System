@@ -23,7 +23,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
 
 @RestController
 @RequestMapping("/api")
@@ -45,6 +47,17 @@ public class WalletController {
         return walletService.getTransactions(currentUserId(jwt), currentOwnerType(jwt));
     }
 
+    @GetMapping("/wallets/me/transactions/page")
+    public Page<WalletTransactionResponse> myTransactionsPage(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return walletService.getTransactionsPage(
+                currentUserId(jwt), currentOwnerType(jwt), page, size
+        );
+    }
+
     @PostMapping("/wallets/top-up/payos")
     public ResponseEntity<PaymentOrderResponse> createTopUp(
             @AuthenticationPrincipal Jwt jwt,
@@ -56,9 +69,12 @@ public class WalletController {
     @PostMapping("/withdrawals")
     public ResponseEntity<WithdrawalResponse> requestWithdrawal(
             @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody CreateWithdrawalRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(walletService.createWithdrawal(currentUserId(jwt), currentOwnerType(jwt), request));
+                .body(walletService.createWithdrawal(
+                        currentUserId(jwt), currentOwnerType(jwt), request, idempotencyKey
+                ));
     }
 
     @PostMapping(value = "/withdrawals/hotel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -88,8 +104,10 @@ public class WalletController {
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID id
     ) {
+        boolean systemAdmin = isSystemAdmin(jwt);
         return mediaResponse(walletService.getReceiverQr(
-                id, currentUserId(jwt), isSystemAdmin(jwt)
+                id, currentUserId(jwt),
+                systemAdmin ? null : currentOwnerType(jwt), systemAdmin
         ));
     }
 
@@ -98,14 +116,27 @@ public class WalletController {
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID id
     ) {
+        boolean systemAdmin = isSystemAdmin(jwt);
         return mediaResponse(walletService.getTransferProof(
-                id, currentUserId(jwt), isSystemAdmin(jwt)
+                id, currentUserId(jwt),
+                systemAdmin ? null : currentOwnerType(jwt), systemAdmin
         ));
     }
 
     @GetMapping("/withdrawals/me")
     public List<WithdrawalResponse> myWithdrawals(@AuthenticationPrincipal Jwt jwt) {
-        return walletService.getMyWithdrawals(currentUserId(jwt));
+        return walletService.getMyWithdrawals(currentUserId(jwt), currentOwnerType(jwt));
+    }
+
+    @GetMapping("/withdrawals/me/page")
+    public Page<WithdrawalResponse> myWithdrawalsPage(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return walletService.getMyWithdrawalsPage(
+                currentUserId(jwt), currentOwnerType(jwt), page, size
+        );
     }
 
     @GetMapping("/admin/wallet")
@@ -119,6 +150,15 @@ public class WalletController {
     @GetMapping("/admin/withdrawals")
     public List<WithdrawalResponse> withdrawals(@RequestParam(required = false) WithdrawalStatus status) {
         return walletService.getAllWithdrawals(status);
+    }
+
+    @GetMapping("/admin/withdrawals/page")
+    public Page<WithdrawalResponse> withdrawalsPage(
+            @RequestParam(required = false) WithdrawalStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return walletService.getAllWithdrawalsPage(status, page, size);
     }
 
     @PostMapping("/admin/withdrawals/{id}/approve")
@@ -142,10 +182,13 @@ public class WalletController {
     public WithdrawalResponse markPaid(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID id,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestParam String transferReference,
-            @RequestPart("transferProof") MultipartFile transferProof
+            @RequestPart(name = "transferProof", required = false) MultipartFile transferProof
     ) {
-        return walletService.markPaid(id, currentUserId(jwt), transferReference, transferProof);
+        return walletService.markPaid(
+                id, currentUserId(jwt), transferReference, transferProof, idempotencyKey
+        );
     }
 
     @PostMapping("/admin/payments/{paymentId}/release-revenue")
@@ -178,16 +221,19 @@ public class WalletController {
     }
 
     private boolean isSystemAdmin(Jwt jwt) {
-        Object role = jwt == null ? null : jwt.getClaim("role");
-        return role != null && role.toString().toUpperCase().contains("SYSTEM_ADMIN");
+        return "SYSTEM_ADMIN".equals(currentRole(jwt));
     }
 
     private WalletOwnerType currentOwnerType(Jwt jwt) {
-        Object role = jwt == null ? null : jwt.getClaim("role");
-        String value = role == null ? "" : role.toString().toUpperCase();
-        if (value.contains("CUSTOMER")) return WalletOwnerType.CUSTOMER;
-        if (value.contains("HOTEL_ADMIN")) return WalletOwnerType.HOTEL_ADMIN;
+        String value = currentRole(jwt);
+        if ("CUSTOMER".equals(value)) return WalletOwnerType.CUSTOMER;
+        if ("HOTEL_ADMIN".equals(value)) return WalletOwnerType.HOTEL_ADMIN;
         throw new IllegalStateException("Vai trò hiện tại không có ví cá nhân");
+    }
+
+    private String currentRole(Jwt jwt) {
+        Object role = jwt == null ? null : jwt.getClaim("role");
+        return role == null ? "" : role.toString().trim().toUpperCase(Locale.ROOT);
     }
 
     private UUID currentUserId(Jwt jwt) {

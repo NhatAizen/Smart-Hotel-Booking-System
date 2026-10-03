@@ -36,6 +36,7 @@ import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
+import { roomChangeFinancialResult } from "./roomChangeFinancialResult";
 import { useFloatingChat } from "../../chat/FloatingChatContext";
 import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 import ErrorMessage from "../../components/common/ErrorMessage";
@@ -150,6 +151,8 @@ function statusLabel(value) {
 }
 
 function paymentStatusLabel(value, booking = null) {
+  if (booking?.roomChangeReconciliationState === "PENDING") return "Đang đối soát thanh toán";
+  if (booking?.roomChangeReconciliationState === "RECONCILIATION_REQUIRED") return "Cần đối soát thủ công";
   if (value === "PARTIALLY_PAID") {
     // Chỉ gọi là "Đã đặt cọc" khi booking thực sự chọn hình thức đặt cọc.
     if (booking?.paymentOption === "DEPOSIT") {
@@ -254,7 +257,8 @@ function canChatWithHotel(booking) {
 }
 
 function canContinuePayment(booking) {
-  return booking.paymentOption !== "PAY_AT_HOTEL"
+  return !["PENDING", "RECONCILIATION_REQUIRED"].includes(booking.roomChangeReconciliationState)
+    && booking.paymentOption !== "PAY_AT_HOTEL"
     && Number(booking.remainingAmount ?? 0) > 0
     && ["PENDING_PAYMENT", "CONFIRMED"].includes(booking.status)
     && booking.paymentStatus !== "PAID";
@@ -937,7 +941,7 @@ export default function BookingsPage() {
           </article>
           <article>
             <span><CircleDollarSign size={21} /></span>
-            <div><small>Còn phải thanh toán</small><strong>{money(summary.remaining)}</strong></div>
+            <div><small>Còn phải thanh toán</small><strong>{bookings.some(booking => ["PENDING", "RECONCILIATION_REQUIRED"].includes(booking.roomChangeReconciliationState)) ? "Đang đối soát" : money(summary.remaining)}</strong></div>
           </article>
         </section> : null}
 
@@ -1078,7 +1082,7 @@ export default function BookingsPage() {
                         <div>
                           <small>Còn lại</small>
                           <strong className={Number(booking.remainingAmount ?? 0) > 0 ? "remaining" : "paid"}>
-                            {money(booking.remainingAmount)}
+                            {["PENDING", "RECONCILIATION_REQUIRED"].includes(booking.roomChangeReconciliationState) ? "Chưa xác định" : money(booking.remainingAmount)}
                           </strong>
                         </div>
                       </div>
@@ -1116,7 +1120,8 @@ export default function BookingsPage() {
                           <button
                             type="button"
                             className="booking-v2-room-change-action"
-                            disabled={working}
+                            disabled={working || (roomChange?.status !== "APPROVED"
+                              && ["PENDING", "RECONCILIATION_REQUIRED"].includes(booking.roomChangeReconciliationState))}
                             onClick={() => openRoomChangeRequest(booking)}
                           >
                             <ArrowRightLeft size={17} />
@@ -1129,6 +1134,11 @@ export default function BookingsPage() {
                         );
                       })() : null}
 
+                      {["PENDING", "RECONCILIATION_REQUIRED"].includes(booking.roomChangeReconciliationState) ? (
+                        <p role="status">{booking.roomChangeReconciliationState === "PENDING"
+                          ? "Đổi phòng đang chờ Payment xác nhận đối soát. Số tiền đã thanh toán chưa bị giảm; chưa thể thanh toán/đổi phòng tiếp."
+                          : "Đổi phòng cần đối soát thủ công. Chưa xác nhận cộng Ví; vui lòng liên hệ hỗ trợ trước khi thanh toán/đổi phòng tiếp."}</p>
+                      ) : null}
                       {canContinuePayment(booking) ? (
                         <button
                           type="button"
@@ -1313,7 +1323,7 @@ export default function BookingsPage() {
                 <div className="booking-v2-modal-payment">
                   <div><span>Tổng tiền</span><strong>{money(selectedBooking.totalPrice)}</strong></div>
                   <div><span>Đã thanh toán</span><strong className="paid">{money(selectedBooking.paidAmount)}</strong></div>
-                  <div><span>Còn phải thanh toán</span><strong className="remaining">{money(selectedBooking.remainingAmount)}</strong></div>
+                  <div><span>Còn phải thanh toán</span><strong className="remaining">{["PENDING", "RECONCILIATION_REQUIRED"].includes(selectedBooking.roomChangeReconciliationState) ? "Chưa xác định" : money(selectedBooking.remainingAmount)}</strong></div>
                 </div>
 
                 {roomChangeByBooking[String(selectedBooking.id)] ? (() => {
@@ -1328,7 +1338,7 @@ export default function BookingsPage() {
                         </div>
                       </div>
                       {roomChange.status === "APPROVED" ? (
-                        <p>Giá sau đổi: <b>{money(roomChange.newTotalPrice)}</b>{Number(roomChange.additionalPaymentDue ?? 0) > 0 ? ` · Khoản bổ sung lúc duyệt: ${money(roomChange.additionalPaymentDue)}` : ""}</p>
+                        <p>Giá sau đổi: <b>{money(roomChange.newTotalPrice)}</b> · {roomChangeFinancialResult(roomChange, money).dueLabel}: {roomChangeFinancialResult(roomChange, money).dueText}</p>
                       ) : roomChange.reviewNote ? <p>Phản hồi khách sạn: {roomChange.reviewNote}</p> : null}
                     </div>
                   );
@@ -1477,10 +1487,9 @@ export default function BookingsPage() {
                   : isRejected
                     ? "Yêu cầu đổi phòng chưa được chấp nhận"
                     : "Yêu cầu đã được gửi đến khách sạn";
+                const financialResult = roomChangeFinancialResult(latest, money);
                 const resultDescription = isApproved
-                  ? Number(latest.additionalPaymentDue ?? 0) > 0
-                    ? `Đơn đặt phòng đã chuyển sang phòng bạn chọn. Bạn cần thanh toán thêm ${money(latest.additionalPaymentDue)} theo phương thức thanh toán hiện tại.`
-                    : "Đơn đặt phòng đã được cập nhật sang phòng bạn chọn và không phát sinh khoản thanh toán thêm."
+                  ? financialResult.description
                   : isRejected
                     ? "Khách sạn đã phản hồi yêu cầu này. Bạn có thể chọn phòng khác nếu đơn vẫn còn đủ điều kiện đổi phòng."
                     : "Khách sạn đang kiểm tra tình trạng phòng. Bạn không cần gửi lại yêu cầu khi đang chờ xử lý.";
@@ -1529,7 +1538,7 @@ export default function BookingsPage() {
                         <div><small>Giá trước khi đổi</small><strong>{money(latest.oldTotalPrice)}</strong></div>
                         <div><small>Giá sau đổi</small><strong>{money(latest.newTotalPrice)}</strong></div>
                         <div><small>Chênh lệch</small><strong className={Number(latest.priceDifference ?? 0) > 0 ? "is-up" : Number(latest.priceDifference ?? 0) < 0 ? "is-down" : ""}>{money(latest.priceDifference)}</strong></div>
-                        <div className="is-important"><small>Cần thanh toán thêm</small><strong>{money(latest.additionalPaymentDue)}</strong></div>
+                        <div className="is-important"><small>{financialResult.dueLabel}</small><strong>{financialResult.dueText}</strong></div>
                       </div>
                     ) : null}
 
@@ -1549,7 +1558,7 @@ export default function BookingsPage() {
                     <div className="booking-v2-room-change-result-actions">
                       <button type="button" className="secondary" onClick={closeRoomChangeRequest}>Đóng</button>
                       {latest.status !== "PENDING" && canRequestRoomChange(roomChangeBooking) ? (
-                        <button type="button" className="primary" onClick={() => { setRoomChangeTargetRoomId(""); setRoomChangeNewMode(true); }}>
+                        <button type="button" className="primary" disabled={["PENDING", "RECONCILIATION_REQUIRED"].includes(roomChangeBooking.roomChangeReconciliationState)} onClick={() => { setRoomChangeTargetRoomId(""); setRoomChangeNewMode(true); }}>
                           <ArrowRightLeft size={17} /> Chọn phòng khác
                         </button>
                       ) : null}

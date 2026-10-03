@@ -25,7 +25,9 @@ class IsolatedDatabaseInitializerTest {
             "jdbc:postgresql://smart-hotel-hotel-postgres:5432/hotel_ci",
             "jdbc:postgresql://localhost:5432/hotel_db",
             "jdbc:postgresql://localhost:25432/hotel_ci?host=production",
-            "jdbc:h2:file:./hotel_db"
+            "jdbc:h2:file:./hotel_db",
+            "jdbc:h2:tcp://localhost/./hotel_db",
+            "jdbc:h2:mem:booking_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;INIT=CREATE SCHEMA unsafe"
     })
     void rejectsRuntimeDatasourceBeforeAnyDataSourceCreation(String url) {
         AtomicInteger created = new AtomicInteger();
@@ -80,6 +82,18 @@ class IsolatedDatabaseInitializerTest {
         assertThatCode(() -> IsolatedDatabaseInitializer.validate(
                 "jdbc:postgresql://localhost:5432/hotel_daily_ci", "ci_daily"))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void safeInMemoryUnitFixtureIsAllowedWithoutNetworkOrFlyway() {
+        AtomicInteger created = new AtomicInteger();
+        runner(created).withPropertyValues(
+                "spring.datasource.url=jdbc:h2:mem:room_change_outbox;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+                "spring.datasource.username=sa", "spring.datasource.password=", "spring.flyway.enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(created).hasValue(1);
+                });
     }
 
     private ApplicationContextRunner runner(AtomicInteger created) {

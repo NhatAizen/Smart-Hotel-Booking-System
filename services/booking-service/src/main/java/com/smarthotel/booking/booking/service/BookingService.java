@@ -610,7 +610,8 @@ public class BookingService {
 
     @Transactional
     public BookingResponse applyPayment(UUID bookingId, ApplyPaymentRequest request) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = bookingRepository.findForUpdate(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy booking"));
         booking.applyPayment(request.amount(), request.paymentType());
         HotelClient.HotelDetails hotel = hotelClient.getHotel(booking.getHotelId());
         String paymentTitle = booking.getPaymentStatus() == BookingPaymentStatus.PAID
@@ -646,7 +647,7 @@ public class BookingService {
 
     @Transactional
     public BookingResponse markPaymentFailed(UUID bookingId) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         booking.markPaymentFailed();
         notificationClient.sendUser(
                 booking.getCustomerId(),
@@ -661,7 +662,7 @@ public class BookingService {
 
     @Transactional
     public BookingResponse markRefunded(UUID bookingId) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         booking.markRefunded();
         afterCommit(() -> {
             roomHoldService.releaseByBookingGroup(booking.getBookingGroupId());
@@ -675,7 +676,7 @@ public class BookingService {
 
     @Transactional
     public BookingResponse confirm(UUID bookingId) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         booking.confirm();
         notificationClient.sendUser(
                 booking.getCustomerId(),
@@ -717,7 +718,7 @@ public class BookingService {
             String rawCode,
             String identityQrData
     ) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         ensureCodeMatches(booking, rawCode);
         OwnedBookingContext context = requireOwnedBooking(hotelAdminId, booking);
         validateCheckInDate(booking, context.hotel());
@@ -784,7 +785,7 @@ public class BookingService {
             UUID bookingId,
             String rawCode
     ) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         ensureCodeMatches(booking, rawCode);
         OwnedBookingContext context = requireOwnedBooking(hotelAdminId, booking);
         validateCheckInDate(booking, context.hotel());
@@ -837,7 +838,7 @@ public class BookingService {
             String rawCode,
             String bearerToken
     ) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         ensureCodeMatches(booking, rawCode);
         OwnedBookingContext context = requireOwnedBooking(hotelAdminId, booking);
         validateCheckInDate(booking, context.hotel());
@@ -857,7 +858,7 @@ public class BookingService {
 
     @Transactional
     public BookingResponse checkIn(UUID hotelAdminId, UUID bookingId, String bearerToken) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         OwnedBookingContext context = requireOwnedBooking(hotelAdminId, booking);
         validateCheckInDate(booking, context.hotel());
         ensureIdentityVerified(booking);
@@ -877,8 +878,10 @@ public class BookingService {
     @Transactional
     public List<CheckInDetailsResponse> getCurrentStays(UUID hotelAdminId) {
         Instant now = Instant.now();
-        return bookingRepository.findAllByStatusOrderByCreatedAtDesc(BookingStatus.CHECKED_IN)
+        return bookingRepository.findMutationIdsByStatus(BookingStatus.CHECKED_IN)
                 .stream()
+                .map(this::findBookingForUpdate)
+                .filter(booking -> booking.getStatus() == BookingStatus.CHECKED_IN)
                 .map(booking -> {
                     try {
                         return requireOwnedBooking(hotelAdminId, booking);
@@ -904,8 +907,9 @@ public class BookingService {
         Instant now = Instant.now();
         int changed = 0;
 
-        for (Booking booking : bookingRepository
-                .findAllByStatusOrderByCreatedAtDesc(BookingStatus.CHECKED_IN)) {
+        for (UUID bookingId : bookingRepository.findMutationIdsByStatus(BookingStatus.CHECKED_IN)) {
+            Booking booking = findBookingForUpdate(bookingId);
+            if (booking.getStatus() != BookingStatus.CHECKED_IN) continue;
             try {
                 HotelClient.HotelDetails hotel = hotelClient.getHotel(booking.getHotelId());
                 BigDecimal before = booking.getLateCheckoutFee() == null
@@ -945,7 +949,7 @@ public class BookingService {
             UUID hotelAdminId,
             UUID bookingId
     ) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         OwnedBookingContext context = requireOwnedBooking(hotelAdminId, booking);
 
         if (booking.getStatus() != BookingStatus.CHECKED_IN) {
@@ -983,7 +987,7 @@ public class BookingService {
             UUID bookingId,
             String bearerToken
     ) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         OwnedBookingContext context = requireOwnedBooking(hotelAdminId, booking);
 
         // Tính lại đúng tại thời điểm bấm checkout. Nếu khách đã bước sang mốc
@@ -1006,7 +1010,7 @@ public class BookingService {
 
     @Transactional
     public BookingResponse markNoShow(UUID hotelAdminId, UUID bookingId) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         OwnedBookingContext context = requireOwnedBooking(hotelAdminId, booking);
         if (booking.getStatus() == BookingStatus.NO_SHOW) {
             return BookingResponse.from(booking);
@@ -1050,7 +1054,7 @@ public class BookingService {
 
     @Transactional
     public BookingResponse cancel(UUID customerId, UUID bookingId) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         if (!booking.getCustomerId().equals(customerId)) {
             throw new IllegalArgumentException("Booking không thuộc khách hàng hiện tại");
         }
@@ -1087,7 +1091,7 @@ public class BookingService {
 
     @Transactional
     public void hideFromCustomer(UUID customerId, UUID bookingId) {
-        Booking booking = findBooking(bookingId);
+        Booking booking = findBookingForUpdate(bookingId);
         booking.hideFromCustomer(customerId);
     }
 
@@ -1115,9 +1119,14 @@ public class BookingService {
                 .orElseThrow(() -> new BookingNotFoundException(bookingId));
     }
 
+    private Booking findBookingForUpdate(UUID bookingId) {
+        return bookingRepository.findForUpdate(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy booking"));
+    }
+
     private Booking findByCheckInCode(String rawCode) {
         String code = normalizeCheckInCode(rawCode);
-        return bookingRepository.findByCheckInCode(code)
+        return bookingRepository.findByCheckInCodeForUpdate(code)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Mã QR không hợp lệ hoặc không thuộc booking nào"
                 ));
@@ -1200,12 +1209,15 @@ public class BookingService {
                 && booking.getRemainingAmount().signum() == 0;
         boolean identityVerified = booking.isIdentityVerified();
         boolean canCheckIn = booking.getStatus() == BookingStatus.CONFIRMED
+                && !booking.isRoomChangeFinancialUnresolved()
                 && dateValid
                 && paymentComplete
                 && identityVerified;
 
         String actionMessage;
-        if (booking.getStatus() == BookingStatus.CANCELLED) {
+        if (booking.isRoomChangeFinancialUnresolved()) {
+            actionMessage = "ROOM_CHANGE_RECONCILIATION_REQUIRED: Phần thanh toán đổi phòng chưa được đối soát; chưa thể nhận phòng.";
+        } else if (booking.getStatus() == BookingStatus.CANCELLED) {
             actionMessage = "Booking đã bị hủy";
         } else if (booking.getStatus() == BookingStatus.CHECKED_IN) {
             actionMessage = "Khách đã nhận phòng";

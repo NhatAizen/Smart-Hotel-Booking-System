@@ -74,6 +74,10 @@ public class WithdrawalRequest {
     private Instant paidAt;
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+    @Column(name = "idempotency_key", length = 200)
+    private String idempotencyKey;
+    @Column(name = "completion_idempotency_key", length = 200)
+    private String completionIdempotencyKey;
 
     public WithdrawalRequest(UUID walletId, UUID ownerId, WalletOwnerType ownerType,
                              BigDecimal amount, String bankName, String bankBin,
@@ -147,6 +151,23 @@ public class WithdrawalRequest {
         status = WithdrawalStatus.FAILED; failureReason = clean(reason); updatedAt = Instant.now();
     }
 
+    public void assignIdempotencyKey(String value) {
+        String normalized = clean(value);
+        if (normalized == null) throw new IllegalArgumentException("Idempotency-Key không được để trống");
+        if (normalized.length() > 200) throw new IllegalArgumentException("Idempotency-Key tối đa 200 ký tự");
+        this.idempotencyKey = normalized;
+    }
+
+    public void assignCompletionIdempotencyKey(String value) {
+        String normalized = clean(value);
+        if (normalized == null) throw new IllegalArgumentException("Idempotency-Key không được để trống");
+        if (normalized.length() > 200) throw new IllegalArgumentException("Idempotency-Key tối đa 200 ký tự");
+        if (completionIdempotencyKey != null && !completionIdempotencyKey.equals(normalized)) {
+            throw new IllegalStateException("DUPLICATE_FINANCIAL_OPERATION: yêu cầu đã dùng completion key khác");
+        }
+        this.completionIdempotencyKey = normalized;
+    }
+
     private void ensure(WithdrawalStatus expected) {
         if (status != expected) throw new IllegalStateException("Trạng thái yêu cầu rút tiền không hợp lệ: " + status);
     }
@@ -187,4 +208,6 @@ public class WithdrawalRequest {
     public Instant getReviewedAt() { return reviewedAt; }
     public Instant getPaidAt() { return paidAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public String getIdempotencyKey() { return idempotencyKey; }
+    public String getCompletionIdempotencyKey() { return completionIdempotencyKey; }
 }

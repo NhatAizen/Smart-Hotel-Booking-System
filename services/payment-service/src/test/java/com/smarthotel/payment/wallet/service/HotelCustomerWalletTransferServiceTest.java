@@ -7,6 +7,8 @@ import com.smarthotel.payment.wallet.entity.WalletTransactionType;
 import com.smarthotel.payment.wallet.repository.HotelCustomerTransferRepository;
 import com.smarthotel.payment.wallet.repository.WalletRepository;
 import com.smarthotel.payment.wallet.repository.WalletTransactionRepository;
+import com.smarthotel.payment.wallet.roomchange.BookingFinancialLockService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.RepeatedTest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.flyway.enabled=false"
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import(HotelCustomerWalletTransferService.class)
+@Import({HotelCustomerWalletTransferService.class, BookingFinancialLockService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class HotelCustomerWalletTransferServiceTest {
     @Autowired HotelCustomerWalletTransferService service;
@@ -46,6 +48,26 @@ class HotelCustomerWalletTransferServiceTest {
     @Autowired WalletTransactionRepository transactions;
     @Autowired HotelCustomerTransferRepository transfers;
     @Autowired JdbcTemplate jdbc;
+
+    @BeforeEach
+    void prepareFinancialGuard() {
+        jdbc.execute("""
+                CREATE TABLE IF NOT EXISTS booking_financial_locks (
+                    booking_id UUID PRIMARY KEY,
+                    last_room_change_version BIGINT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """);
+        jdbc.execute("""
+                CREATE TABLE IF NOT EXISTS financial_event_inbox (
+                    operation_type VARCHAR(60) NOT NULL,
+                    booking_id UUID NOT NULL,
+                    credited_amount NUMERIC(16,2)
+                )
+                """);
+        jdbc.update("DELETE FROM financial_event_inbox");
+        jdbc.update("DELETE FROM booking_financial_locks");
+    }
 
     @Test
     void transfersAvailableFundsOnceAndRecordsBalancedLedger() {
@@ -69,6 +91,31 @@ class HotelCustomerWalletTransferServiceTest {
                 WalletTransactionType.HOTEL_TO_CUSTOMER_CREDIT);
         assertThat(entries.stream().map(entry -> entry.getAmount())
                 .reduce(BigDecimal.ZERO, BigDecimal::add)).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void completedV13CreditBlocksLegacyHotelCustomerTransfer() {
+        UUID hotelId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        UUID bookingId = UUID.randomUUID();
+        UUID operationId = UUID.randomUUID();
+        fundHotel(hotelId, "500");
+        jdbc.update("""
+                INSERT INTO financial_event_inbox (
+                    operation_type, booking_id, credited_amount
+                ) VALUES ('ROOM_CHANGE_CREDIT', ?, 200)
+                """, bookingId);
+
+        assertThatThrownBy(() -> service.transfer(
+                operationId, bookingId, hotelId, customerId, new BigDecimal("200")
+        )).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ROOM_CHANGE_RECONCILIATION_REQUIRED");
+
+        assertThat(balance(WalletOwnerType.HOTEL, hotelId)).isEqualByComparingTo("500");
+        assertThat(wallets.findByOwnerTypeAndOwnerId(
+                WalletOwnerType.CUSTOMER, customerId
+        )).isEmpty();
+        assertThat(transfers.findById(operationId)).isEmpty();
     }
 
     @Test

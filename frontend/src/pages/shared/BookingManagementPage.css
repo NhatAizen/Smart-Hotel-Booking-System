@@ -533,6 +533,14 @@
   background: #fff9ef;
 }
 
+.room-change-quote .room-change-wallet-credit-note {
+  grid-column: 1 / -1;
+  border-color: #b9ddce;
+  background: #f1faf6;
+}
+
+.room-change-wallet-credit-note strong { color: #117450; }
+
 .room-change-quote strong.danger { color: #c25136; }
 .room-change-quote strong.success { color: #18835c; }
 

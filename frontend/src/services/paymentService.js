@@ -77,8 +77,17 @@ export async function getMyWalletTransactions() {
   return response.data;
 }
 
-export async function createWithdrawal(payload) {
-  const response = await apiClient.post("/withdrawals", payload);
+export async function getMyWalletTransactionsPage(page = 0, size = 8) {
+  const response = await apiClient.get("/wallets/me/transactions/page", {
+    params: { page, size },
+  });
+  return response.data;
+}
+
+export async function createWithdrawal(payload, idempotencyKey = crypto.randomUUID()) {
+  const response = await apiClient.post("/withdrawals", payload, {
+    headers: { "Idempotency-Key": idempotencyKey },
+  });
   return response.data;
 }
 
@@ -130,6 +139,13 @@ export async function getMyWithdrawals() {
   return response.data;
 }
 
+export async function getMyWithdrawalsPage(page = 0, size = 8) {
+  const response = await apiClient.get("/withdrawals/me/page", {
+    params: { page, size },
+  });
+  return response.data;
+}
+
 /**
  * Ví của System Admin.
  */
@@ -163,27 +179,23 @@ export async function getWithdrawals(status = "") {
   return response.data;
 }
 
+export async function getWithdrawalsPage(status = "", page = 0, size = 20) {
+  const response = await apiClient.get("/admin/withdrawals/page", {
+    params: { ...(status ? { status } : {}), page, size },
+  });
+  return response.data;
+}
+
 /**
- * System Admin duyệt yêu cầu rút tiền.
- *
- * executePayout = false:
- * chỉ duyệt yêu cầu, admin tự chuyển khoản thật.
- *
- * executePayout = true:
- * dùng khi backend có hỗ trợ payout tự động.
+ * System Admin duyệt yêu cầu để chuyển khoản thủ công.
+ * Customer withdrawal không bao giờ yêu cầu payout tự động từ frontend.
  */
-export async function approveWithdrawal(
-  id,
-  note = "",
-  executePayout = false,
-) {
+export async function approveWithdrawal(id, note = "") {
   const response = await apiClient.post(
     `/admin/withdrawals/${id}/approve`,
     { note },
     {
-      params: {
-        executePayout,
-      },
+      params: { executePayout: false },
     },
   );
 
@@ -210,6 +222,7 @@ export async function markWithdrawalPaid(
   id,
   transferReference,
   transferProof,
+  idempotencyKey = crypto.randomUUID(),
 ) {
   const formData = new FormData();
 
@@ -219,6 +232,7 @@ export async function markWithdrawalPaid(
   const response = await apiClient.post(
     `/admin/withdrawals/${id}/mark-paid`,
     formData,
+    { headers: { "Idempotency-Key": idempotencyKey } },
   );
 
   return response.data;

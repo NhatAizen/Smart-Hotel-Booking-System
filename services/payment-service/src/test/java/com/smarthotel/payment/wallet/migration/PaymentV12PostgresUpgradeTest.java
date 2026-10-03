@@ -26,7 +26,13 @@ class PaymentV12PostgresUpgradeTest {
         String password = System.getenv("DB_PASSWORD");
         assertNotNull(url);
         IsolatedDatabaseInitializer.validate(url, user);
-        assertTrue(url.startsWith("jdbc:postgresql://localhost:5432/payment_migration_ci"));
+        assertTrue(url.matches(
+                "^jdbc:postgresql://(?:localhost|127\\.0\\.0\\.1):[0-9]+/payment_migration_ci(?:\\?.*)?$"
+        ));
+
+        Flyway cleanable = Flyway.configure().dataSource(url, user, password)
+                .cleanDisabled(false).load();
+        cleanable.clean();
 
         Flyway preUpgrade = Flyway.configure().dataSource(url, user, password)
                 .locations("classpath:db/migration")
@@ -59,10 +65,10 @@ class PaymentV12PostgresUpgradeTest {
         upgraded.validate();
 
         try (Connection connection = DriverManager.getConnection(url, user, password)) {
-            assertEquals(12, scalarLong(connection,
+            assertEquals(14, scalarLong(connection,
                     "SELECT count(*) FROM flyway_schema_history WHERE success"));
             assertEquals(1, scalarLong(connection,
-                    "SELECT count(*) FROM flyway_schema_history WHERE version = '12' AND success"));
+                    "SELECT count(*) FROM flyway_schema_history WHERE version = '13' AND success"));
             assertEquals(1, scalarLong(connection,
                     "SELECT count(*) FROM wallets WHERE owner_type = 'HOTEL_ADMIN'"));
             assertEquals(0, scalarLong(connection,

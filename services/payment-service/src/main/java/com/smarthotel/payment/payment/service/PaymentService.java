@@ -43,10 +43,10 @@ public class PaymentService {
                           BookingClient bookingClient,
                           HotelClient hotelClient,
                           PayOsApiClient payOsClient,
-                          PayOsProperties payOsProperties,
-                          WalletService walletService,
-                          RoleChangePaymentFinalityGuard roleChangePaymentFinalityGuard,
-                          HotelAdminDemotionFenceService hotelAdminDemotionFenceService) {
+                           PayOsProperties payOsProperties,
+                           WalletService walletService,
+                           RoleChangePaymentFinalityGuard roleChangePaymentFinalityGuard,
+                           HotelAdminDemotionFenceService hotelAdminDemotionFenceService) {
         this.paymentRepository = paymentRepository;
         this.orderRepository = orderRepository;
         this.bookingClient = bookingClient;
@@ -142,6 +142,7 @@ public class PaymentService {
         if (bookingIds.isEmpty()) throw new IllegalArgumentException("Danh sách booking không được để trống");
         if (bookingIds.size() > 20) throw new IllegalArgumentException("Mỗi lần chỉ thanh toán tối đa 20 phòng");
 
+        walletService.lockBookings(bookingIds);
         List<BookingClient.BookingDetails> bookings = bookingIds.stream()
                 .map(bookingClient::getBooking).toList();
         validateBookings(customerId, bookings);
@@ -159,11 +160,11 @@ public class PaymentService {
                 .map(BookingClient.BookingDetails::paymentDueAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(2, RoundingMode.HALF_UP);
-        walletService.ensureCustomerBalance(customerId, totalAmount);
-
         HotelClient.HotelDetails hotel = hotelClient.getHotel(hotelId);
         if (hotel.ownerId() == null) throw new IllegalStateException("Khách sạn chưa có chủ sở hữu");
         hotelAdminDemotionFenceService.ensureOwnerMutationAllowed(hotel.ownerId());
+        walletService.lockCheckoutWallets(hotel.ownerId());
+        walletService.ensureCustomerBalance(customerId, totalAmount);
 
         BigDecimal commissionRate = normalizedCommissionRate();
         List<PaymentResponse> result = new ArrayList<>();
@@ -185,6 +186,7 @@ public class PaymentService {
 
     @Transactional
     public PaymentResponse collectCashAtHotel(UUID hotelAdminId, UUID bookingId) {
+        walletService.lockBookings(List.of(bookingId));
         BookingClient.BookingDetails booking = bookingClient.getBooking(bookingId);
         HotelClient.HotelDetails hotel = hotelClient.getHotel(booking.hotelId());
         if (hotel.ownerId() == null || !hotel.ownerId().equals(hotelAdminId)) {
@@ -469,6 +471,16 @@ public class PaymentService {
 
     @Transactional
     public PaymentResponse refund(UUID paymentId) {
+        UUID bookingId = paymentRepository.findBookingIdById(paymentId)
+                .orElseThrow(() -> new PaymentNotFoundException(paymentId));
+        ensureRoomChangeRefundCompatibility(bookingId);
+        // This legacy endpoint marks the WHOLE booking refunded. Split payments
+        // must use the audited RefundRequest component workflow instead.
+        if (paymentRepository.findAllByBookingIdOrderByCreatedAtDesc(bookingId).stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PAID
+                        || p.getStatus() == PaymentStatus.REFUNDED).count() != 1) {
+            throw new IllegalStateException("Booking có nhiều khoản thanh toán; phải dùng yêu cầu hoàn tiền được đối soát");
+        }
         PaymentResponse response = refundComponentForApprovedRequest(paymentId);
         bookingClient.markRefunded(response.bookingId());
         return response;
@@ -483,7 +495,15 @@ public class PaymentService {
      */
     @Transactional
     public PaymentResponse refundComponentForApprovedRequest(UUID paymentId) {
-        Payment payment = findPayment(paymentId);
+        UUID bookingId = paymentRepository.findBookingIdById(paymentId)
+                .orElseThrow(() -> new PaymentNotFoundException(paymentId));
+        ensureRoomChangeRefundCompatibility(bookingId);
+
+        Payment payment = paymentRepository.findForUpdateById(paymentId)
+                .orElseThrow(() -> new PaymentNotFoundException(paymentId));
+        if (!bookingId.equals(payment.getBookingId())) {
+            throw new IllegalStateException("Booking của giao dịch đã thay đổi trong lúc khóa tài chính");
+        }
         if (payment.getStatus() == PaymentStatus.REFUNDED) {
             return PaymentResponse.from(payment);
         }
@@ -510,6 +530,11 @@ public class PaymentService {
         return PaymentResponse.from(payment);
     }
 
+    @Transactional
+    public void ensureRoomChangeRefundCompatibility(UUID bookingId) {
+        walletService.assertNoRoomChangeCreditConflict(bookingId);
+    }
+
     private void processPaid(PaymentOrder order, long receivedAmount, String reference,
                              String paymentLinkId, String providerStatus) {
         if (order.getStatus() == PaymentOrderStatus.PAID) return;
@@ -525,6 +550,9 @@ public class PaymentService {
             throw new IllegalArgumentException("Mã link thanh toán PayOS không khớp");
         }
 
+        if (order.getPaymentType() != PaymentType.WALLET_TOP_UP) {
+            walletService.lockBookings(paymentRepository.findBookingIdsByPaymentOrderId(order.getId()));
+        }
         List<Payment> payments = order.getPaymentType() == PaymentType.WALLET_TOP_UP
                 ? List.of()
                 : paymentRepository.findAllByPaymentOrderIdOrderByCreatedAtAsc(order.getId());

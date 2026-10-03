@@ -27,7 +27,11 @@ public final class IsolatedDatabaseInitializer
         String url = environment.getRequiredProperty("spring.datasource.url");
         String user = environment.getRequiredProperty("spring.datasource.username");
         environment.getRequiredProperty("spring.datasource.password");
-        validate(url, user);
+        // Allow only disposable in-memory H2 fixtures with Flyway disabled; never file/TCP/INIT URLs.
+        boolean embeddedH2Fixture = url.matches(
+                "^jdbc:h2:mem:[a-z0-9_]+;MODE=PostgreSQL;DB_CLOSE_DELAY=-1$")
+                && user.equals("sa") && !environment.getProperty("spring.flyway.enabled", Boolean.class, true);
+        if (!embeddedH2Fixture) validate(url, user);
         String flywayUrl = environment.getProperty("spring.flyway.url");
         if (flywayUrl != null && !flywayUrl.equals(url)) {
             throw new IllegalStateException("TEST ISOLATION: separate Flyway datasource forbidden");
@@ -42,6 +46,10 @@ public final class IsolatedDatabaseInitializer
         String testKey = Base64.getEncoder().encodeToString(key);
         environment.getPropertySources().addFirst(new MapPropertySource("isolated-test-jwt",
                 Map.of("JWT_SECRET", testKey, "security.jwt.secret", testKey, "app.jwt.secret", testKey)));
+        if (embeddedH2Fixture) {
+            System.out.println("TEST ISOLATION verified embedded H2 fixture; Flyway disabled");
+            return;
+        }
         URI parsed = URI.create(url.substring("jdbc:".length()));
         System.out.printf("TEST ISOLATION verified host=%s port=%d database=%s%n",
                 parsed.getHost(), parsed.getPort(), parsed.getPath().substring(1));
