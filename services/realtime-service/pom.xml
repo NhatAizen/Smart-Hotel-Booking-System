@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.2.12</version>
+    <version>3.5.15</version>
     <relativePath/>
   </parent>
   <groupId>com.smarthotel</groupId>
@@ -14,7 +14,15 @@
   <version>0.0.1-SNAPSHOT</version>
   <name>realtime-service</name>
   <description>RabbitMQ to WebSocket bridge for EnziuRooms</description>
-  <properties><java.version>17</java.version></properties>
+  <properties>
+    <java.version>17</java.version>
+    <!-- Security patches beyond Boot 3.5's last OSS-managed third-party versions. -->
+    <jackson-bom.version>2.21.7</jackson-bom.version>
+        <tomcat.version>10.1.60</tomcat.version>
+    <!-- The patched AMQP client also brings Netty; align its entire BOM. -->
+    <netty.version>4.1.137.Final</netty.version>
+    <rabbit-amqp-client.version>5.34.0</rabbit-amqp-client.version>
+  </properties>
   <dependencies>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-websocket</artifactId></dependency>
