@@ -7,16 +7,20 @@ ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 RUN npm run build
 
-FROM nginx:1.27-alpine
-COPY --from=build /app/dist /usr/share/nginx/html
+FROM nginxinc/nginx-unprivileged:1.30.5-alpine
+USER root
+COPY --from=build --chown=root:root /app/dist /usr/share/nginx/html
 RUN printf '%s\n' \
 'server {' \
-'  listen 80;' \
+'  listen 8080;' \
 '  server_name _;' \
 '  root /usr/share/nginx/html;' \
 '  index index.html;' \
 '  location / {' \
 '    try_files $uri $uri/ /index.html;' \
 '  }' \
-'}' > /etc/nginx/conf.d/default.conf
-EXPOSE 80
+'}' > /etc/nginx/conf.d/default.conf \
+    && chown 101:101 /etc/nginx/conf.d/default.conf \
+    && chmod 0644 /etc/nginx/conf.d/default.conf
+USER 101:101
+EXPOSE 8080
