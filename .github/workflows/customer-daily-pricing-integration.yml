@@ -184,7 +184,7 @@ jobs:
           cache-dependency-path: |
             services/booking-service/pom.xml
             services/hotel-service/pom.xml
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Create disposable Hotel database
