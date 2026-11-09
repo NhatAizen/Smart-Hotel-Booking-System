@@ -27,7 +27,7 @@
         <!-- Coherent security family patches; do not pin individual Spring-managed JARs. -->
         <jackson-bom.version>2.21.7</jackson-bom.version>
         <netty.version>4.1.137.Final</netty.version>
-        <spring-cloud.version>2025.0.3</spring-cloud.version>
+        <spring-cloud.version>2025.1.4</spring-cloud.version>
     </properties>
 
     <dependencyManagement>
