@@ -1,3 +1,4 @@
+import useConfirm from "../ui/useConfirm";
 import {
   AlertCircle,
   BadgeDollarSign,
@@ -131,6 +132,7 @@ function EvidenceTile({ item }) {
 }
 
 export default function ComplaintCenter({ mode }) {
+  const confirmAction = useConfirm();
   const [searchParams] = useSearchParams();
   const requestedCaseId = searchParams.get("case") ?? "";
   const [items, setItems] = useState([]);
@@ -266,7 +268,7 @@ export default function ComplaintCenter({ mode }) {
     finally { setBusy(false); }
   }
   async function cancelCurrent() {
-    if (!selected || !window.confirm("Bạn chắc chắn muốn hủy khiếu nại này?")) return;
+    if (!selected || !await confirmAction("Bạn chắc chắn muốn hủy khiếu nại này?")) return;
     setBusy(true);
     try { updateItem(await cancelComplaint(selected.id)); } catch (requestError) { setError(requestError.response?.data?.message ?? "Không thể hủy khiếu nại."); }
     finally { setBusy(false); }

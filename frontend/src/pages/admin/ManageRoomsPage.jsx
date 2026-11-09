@@ -1,3 +1,4 @@
+import useConfirm from "../../components/ui/useConfirm";
 import { BadgeCheck, BedDouble, Building2, CircleDollarSign, RefreshCw, X, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -11,6 +12,7 @@ function money(value) {
 }
 
 export default function ManageRoomsPage() {
+  const confirmAction = useConfirm();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -28,7 +30,7 @@ export default function ManageRoomsPage() {
   useEffect(() => { loadRooms(); }, [loadRooms]);
 
   async function handleApprove(room) {
-    if (!window.confirm(`Phê duyệt phòng ${room.roomNumber}?`)) return;
+    if (!await confirmAction(`Phê duyệt phòng ${room.roomNumber}?`, {"title": "Phê duyệt phòng", "confirmLabel": "Phê duyệt", "confirmTone": "primary"})) return;
     setBusyId(room.id);
     try { await approveRoom(room.id); setRooms((current) => current.filter((item) => item.id !== room.id)); }
     catch (requestError) { setError(requestError.response?.data?.message ?? "Duyệt phòng thất bại."); }

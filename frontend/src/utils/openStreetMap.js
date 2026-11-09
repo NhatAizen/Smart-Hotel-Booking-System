@@ -1,9 +1,5 @@
 let leafletPromise = null;
 
-const LEAFLET_VERSION = "1.9.4";
-const LEAFLET_SCRIPT = `https://cdn.jsdelivr.net/npm/leaflet@${LEAFLET_VERSION}/dist/leaflet.js`;
-const LEAFLET_STYLE = `https://cdn.jsdelivr.net/npm/leaflet@${LEAFLET_VERSION}/dist/leaflet.css`;
-
 export function loadLeaflet() {
   if (typeof window === "undefined") {
     return Promise.reject(new Error("Bản đồ chỉ có thể tải trong trình duyệt."));
@@ -17,55 +13,47 @@ export function loadLeaflet() {
     return leafletPromise;
   }
 
-  leafletPromise = new Promise((resolve, reject) => {
-    if (!document.querySelector('link[data-enziu-leaflet="true"]')) {
-      const style = document.createElement("link");
-      style.rel = "stylesheet";
-      style.href = LEAFLET_STYLE;
-      style.dataset.enziuLeaflet = "true";
-      document.head.appendChild(style);
-    }
-
-    const existingScript = document.querySelector('script[data-enziu-leaflet="true"]');
-    if (existingScript) {
-      existingScript.addEventListener("load", () => resolve(window.L), { once: true });
-      existingScript.addEventListener(
-        "error",
-        () => reject(new Error("Không thể tải thư viện Leaflet.")),
-        { once: true },
-      );
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = LEAFLET_SCRIPT;
-    script.async = true;
-    script.defer = true;
-    script.dataset.enziuLeaflet = "true";
-    script.addEventListener(
-      "load",
-      () => {
-        if (window.L?.map) resolve(window.L);
-        else {
-          leafletPromise = null;
-          reject(new Error("Leaflet đã tải nhưng không khởi tạo được."));
-        }
-      },
-      { once: true },
-    );
-    script.addEventListener(
-      "error",
-      () => {
-        leafletPromise = null;
-        reject(new Error("Không thể tải thư viện Leaflet."));
-      },
-      { once: true },
-    );
-
-    document.head.appendChild(script);
-  });
+  leafletPromise = Promise.all([import("leaflet"),import("leaflet/dist/leaflet.css")])
+    .then(([module]) => { window.L=module.default ?? module; return window.L; })
+    .catch(error => { leafletPromise=null; throw error; });
 
   return leafletPromise;
+}
+
+// The public OSM website/raster host may be unreachable on a user's network.
+// OpenFreeMap serves OSM vector data; Leaflet continues to own markers/routes.
+export async function addOsmBasemap(map, { onReady = () => {}, onError = () => {} } = {}) {
+  const [gl, binding, worker] = await Promise.all([
+    import("maplibre-gl"), import("@maplibre/maplibre-gl-leaflet"),
+    import("maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url"), import("maplibre-gl/dist/maplibre-gl.css"),
+  ]);
+  if(!map.getContainer()?.isConnected) return null;
+  gl.setWorkerUrl(worker.default);
+  const layer=binding.maplibreGL({style:"https://tiles.openfreemap.org/styles/liberty",interactive:false}).addTo(map);
+  const vector=layer.getMaplibreMap();
+  const timer=window.setTimeout(onError,15000);
+  let ready=false;
+  vector.once("load",()=>{ready=true;window.clearTimeout(timer);onReady();});
+  vector.on("error",()=>{if(!ready) onError();});
+  map.once("unload",()=>window.clearTimeout(timer));
+  return layer;
+}
+
+export async function fetchDrivingRoute(origin,destination,signal) {
+  for (const point of [origin,destination]) {
+    if (!Number.isFinite(point?.lat) || !Number.isFinite(point?.lng) || Math.abs(point.lat)>90 || Math.abs(point.lng)>180)
+      throw new Error("Chưa có tọa độ hợp lệ của hai đầu tuyến đường.");
+  }
+  const coordinates=`${origin.lng},${origin.lat};${destination.lng},${destination.lat}`;
+  const response=await fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`,{signal:signal ?? AbortSignal.timeout(12000)});
+  if(!response.ok) throw new Error("Không thể tính tuyến đường lúc này. Bạn thử lại nhé.");
+  const payload=await response.json();
+  const route=payload?.routes?.[0];
+  if(payload.code!=="Ok" || route?.geometry?.type!=="LineString" || !Array.isArray(route.geometry.coordinates) || route.geometry.coordinates.length<2
+      || route.geometry.coordinates.some(p=>!Array.isArray(p)||p.length!==2||!Number.isFinite(p[0])||!Number.isFinite(p[1])||Math.abs(p[0])>180||Math.abs(p[1])>90)
+      || !Number.isFinite(route.distance) || route.distance<0 || !Number.isFinite(route.duration) || route.duration<0)
+    throw new Error("Chưa xác nhận được tuyến đường giữa hai địa điểm.");
+  return route;
 }
 
 export function buildHotelAddress(hotel) {

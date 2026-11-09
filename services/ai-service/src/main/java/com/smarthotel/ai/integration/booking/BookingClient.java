@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.time.LocalDate;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,26 +39,19 @@ public class BookingClient {
     }
 
     public ReviewSummaryResponse getReviewSummary(UUID hotelId) {
-        try {
-            return restClient.get()
-                    .uri("/api/reviews/hotels/{hotelId}/summary", hotelId)
-                    .retrieve()
-                    .body(ReviewSummaryResponse.class);
-        } catch (Exception ignored) {
-            return new ReviewSummaryResponse(hotelId, 0, null, Collections.emptyMap(), Collections.emptyMap());
-        }
+        ReviewSummaryResponse summary = restClient.get()
+                .uri("/api/reviews/hotels/{hotelId}/summary", hotelId)
+                .retrieve().body(ReviewSummaryResponse.class);
+        if (summary == null) throw new org.springframework.web.client.RestClientException("Review summary unavailable");
+        return summary;
     }
 
     public List<ReviewResponse> getReviews(UUID hotelId) {
-        try {
-            List<ReviewResponse> rows = restClient.get()
-                    .uri("/api/reviews/hotels/{hotelId}", hotelId)
-                    .retrieve()
-                    .body(new ParameterizedTypeReference<List<ReviewResponse>>() {});
-            return rows == null ? Collections.emptyList() : rows;
-        } catch (Exception ignored) {
-            return Collections.emptyList();
-        }
+        List<ReviewResponse> rows = restClient.get()
+                .uri("/api/reviews/hotels/{hotelId}", hotelId)
+                .retrieve().body(new ParameterizedTypeReference<List<ReviewResponse>>() {});
+        if (rows == null || rows.stream().anyMatch(java.util.Objects::isNull)) throw new org.springframework.web.client.RestClientException("Reviews unavailable");
+        return rows;
     }
 
     public List<BookingResponse> getCustomerBookings(UUID customerId, String bearerToken) {
@@ -68,6 +60,7 @@ public class BookingClient {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + bearerToken)
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<BookingResponse>>() {});
-        return rows == null ? Collections.emptyList() : rows;
+        if (rows == null || rows.stream().anyMatch(java.util.Objects::isNull)) throw new org.springframework.web.client.RestClientException("Customer bookings unavailable");
+        return rows;
     }
 }

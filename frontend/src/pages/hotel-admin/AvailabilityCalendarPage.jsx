@@ -1,3 +1,4 @@
+import useConfirm from "../../components/ui/useConfirm";
 import {
   BedDouble,
   CalendarDays,
@@ -134,6 +135,7 @@ function roomCell(room, date, bookings, holds, today) {
 }
 
 export default function AvailabilityCalendarPage() {
+  const confirmAction = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestRef = useRef(0);
   const today = localIso(new Date());
@@ -278,7 +280,7 @@ export default function AvailabilityCalendarPage() {
 
   async function changeRoomStatus(room, status) {
     const action = status === "MAINTENANCE" ? "đưa vào bảo trì" : "mở bán lại";
-    if (!window.confirm(`Xác nhận ${action} phòng ${room.roomNumber}?`)) return;
+    if (!await confirmAction(`Xác nhận ${action} phòng ${room.roomNumber}?`, {"title": "Cập nhật trạng thái phòng", "confirmLabel": "Cập nhật trạng thái", "confirmTone": "primary"})) return;
 
     setWorkingRoomId(room.id);
     setError("");
@@ -306,7 +308,7 @@ export default function AvailabilityCalendarPage() {
   }
 
   async function finishCleaning(room) {
-    if (!window.confirm(`Xác nhận phòng ${room.roomNumber} đã dọn xong?`)) return;
+    if (!await confirmAction(`Xác nhận phòng ${room.roomNumber} đã dọn xong?`, {"title": "Hoàn tất dọn phòng", "confirmLabel": "Đã dọn xong", "confirmTone": "primary"})) return;
     setWorkingRoomId(room.id);
     setError("");
     setMessage("");

@@ -58,6 +58,8 @@ export default function Modal({
     });
 
     function handleKeyDown(event) {
+      // A confirmation can open above another modal; only the top one handles keys.
+      if ([...document.querySelectorAll(".ui-modal")].at(-1) !== modalRef.current) return;
       if (event.key === "Escape" && closeOnEscape) {
         event.preventDefault();
         onCloseRef.current?.();

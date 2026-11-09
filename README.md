@@ -15,7 +15,7 @@ Hệ thống đặt phòng khách sạn thông minh được xây dựng theo ki
 - React
 - Docker Compose
 - VNPay
-- Gemini AI
+- Trợ lý EnziuRooms nội bộ (không cần API AI bên ngoài)
 
 ## Microservices
 

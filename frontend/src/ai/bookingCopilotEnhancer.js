@@ -11,13 +11,16 @@ import {
   getPromotionRecommendations,
   previewDiscount,
 } from "../services/promotionService";
+import { recommendationLead, hotelResultsSummary } from "./assistantPresentation";
+import { availabilityMatches, roomQuoteEvidence, declaredAmenities } from "./groundedEvidence";
+import { resolveMediaUrl } from "../utils/avatar";
 
 const AMENITY_PATTERNS = [
   { label: "Hồ bơi", patterns: ["ho boi", "be boi", "pool"] },
   { label: "WiFi", patterns: ["wifi", "wi-fi"] },
   { label: "Bữa sáng", patterns: ["bua sang", "breakfast"] },
   { label: "Bãi đỗ xe", patterns: ["bai do xe", "bai dau xe", "parking"] },
-  { label: "Gym", patterns: ["gym", "phong tap"] },
+  { label: "Phòng gym", patterns: ["gym", "phong tap"] },
   { label: "Spa", patterns: ["spa"] },
   { label: "Điều hòa", patterns: ["dieu hoa", "may lanh", "air conditioning"] },
 ];
@@ -255,7 +258,7 @@ function extractDestination(question) {
     const canonical = canonicalLocation(structuredExplicit[2]);
     const district = canonical.match(/^quan\s+(\d{1,2})$/);
     return {
-      value: district ? `Quận ${district[1]}` : structuredExplicit[2].trim(),
+      value: district ? `Quận ${district[1]}` : canonical === "ho chi minh" ? "Hồ Chí Minh" : structuredExplicit[2].trim(),
       hard: /^(ở|tại)$/i.test(structuredExplicit[1]),
       mode: structuredExplicit[1].toLowerCase(),
     };
@@ -285,7 +288,7 @@ function extractDestination(question) {
     const canonical = canonicalLocation(structured[1]);
     const district = canonical.match(/^quan\s+(\d{1,2})$/);
     return {
-      value: district ? `Quận ${district[1]}` : structured[1].trim(),
+      value: district ? `Quận ${district[1]}` : canonical === "ho chi minh" ? "Hồ Chí Minh" : structured[1].trim(),
       hard: true,
       mode: "structured",
     };
@@ -329,13 +332,14 @@ function extractCriteria(question, trip) {
     minStars: minStarsMatch ? Number(minStarsMatch[1]) : null,
     datesSelected,
     nights: nightsBetween(trip?.checkIn, trip?.checkOut),
+    adults: Math.max(1, Number(trip?.adults) || 1),
+    children: Math.max(0, Number(trip?.children) || 0),
   };
 }
 
 function ratingScore(value) {
   const rating = numberOrNull(value);
   if (rating == null || rating <= 0) return null;
-  if (rating <= 5) return Math.min(1, rating / 5);
   return Math.min(1, rating / 10);
 }
 
@@ -419,23 +423,16 @@ function destinationMatch(hotel, criteria) {
 function amenityMatch(hotel, criteria) {
   if (!criteria.amenities.length) return null;
 
-  const haystack = normalize(
-    [
-      ...(Array.isArray(hotel.matchReasons) ? hotel.matchReasons : []),
-      ...(Array.isArray(hotel.amenities) ? hotel.amenities : []),
-      ...(Array.isArray(hotel.roomAmenities) ? hotel.roomAmenities : []),
-      hotel.roomTypeName,
-      hotel.description,
-    ]
-      .filter(Boolean)
-      .join(" "),
-  );
+  const haystack = normalize(declaredAmenities(hotel).join(" "));
 
   if (!haystack) return 0;
 
   const matched = criteria.amenities.filter((amenity) => {
-    const needle = normalize(amenity);
-    return haystack.includes(needle);
+    const needle = normalize(amenity).replace(/\s/g, "");
+    const feature = AMENITY_PATTERNS.find((entry) => normalize(entry.label).replace(/\s/g, "") === needle);
+    const aliases = feature ? [feature.label, ...feature.patterns] : [amenity];
+    const canonicalData = haystack.replace(/\s/g, "");
+    return aliases.some((alias) => canonicalData.includes(normalize(alias).replace(/\s/g, "")));
   });
 
   return matched.length / criteria.amenities.length;
@@ -496,6 +493,9 @@ function budgetMatch(hotel, criteria) {
 
 function buildReasons(hotel, criteria) {
   const reasons = [];
+  if (criteria.nearby && hotel.distanceKm != null && Number.isFinite(Number(hotel.distanceKm))) {
+    reasons.push(`Cách ${criteria.nearby.displayName} khoảng ${Number(hotel.distanceKm).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} km (đường chim bay)`);
+  }
   const backendReasons = Array.isArray(hotel.matchReasons)
     ? hotel.matchReasons.filter(Boolean)
     : [];
@@ -529,7 +529,7 @@ function buildReasons(hotel, criteria) {
   if (
     criteria.goodReviews &&
     rating != null &&
-    ((rating <= 5 && rating >= 4) || rating >= 8)
+    (rating >= 8)
   ) {
     reasons.push("Review tốt");
   }
@@ -607,12 +607,7 @@ function isHotelSearchResponse(response) {
 
   const intent = normalize(response?.intent);
   if (!intent) return true;
-  return (
-    intent.includes("hotel") ||
-    intent.includes("search") ||
-    intent.includes("recommend") ||
-    intent.includes("compare")
-  );
+  return intent.includes("recommend") || intent === "hotel search";
 }
 
 function isActiveRoomType(type) {
@@ -652,18 +647,21 @@ function resolveCoverImage(detail, fallback) {
     detail?.thumbnailUrl ??
     fallback?.coverImageUrl ??
     "";
-  if (direct) return direct;
+  if (direct) return resolveMediaUrl(direct);
 
   const first = Array.isArray(detail?.images) ? detail.images[0] : null;
-  if (typeof first === "string") return first;
-  return first?.url ?? first?.imageUrl ?? first?.fileUrl ?? "";
+  if (typeof first === "string") return resolveMediaUrl(first);
+  return resolveMediaUrl(first?.url ?? first?.imageUrl ?? first?.fileUrl ?? "");
 }
 
-function chooseRoomType(roomTypes, rooms, unavailableSet, hotel, trip) {
+function chooseRoomType(roomTypes, rooms, unavailableSet, hotel, trip, roomCriteria) {
   const requestedName = normalize(hotel?.roomTypeName);
 
   const candidates = roomTypes
     .filter(isActiveRoomType)
+    .filter((type) => !hotel?.roomTypeId || String(type?.id) === String(hotel.roomTypeId))
+    .filter((type) => !roomCriteria?.refundableOnly || type?.refundable === true)
+    .filter((type) => !roomCriteria?.breakfastOnly || type?.breakfastIncluded === true)
     .filter((type) => roomFits(type, trip))
     .map((type) => {
       const availableRooms = rooms
@@ -692,7 +690,7 @@ function chooseRoomType(roomTypes, rooms, unavailableSet, hotel, trip) {
   return candidates[0] ?? null;
 }
 
-async function enrichHotel(hotel, trip) {
+async function enrichHotel(hotel, trip, queryContext) {
   const hotelId = hotel?.hotelId ?? hotel?.id;
   if (!hotelId) return { ...hotel, locationLabel: locationLabel(hotel) };
 
@@ -730,6 +728,9 @@ async function enrichHotel(hotel, trip) {
 
     const roomTypes = listOf(typesRaw);
     const rooms = listOf(roomsRaw);
+    if (!availabilityMatches(availability, hotelId, trip)) {
+      throw new Error("Chưa có dữ liệu phòng trống hợp lệ");
+    }
     const unavailableSet = new Set(
       Array.isArray(availability?.unavailableRoomIds)
         ? availability.unavailableRoomIds.map(String)
@@ -742,6 +743,7 @@ async function enrichHotel(hotel, trip) {
       unavailableSet,
       enriched,
       trip,
+      queryContext?.roomCriteria,
     );
 
     if (!selected) {
@@ -758,10 +760,13 @@ async function enrichHotel(hotel, trip) {
 
     enriched = {
       ...enriched,
+      roomTypeId: selected.type?.id ?? enriched.roomTypeId,
       roomTypeName: selected.type?.name ?? enriched.roomTypeName,
       maxAdults: selected.type?.maxAdults ?? enriched.maxAdults,
       maxChildren: selected.type?.maxChildren ?? enriched.maxChildren,
       roomAmenities: selected.type?.amenities ?? [],
+      refundable: selected.type?.refundable ?? enriched.refundable,
+      breakfastIncluded: selected.type?.breakfastIncluded ?? enriched.breakfastIncluded,
       pricePerNight: Number.isFinite(listedNightly) && listedNightly > 0
         ? listedNightly
         : enriched.pricePerNight,
@@ -777,14 +782,10 @@ async function enrichHotel(hotel, trip) {
         checkOut: trip.checkOut,
       });
 
-      const roomQuote = Array.isArray(quote?.rooms)
-        ? quote.rooms.find(
-            (item) => String(item?.roomTypeId) === String(selected.type?.id),
-          ) ?? quote.rooms[0]
-        : null;
-      const totalStayAmount = numberOrNull(
-        roomQuote?.totalAmount ?? quote?.totalAmount,
-      );
+      const evidence = roomQuoteEvidence(quote, selected.type?.id, hotelId, trip, room.id);
+      if (!evidence) throw new Error("Chưa xác nhận được giá đúng loại phòng");
+      const roomQuote = evidence.room;
+      const totalStayAmount = evidence.totalAmount;
 
       if (totalStayAmount != null) {
         enriched = {
@@ -805,7 +806,7 @@ async function enrichHotel(hotel, trip) {
         enriched = { ...enriched, ...discount };
       }
     } catch {
-      enriched = { ...enriched, pricingChecked: false };
+      enriched = { ...enriched, pricingChecked: false, discountChecked: false, finalPayableAmount: null };
     }
   } catch {
     // Nếu một API enrichment lỗi, giữ dữ liệu grounded từ AI Service thay vì bịa thêm.
@@ -834,8 +835,10 @@ function buildConciseAnswer(hotels, criteria, context = {}) {
     return "Mình chưa tìm thấy lựa chọn đáp ứng đủ các tiêu chí hiện tại. Bạn có thể nới ngân sách, tiện nghi hoặc đổi ngày để mình kiểm tra lại.";
   }
 
+  if (hotels.length > 1) return hotelResultsSummary(hotels, criteria, context.alternative);
   const top = hotels[0];
   const facts = [];
+  if (criteria.nearby && top.distanceKm != null) facts.push(`cách ${criteria.nearby.displayName} khoảng ${Number(top.distanceKm).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} km (đường chim bay)`);
 
   if (criteria.destination && top.locationMatches) {
     facts.push(`đúng ${criteria.destination}`);
@@ -848,12 +851,10 @@ function buildConciseAnswer(hotels, criteria, context = {}) {
   }
   const rating = numberOrNull(top.averageRating);
   if (criteria.goodReviews && rating != null) {
-    facts.push(`review ${rating.toFixed(1)}/${rating <= 5 ? 5 : 10}`);
+    facts.push(`review ${rating.toFixed(1)}/10`);
   }
 
-  const firstSentence = facts.length
-    ? `Mình ưu tiên ${top.name} vì ${facts.join(", ")}.`
-    : `Mình ưu tiên ${top.name} vì phù hợp nhất với những gì bạn vừa chọn.`;
+  const firstSentence = recommendationLead(top, criteria, facts);
 
   const detailParts = [];
   if (top.discountChecked && top.finalPayableAmount != null && criteria.nights > 0) {
@@ -891,11 +892,29 @@ export async function enhanceAssistantResponse({ question, response, trip }) {
   if (!isHotelSearchResponse(response)) return response;
 
   const criteria = extractCriteria(question, trip);
+  // Use the server's merged conversation state. Re-parsing only the latest sentence
+  // loses previous constraints and can turn a removal into a positive requirement.
+  if (response.context) {
+    criteria.budget = response.context.maxBudgetPerNight ?? null;
+    criteria.budgetMode = "PER_NIGHT";
+    criteria.budgetStrict = criteria.budget != null;
+    criteria.amenities = response.context.amenities ?? [];
+    criteria.destination = response.context.city ?? "";
+    criteria.destinationHard = Boolean(criteria.destination);
+    criteria.minStars = response.context.starRating ?? null;
+    criteria.nearby = response.context.nearby?.displayName ? response.context.nearby : null;
+    if (criteria.nearby) {
+      criteria.destination = "";
+      criteria.destinationHard = false;
+    }
+  }
   const enrichedHotels = await Promise.all(
-    response.hotels.map((hotel) => enrichHotel(hotel, trip)),
+    response.hotels.map((hotel) => enrichHotel(hotel, trip, response.context)),
   );
 
   let candidates = enrichedHotels;
+  if (criteria.nearby) candidates = candidates.filter(hotel => hotel.distanceKm != null
+    && Number.isFinite(Number(hotel.distanceKm)) && Number(hotel.distanceKm) <= criteria.nearby.radiusKm);
 
   // "Ở/tại Quận 1" là ràng buộc cứng. Nếu dữ liệu chỉ chứng minh HCM thì loại,
   // thay vì cho điểm thấp nhưng vẫn đưa vào Top 3.
@@ -920,7 +939,8 @@ export async function enhanceAssistantResponse({ question, response, trip }) {
     .map((hotel) => scoreHotel(hotel, criteria))
     .sort(
       (left, right) =>
-        Number(right.matchPercent ?? 0) - Number(left.matchPercent ?? 0),
+        (criteria.nearby ? Number(left.distanceKm) - Number(right.distanceKm) : 0)
+        || Number(right.matchPercent ?? 0) - Number(left.matchPercent ?? 0),
     );
 
   let budgetRejected = false;
@@ -965,7 +985,8 @@ export async function enhanceAssistantResponse({ question, response, trip }) {
 
   return {
     ...response,
-    answer: buildConciseAnswer(rankedHotels, criteria, {
+    answer: (response.conversationAction === "MORE_HOTELS" && rankedHotels.length === 1 ? "Đây là một khách sạn khác theo tiêu chí trước đó. " : "") + buildConciseAnswer(rankedHotels, criteria, {
+      alternative: response.conversationAction === "MORE_HOTELS",
       budgetRejected,
       lowestOverBudget,
       hadLocationCandidates,

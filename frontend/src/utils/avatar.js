@@ -80,3 +80,6 @@ export function resolveAvatarUrl(source) {
     return null;
   }
 }
+
+// Uploaded hotel/room images use the same internal media routes as avatars.
+export { resolveAvatarUrl as resolveMediaUrl };

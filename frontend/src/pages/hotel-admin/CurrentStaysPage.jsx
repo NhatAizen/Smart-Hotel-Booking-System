@@ -1,3 +1,4 @@
+import useConfirm from "../../components/ui/useConfirm";
 import {
   Banknote,
   BedDouble,
@@ -181,6 +182,7 @@ function replaceStay(setStays, updated) {
 }
 
 export default function CurrentStaysPage({ embedded = false }) {
+  const confirmAction = useConfirm();
   const [stays, setStays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
@@ -357,7 +359,7 @@ export default function CurrentStaysPage({ embedded = false }) {
     }
 
     if (Number(booking.remainingAmount ?? 0) <= 0) return;
-    if (!window.confirm(`Xác nhận đã thu ${money(booking.remainingAmount)} tại quầy?`)) return;
+    if (!await confirmAction(`Xác nhận đã thu ${money(booking.remainingAmount)} tại quầy?`, {"title": "Xác nhận thu tiền tại quầy", "confirmLabel": "Đã thu tiền", "confirmTone": "primary"})) return;
 
     setWorkingId(booking.id);
     setError("");
@@ -456,7 +458,7 @@ export default function CurrentStaysPage({ embedded = false }) {
       ? `Đơn đặt phòng ${booking.bookingCode} chưa tới giờ trả phòng.\n\nBạn vẫn muốn xác nhận khách trả phòng sớm?`
       : `Xác nhận khách đã trả phòng ${currentItem.roomNumber}?`;
 
-    if (!window.confirm(confirmation)) return;
+    if (!await confirmAction(confirmation, {"title": "Xác nhận khách trả phòng", "confirmLabel": "Xác nhận trả phòng", "confirmTone": "primary"})) return;
 
     setWorkingId(booking.id);
     setError("");

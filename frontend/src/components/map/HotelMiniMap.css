@@ -117,6 +117,13 @@
   padding: 18px;
   border-bottom: 1px solid #e6ecf1;
 }
+.hotel-route-hotel-card:not(:has(> img)) { grid-template-columns: minmax(0,1fr); }
+.hotel-route-map-modal :is(button,input,a):focus-visible { outline: 3px solid #96c8ff; outline-offset: 2px; }
+.hotel-route-map-modal .leaflet-top .leaflet-control-zoom { margin-top: 80px; }
+.hotel-route-edit { margin: 12px 0; }
+.hotel-route-edit summary { cursor: pointer; padding: 8px 0; color: #075fc9; font-weight: 650; }
+.hotel-route-edit[open] summary { margin-bottom: 8px; }
+.hotel-route-error > button { display: block; margin-top: 8px; padding: 8px 12px; border: 1px solid #b22d39; border-radius: 6px; color: #8a2630; background: #fff; cursor: pointer; }
 
 .hotel-route-hotel-card > img {
   width: 88px;
@@ -409,6 +416,7 @@
 
 @media (max-width: 700px) {
   .hotel-route-map-modal { display: block; }
+  .hotel-route-map-modal .leaflet-bottom { bottom: calc(45vh + 20px); }
 
   .hotel-route-map-sidebar {
     position: absolute;

@@ -11,20 +11,22 @@ import {
   MapPin,
   MessageCirclePlus,
   Minus,
-  Scale,
   Send,
   ShieldCheck,
   Sparkles,
   Star,
-  Trash2,
+  Plus,
   Users,
   X,
 } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   Link,
   useLocation,
@@ -33,6 +35,9 @@ import {
 import { useAiAssistant } from "../../ai/AiAssistantContext";
 import { useAuth } from "../../auth/AuthContext";
 import { statusLabel } from "../../utils/presentation";
+import { guestSummary, hasLocalEngineMetadata, assistantMapRoute } from "../../ai/assistantPresentation";
+import { HotelMapModal } from "../map/HotelMiniMap";
+import { resolveMediaUrl } from "../../utils/avatar";
 import "./FloatingAiAssistant.css";
 
 function money(value) {
@@ -69,6 +74,7 @@ function hotelUrl(hotel, context) {
   if (context?.checkIn) params.set("checkIn", context.checkIn);
   if (context?.checkOut) params.set("checkOut", context.checkOut);
   if (context?.adults) params.set("guests", context.adults);
+  if (Number(context?.children) > 0) params.set("children", context.children);
   params.set("rooms", "1");
 
   const query = params.toString();
@@ -90,9 +96,9 @@ function roomTypeUrl(roomType) {
   return `/hotels/${roomType.hotelId}${query ? `?${query}` : ""}#rooms`;
 }
 
-function RoomTypeResultCard({ roomType, onNavigate }) {
+function RoomTypeResultCard({ roomType, onNavigate, recommended }) {
   const images = Array.isArray(roomType?.imageUrls)
-    ? roomType.imageUrls.filter(Boolean)
+    ? roomType.imageUrls.map(resolveMediaUrl).filter(Boolean)
     : [];
 
   const displayPrice =
@@ -107,19 +113,19 @@ function RoomTypeResultCard({ roomType, onNavigate }) {
     Number(roomType?.totalDiscount ?? 0) > 0;
 
   return (
-    <article className="enziu-fai-room-card">
+    <article className={`enziu-fai-room-card ${recommended ? "is-recommended" : ""}`}>
       <div className="enziu-fai-room-card-image">
         {images[0] ? (
           <img src={images[0]} alt={`Phòng ${roomType.name}`} />
         ) : (
           <div className="enziu-fai-room-card-placeholder">
             <ImageIcon size={24} />
-            <span>Chưa có ảnh loại phòng</span>
+
           </div>
         )}
 
         <span className="enziu-fai-room-card-label">
-          <BedDouble size={11} /> Loại phòng
+          <BedDouble size={11} /> {recommended ? "Đề xuất cho bạn" : "Lựa chọn khác"}
         </span>
       </div>
 
@@ -223,51 +229,56 @@ function RoomTypeResultCard({ roomType, onNavigate }) {
 }
 
 function HotelResultCard({ hotel, context, onNavigate }) {
+  const coverImage = resolveMediaUrl(hotel.coverImageUrl);
+  const [failedImage, setFailedImage] = useState(null);
   return (
-    <article className="enziu-fai-hotel-card">
-      <div className="enziu-fai-hotel-image">
-        {hotel.coverImageUrl ? (
-          <img src={hotel.coverImageUrl} alt={hotel.name} />
-        ) : (
-          <BedDouble size={24} />
-        )}
-        <div className="enziu-fai-hotel-badges">
-          {hotel.copilotRank ? (
-            <span className="rank">#{hotel.copilotRank}</span>
-          ) : null}
-          {hotel.matchPercent !== null && hotel.matchPercent !== undefined ? (
-            <span className="match">
-              <Sparkles size={11} /> {hotel.matchPercent}% phù hợp
-            </span>
-          ) : hotel.exactMatch ? (
-            <span className="match"><CheckCircle2 size={11} /> Phù hợp</span>
-          ) : null}
+    <article className="enziu-fai-hotel-card" aria-label={`Khách sạn: ${hotel.name}`}>
+      <div className="enziu-fai-hotel-overview">
+        <div className="enziu-fai-hotel-image">
+          {coverImage && failedImage !== coverImage ? (
+            <img src={coverImage} alt={`Ảnh ${hotel.name}`} width="88" height="88" loading="lazy" decoding="async" onError={() => setFailedImage(coverImage)} />
+          ) : (
+            <span className="enziu-fai-image-placeholder"><BedDouble size={24} aria-hidden="true" /><small>Chưa có ảnh</small></span>
+          )}
+        </div>
+        <div className="enziu-fai-hotel-identity">
+          <div className="enziu-fai-hotel-badges">
+            {hotel.copilotRank ? (
+              <span className="rank">#{hotel.copilotRank}</span>
+            ) : null}
+            {hotel.matchPercent !== null && hotel.matchPercent !== undefined ? (
+              <span className="match">
+                <Sparkles size={11} /> {hotel.matchPercent}% phù hợp
+              </span>
+            ) : hotel.exactMatch ? (
+              <span className="match"><CheckCircle2 size={11} /> Phù hợp</span>
+            ) : null}
+          </div>
+          <div className="enziu-fai-hotel-title">
+            <div>
+              <div className="enziu-fai-stars">
+                {Array.from(
+                  { length: Math.min(Number(hotel.starRating ?? 0), 5) },
+                  (_, index) => (
+                    <Star size={10} fill="currentColor" key={index} />
+                  ),
+                )}
+              </div>
+              <h3><Link to={hotelUrl(hotel, context)} onClick={onNavigate}>{hotel.name}</Link></h3>
+            </div>
+            {hotel.averageRating ? (
+              <span className="enziu-fai-rating">
+                {Number(hotel.averageRating).toFixed(1)}
+                {Number(hotel.reviewCount ?? 0) > 0 ? (
+                  <small>{hotel.reviewCount} đánh giá</small>
+                ) : null}
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
 
       <div className="enziu-fai-hotel-body">
-        <div className="enziu-fai-hotel-title">
-          <div>
-            <div className="enziu-fai-stars">
-              {Array.from(
-                { length: Math.min(Number(hotel.starRating ?? 0), 5) },
-                (_, index) => (
-                  <Star size={10} fill="currentColor" key={index} />
-                ),
-              )}
-            </div>
-            <strong>{hotel.name}</strong>
-          </div>
-          {hotel.averageRating ? (
-            <span className="enziu-fai-rating">
-              {Number(hotel.averageRating).toFixed(1)}
-              {Number(hotel.reviewCount ?? 0) > 0 ? (
-                <small>{hotel.reviewCount} đánh giá</small>
-              ) : null}
-            </span>
-          ) : null}
-        </div>
-
         <p className="enziu-fai-location">
           <MapPin size={12} />
           {hotel.locationLabel || hotel.address || hotel.city || "Chưa cập nhật địa chỉ"}
@@ -279,6 +290,7 @@ function HotelResultCard({ hotel, context, onNavigate }) {
             <span>
               <strong>{hotel.roomTypeName}</strong>
               {hotel.maxAdults ? ` · tối đa ${hotel.maxAdults} người lớn` : ""}
+              {Number(hotel.maxChildren) > 0 ? ` và ${hotel.maxChildren} trẻ em` : ""}
             </span>
           </p>
         ) : null}
@@ -394,31 +406,63 @@ function BookingResultCard({ booking, onNavigate }) {
   );
 }
 
-function AssistantMessage({ message, onNavigate, onOpenTrip, onAsk }) {
+function HotelComparisonTable({ comparison, hotels, context, onNavigate }) {
+  if (!comparison?.rows?.length || !hotels?.length) return null;
   return (
-    <div className="enziu-fai-assistant-message">
+    <section className="enziu-fai-comparison" aria-label={`So sánh ${hotels.length} khách sạn`}>
+      {comparison.note ? <p className="enziu-fai-comparison-note">{comparison.note}</p> : null}
+      <p className="enziu-fai-comparison-hint">Cuộn ngang để xem đầy đủ các khách sạn.</p>
+      <div className="enziu-fai-comparison-scroll" role="region" aria-label="Bảng đối chiếu khách sạn" tabIndex={0}>
+        <table>
+          <caption>So sánh {hotels.length} khách sạn{comparison.focus === "QUALITY" ? " về chất lượng" : ""}</caption>
+          <thead><tr><th scope="col">Tiêu chí</th>{hotels.map(hotel => <th scope="col" key={hotel.hotelId}><Link to={hotelUrl(hotel, context)} onClick={onNavigate}>{hotel.name}</Link></th>)}</tr></thead>
+          <tbody>{comparison.rows.filter(row => row.values?.length === hotels.length).map(row => <tr key={row.label}><th scope="row">{row.label}</th>{row.values.map((value,index) => <td key={hotels[index].hotelId}>{value}</td>)}</tr>)}</tbody>
+          <tfoot><tr><th scope="row">Chi tiết</th>{hotels.map(hotel => <td key={hotel.hotelId}><Link to={`${hotelUrl(hotel, context)}#rooms`} onClick={onNavigate}>Xem phòng</Link></td>)}</tr></tfoot>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function AssistantMessage({ message, onNavigate, onOpenTrip, onOpenMap, messageRef }) {
+  const routeLandmark=message.directions?.landmark ?? message.directions?.origin;
+  return (
+    <div className="enziu-fai-assistant-message" ref={messageRef}>
       <div className="enziu-fai-avatar">
         <Sparkles size={14} />
       </div>
 
       <div className="enziu-fai-message-body">
         <div className="enziu-fai-message-copy">{message.content}</div>
-
-        {message.context?.availabilityChecked ? (
-          <div className="enziu-fai-context-chip">
-            <CalendarDays size={11} />
-            {formatDate(message.context.checkIn)} → {formatDate(message.context.checkOut)}
-            <span>·</span>
-            <Users size={11} />
-            {message.context.adults ?? 1} người lớn
-          </div>
+        {message.directions ? (
+          <section className="enziu-fai-directions" aria-label="Chỉ đường">
+            {routeLandmark ? <div className="enziu-fai-route-origin">
+              {message.directions.coordinatesOnly ? "Địa điểm: " : message.directions.hotelAtOrigin ? "Điểm đến: " : "Xuất phát: "}{routeLandmark.displayName ?? routeLandmark.query}
+              {routeLandmark.sourceUrl?.startsWith("https://www.openstreetmap.org/") ? <a href={routeLandmark.sourceUrl} target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> : null}
+            </div> : null}
+            {(message.directions.destinations ?? []).map(destination => (
+              <article className="enziu-fai-route-card" key={destination.hotelId}>
+                {message.directions.hotelAtOrigin ? <small>Xuất phát</small> : null}
+                <strong>{destination.name}</strong>
+                <p>{destination.address || "Chưa có địa chỉ được công bố."}</p>
+                {!message.directions.coordinatesOnly && assistantMapRoute(message.directions,destination) ? <button type="button" onClick={()=>onOpenMap(assistantMapRoute(message.directions,destination))}>Xem đường đi trên bản đồ</button> : null}
+              </article>
+            ))}
+          </section>
         ) : null}
+        {message.context?.nearby?.sourceUrl?.startsWith("https://www.openstreetmap.org/") ? (
+          <a className="enziu-fai-followup" href={message.context.nearby.sourceUrl} target="_blank" rel="noopener noreferrer">
+            Vị trí: {message.context.nearby.displayName} · © OpenStreetMap contributors
+          </a>
+        ) : null}
+        <HotelComparisonTable comparison={message.comparison} hotels={message.hotels} context={message.context} onNavigate={onNavigate} />
 
-        {message.copilot?.roomCards?.length ? (
+        {(message.rooms?.length || message.copilot?.roomCards?.length) ? (
           <div className="enziu-fai-results">
-            {message.copilot.roomCards.map((roomType) => (
+            {(message.rooms?.length ? message.rooms : message.copilot.roomCards).map((roomType, index) => (
               <RoomTypeResultCard
                 roomType={roomType}
+                recommended={index === 0}
                 onNavigate={onNavigate}
                 key={roomType.id ?? roomType.name}
               />
@@ -426,18 +470,7 @@ function AssistantMessage({ message, onNavigate, onOpenTrip, onAsk }) {
           </div>
         ) : null}
 
-        {message.copilot?.criteria?.length ? (
-          <div className="enziu-fai-understood">
-            <strong><Sparkles size={12} /> Mình đã hiểu</strong>
-            <div>
-              {message.copilot.criteria.map((item) => (
-                <span key={item}>{item}</span>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {message.hotels?.length ? (
+        {message.hotels?.length && !message.comparison?.rows?.length ? (
           <div className="enziu-fai-results">
             {message.hotels.map((hotel) => (
               <HotelResultCard
@@ -450,7 +483,7 @@ function AssistantMessage({ message, onNavigate, onOpenTrip, onAsk }) {
           </div>
         ) : null}
 
-        {message.hotels?.length && !message.copilot?.availabilityChecked ? (
+        {message.hotels?.length && !message.copilot?.availabilityChecked && !message.context?.availabilityChecked ? (
           <button
             type="button"
             className="enziu-fai-followup"
@@ -459,28 +492,6 @@ function AssistantMessage({ message, onNavigate, onOpenTrip, onAsk }) {
             <CalendarDays size={13} />
             Thêm ngày để kiểm tra phòng trống
           </button>
-        ) : null}
-
-        {message.hotels?.length >= 2 ? (
-          <button
-            type="button"
-            className="enziu-fai-compare"
-            onClick={() =>
-              onAsk?.(
-                `So sánh ${message.hotels[0].name} và ${message.hotels[1].name} theo nhu cầu tôi vừa hỏi.`,
-              )
-            }
-          >
-            <Scale size={13} />
-            So sánh Top 2 bằng AI
-          </button>
-        ) : null}
-
-        {message.copilot?.methodology ? (
-          <div className="enziu-fai-methodology">
-            <ShieldCheck size={12} />
-            <span>{message.copilot.methodology}</span>
-          </div>
         ) : null}
 
         {message.bookings?.length ? (
@@ -515,7 +526,6 @@ export default function FloatingAiAssistant() {
     sending,
     error,
     latestSuggestions,
-    latestUserQuestion,
     closeAssistant,
     toggleAssistant,
     clearHotelContext,
@@ -524,6 +534,18 @@ export default function FloatingAiAssistant() {
   } = useAiAssistant();
 
   const bottomRef = useRef(null);
+  const [routeMap,setRouteMap]=useState(null);
+  const closeRouteMap=useCallback(()=>setRouteMap(null),[]);
+  const latestMessageRef = useRef(null);
+  const inputRef = useRef(null);
+  const launcherRef = useRef(null);
+  const latestAnswer = [...messages].reverse().find((message) => message.engine);
+  const comparing = Boolean([...messages].reverse().find(message => message.role === "assistant")?.comparison?.rows?.length);
+  const localEngine = hasLocalEngineMetadata(latestAnswer);
+
+  useEffect(() => {
+    if (isOpen) inputRef.current?.focus();
+  }, [isOpen]);
 
   const normalizedRole = String(user?.role ?? "")
     .replace(/^ROLE_/i, "")
@@ -545,18 +567,19 @@ export default function FloatingAiAssistant() {
   const today = useMemo(() => localDateValue(), []);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || messages.length === 1) return;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    bottomRef.current?.scrollIntoView({
+    const target = sending ? bottomRef.current : latestMessageRef.current;
+    target?.scrollIntoView({
       behavior: reduceMotion ? "auto" : "smooth",
-      block: "end",
+      block: sending ? "end" : "start",
     });
   }, [isOpen, messages, sending]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
     function handleEscape(event) {
-      if (event.key === "Escape") closeAssistant();
+      if (event.key === "Escape") { closeAssistant(); launcherRef.current?.focus(); }
     }
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
@@ -583,10 +606,11 @@ export default function FloatingAiAssistant() {
 
   return (
     <div className="enziu-fai-root">
+      {routeMap ? createPortal(<HotelMapModal {...routeMap} onClose={closeRouteMap}/>,document.body) : null}
       {isOpen ? (
         <section
           id="enziu-ai-panel"
-          className="enziu-fai-panel"
+          className={`enziu-fai-panel${comparing ? " has-comparison" : ""}`}
           role="dialog"
           aria-modal="false"
           aria-labelledby="enziu-ai-title"
@@ -595,8 +619,8 @@ export default function FloatingAiAssistant() {
             <div className="enziu-fai-brand">
               <span className="enziu-fai-bot-mark"><Bot size={20} /></span>
               <div>
-                <strong id="enziu-ai-title">Enziu AI Copilot</strong>
-                <span><i /> Tìm nơi ở · so sánh · kiểm tra phòng</span>
+                <strong id="enziu-ai-title">Trợ lý Enziu</strong>
+                <span><i /> Cùng bạn chọn chỗ nghỉ phù hợp</span>
               </div>
             </div>
 
@@ -607,7 +631,7 @@ export default function FloatingAiAssistant() {
                 title="Cuộc trò chuyện mới"
                 aria-label="Cuộc trò chuyện mới"
               >
-                <Trash2 size={16} />
+                <Plus size={18} />
               </button>
               <button
                 type="button"
@@ -620,9 +644,11 @@ export default function FloatingAiAssistant() {
             </div>
           </header>
 
-          <div className="enziu-fai-grounding">
-            <ShieldCheck size={12} />
-            <span>Gợi ý dựa trên phòng trống, mức giá, ưu đãi và đánh giá hiện có</span>
+          <div className="enziu-fai-source-bar">
+            <span title={localEngine ? `Bộ xử lý ${latestAnswer.engine.id}; ${latestAnswer.engine.semanticUnderstandingUsed ? "mô hình ngữ nghĩa chạy nội bộ" : "đang dùng chế độ cơ bản"}; không gọi Gemini.` : "Câu trả lời được đối chiếu với thông tin trong EnziuRooms"}>
+              <ShieldCheck size={13} /> Dữ liệu EnziuRooms
+            </span>
+            <span>{localEngine ? (latestAnswer.engine.semanticUnderstandingUsed ? "Hiểu ngữ cảnh · Nội bộ" : "Chế độ cơ bản") : "Phòng · Giá · Chuyến đi"}</span>
           </div>
 
           {contextualHotel ? (
@@ -651,11 +677,11 @@ export default function FloatingAiAssistant() {
             >
               <span>
                 <CalendarDays size={14} />
-                Thông tin chuyến đi
+                Chuyến đi của bạn
                 {trip.checkIn && trip.checkOut ? (
                   <em>{formatDate(trip.checkIn)} → {formatDate(trip.checkOut)}</em>
                 ) : (
-                  <em>Thêm ngày để kiểm tra phòng</em>
+                  <em>{guestSummary(trip.adults, trip.children)}</em>
                 )}
               </span>
               <ChevronDown size={15} />
@@ -717,13 +743,12 @@ export default function FloatingAiAssistant() {
                       disabled={sending}
                       onClick={() =>
                         void sendQuestion(
-                          latestUserQuestion
-                            || "Kiểm tra lại giá, phòng trống và ưu đãi với ngày tôi vừa chọn.",
+                          "Kiểm tra lại giá, phòng trống và ưu đãi với ngày tôi vừa chọn.",
                         )
                       }
                     >
                       <Sparkles size={12} />
-                      Cập nhật gợi ý
+                      Áp dụng và kiểm tra
                     </button>
                   </div>
                 ) : null}
@@ -737,15 +762,27 @@ export default function FloatingAiAssistant() {
             aria-live="polite"
             aria-relevant="additions text"
           >
-            {messages.map((message, index) => (
+            {messages.length === 1 ? (
+              <div className="enziu-fai-welcome">
+                <span className="enziu-fai-welcome-icon"><Sparkles size={25} /></span>
+                <span className="enziu-fai-eyebrow">CÓ ENZIU ĐỒNG HÀNH</span>
+                <h2>Chọn phòng,<br />đúng điều bạn cần.</h2>
+                <p>Hỏi theo cách của bạn. Tôi sẽ xem thông tin khách sạn và chuyến đi để cùng bạn chọn.</p>
+                <div className="enziu-fai-welcome-actions">
+                  <button type="button" onClick={() => void sendQuestion("Phòng nào phù hợp nhất với tôi?")}><BedDouble size={18} /><span>Giúp tôi chọn phòng<small>So sánh theo nhu cầu của bạn</small></span><ChevronRight size={16} /></button>
+                  <button type="button" onClick={() => void sendQuestion("Tôi muốn xem đơn đặt phòng của tôi")}><CalendarDays size={18} /><span>Xem chuyến đi của tôi<small>Thông tin đơn và thanh toán</small></span><ChevronRight size={16} /></button>
+                </div>
+              </div>
+            ) : messages.slice(1).map((message, index) => (
               message.role === "assistant" ? (
                 <AssistantMessage
                   message={message}
+                  messageRef={index === messages.length - 2 ? latestMessageRef : undefined}
                   onNavigate={handleNavigate}
+                  onOpenMap={setRouteMap}
                   onOpenTrip={() => {
                     setTripOpen(true);
                   }}
-                  onAsk={(prompt) => void sendQuestion(prompt)}
                   key={`assistant-${index}`}
                 />
               ) : (
@@ -758,7 +795,7 @@ export default function FloatingAiAssistant() {
             {sending ? (
               <div className="enziu-fai-thinking">
                 <div className="enziu-fai-avatar"><Sparkles size={14} /></div>
-                <div><span /><span /><span /><em>Đang tìm lựa chọn phù hợp...</em></div>
+                <div><span /><span /><span /><em>Đang đối chiếu thông tin...</em></div>
               </div>
             ) : null}
 
@@ -769,7 +806,7 @@ export default function FloatingAiAssistant() {
             <div className="enziu-fai-error">{error}</div>
           ) : null}
 
-          <div className="enziu-fai-suggestions">
+          {messages.length > 1 ? <div className="enziu-fai-suggestions">
             {latestSuggestions.slice(0, 3).map((prompt) => (
               <button
                 type="button"
@@ -780,19 +817,25 @@ export default function FloatingAiAssistant() {
                 {prompt}
               </button>
             ))}
-          </div>
+          </div> : null}
 
           <form className="enziu-fai-composer" onSubmit={handleSubmit}>
             <textarea
+              ref={inputRef}
+              aria-label="Câu hỏi cho trợ lý Enziu"
               value={question}
-              onChange={(event) => setQuestion(event.target.value)}
+              onChange={(event) => {
+                setQuestion(event.target.value);
+                event.target.style.height = "auto";
+                event.target.style.height = `${Math.min(event.target.scrollHeight, 112)}px`;
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
                   void sendQuestion(question);
                 }
               }}
-              placeholder="VD: Tôi có 2 triệu, muốn ở Quận 1, có hồ bơi và review tốt..."
+              placeholder="Hỏi về phòng, giá hoặc chuyến đi..."
               rows="1"
               maxLength="2000"
             />
@@ -806,13 +849,14 @@ export default function FloatingAiAssistant() {
           </form>
 
           <p className="enziu-fai-disclaimer">
-            Giá và tình trạng phòng có thể thay đổi theo ngày bạn chọn.
+            Giá cuối cùng và phòng trống được kiểm tra theo ngày ở.
           </p>
         </section>
       ) : null}
 
       <button
         type="button"
+        ref={launcherRef}
         className={`enziu-fai-launcher ${isOpen ? "open" : ""}`}
         onClick={() => {
           if (!isOpen) window.dispatchEvent(new CustomEvent("enziu:chat-close"));

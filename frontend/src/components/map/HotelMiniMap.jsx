@@ -6,12 +6,14 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   buildHotelAddress,
   hotelStoredPosition,
   loadLeaflet,
+  addOsmBasemap,
+  fetchDrivingRoute,
 } from "../../utils/openStreetMap";
 import "./HotelMiniMap.css";
 
@@ -366,27 +368,6 @@ async function geocodeOrigin(query) {
   };
 }
 
-async function fetchDrivingRoute(origin, destination) {
-  const coordinates = `${origin.lng},${origin.lat};${destination.lng},${destination.lat}`;
-  const response = await fetch(
-    `https://router.project-osrm.org/route/v1/driving/${coordinates}`
-      + "?overview=full&geometries=geojson&steps=false",
-  );
-
-  if (!response.ok) {
-    throw new Error("Không thể tính tuyến đường lúc này.");
-  }
-
-  const payload = await response.json();
-  const route = payload?.routes?.[0];
-
-  if (payload?.code !== "Ok" || !route?.geometry) {
-    throw new Error("Không tìm được tuyến đường phù hợp giữa hai địa điểm.");
-  }
-
-  return route;
-}
-
 export function HotelMiniMapCanvas({
   hotel,
   height = 190,
@@ -434,11 +415,9 @@ export function HotelMiniMapCanvas({
           tap: interactive,
         });
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 19,
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
-        }).addTo(map);
+        mapRef.current = map;
+        await addOsmBasemap(map,{onReady:()=>{if(!cancelled)setStatus("ready");},onError:()=>{if(!cancelled)setStatus("error");}});
+        if(cancelled) return;
 
         L.marker([position.lat, position.lng], {
           icon: createMarkerIcon(L, "hotel"),
@@ -456,7 +435,6 @@ export function HotelMiniMapCanvas({
           map.setView([position.lat, position.lng], zoom, { animate: false });
         }, 60);
 
-        setStatus("ready");
       } catch {
         if (!cancelled) setStatus("error");
       }
@@ -506,16 +484,19 @@ export function HotelMapModal({
   reviewSummary,
   previewImage,
   onClose,
+  initialOrigin = null,
+  hotelAtOrigin = false,
 }) {
+  const dialogRef = useRef(null);
   const mapNodeRef = useRef(null);
   const mapRef = useRef(null);
   const leafletRef = useRef(null);
   const originMarkerRef = useRef(null);
   const routeLayerRef = useRef(null);
 
-  const [originQuery, setOriginQuery] = useState("");
+  const [originQuery, setOriginQuery] = useState(initialOrigin?.displayName ?? "");
   const [origin, setOrigin] = useState(null);
-  const [selectedOrigin, setSelectedOrigin] = useState(null);
+  const [selectedOrigin, setSelectedOrigin] = useState(initialOrigin);
   const [originSuggestions, setOriginSuggestions] = useState([]);
   const [suggestionsBusy, setSuggestionsBusy] = useState(false);
   const [activeOriginInput, setActiveOriginInput] = useState(null);
@@ -526,6 +507,23 @@ export function HotelMapModal({
 
   const hotelPosition = useMemo(() => hotelStoredPosition(hotel), [hotel]);
   const hotelAddress = useMemo(() => buildHotelAddress(hotel), [hotel]);
+
+  useEffect(()=>{
+    const previousFocus=document.activeElement;
+    const previousOverflow=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    (initialOrigin?dialogRef.current?.querySelector(".hotel-route-map-close"):dialogRef.current?.querySelector("input,button"))?.focus();
+    function onKeyDown(event) {
+      if(event.key==="Escape") {event.preventDefault();event.stopImmediatePropagation();onClose();}
+      if(event.key!=="Tab") return;
+      const nodes=[...(dialogRef.current?.querySelectorAll('summary,button:not(:disabled),input:not(:disabled),a[href],[tabindex="0"]') ?? [])].filter(node=>node.getClientRects().length>0);
+      const first=nodes[0], last=nodes.at(-1);
+      if(event.shiftKey && document.activeElement===first){event.preventDefault();last?.focus();}
+      else if(!event.shiftKey && document.activeElement===last){event.preventDefault();first?.focus();}
+    }
+    window.addEventListener("keydown",onKeyDown,true);
+    return ()=>{window.removeEventListener("keydown",onKeyDown,true);document.body.style.overflow=previousOverflow;previousFocus?.focus?.();};
+  },[onClose,initialOrigin]);
 
   const autocompleteContext = useMemo(
     () =>
@@ -616,14 +614,12 @@ export function HotelMapModal({
           attributionControl: true,
         });
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 19,
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
-        }).addTo(map);
+        mapRef.current = map;
+        await addOsmBasemap(map,{onReady:()=>{if(!cancelled)setMapStatus("ready");},onError:()=>{if(!cancelled)setMapStatus("error");}});
+        if(cancelled) return;
 
         L.marker([hotelPosition.lat, hotelPosition.lng], {
-          icon: createMarkerIcon(L, "hotel"),
+          icon: createMarkerIcon(L, hotelAtOrigin ? "origin" : "hotel"),
         })
           .addTo(map)
           .bindPopup(
@@ -638,7 +634,6 @@ export function HotelMapModal({
           });
         }, 70);
 
-        setMapStatus("ready");
       } catch {
         if (!cancelled) setMapStatus("error");
       }
@@ -656,9 +651,15 @@ export function HotelMapModal({
       originMarkerRef.current = null;
       routeLayerRef.current = null;
     };
-  }, [hotel?.id, hotel?.name, hotelPosition]);
+  }, [hotel?.id, hotel?.name, hotelPosition, hotelAtOrigin]);
 
-  function drawRoute(nextOrigin, nextRoute) {
+  const fitRouteBounds=useCallback((bounds,animate=false)=>{
+    const sidebar=dialogRef.current?.querySelector(".hotel-route-map-sidebar");
+    const panelHeight=window.innerWidth<=700?(sidebar?.getBoundingClientRect().height ?? 0):0;
+    mapRef.current?.fitBounds(bounds.pad(.1),{animate,maxZoom:16,paddingTopLeft:[24,90],paddingBottomRight:[24,panelHeight+24]});
+  },[]);
+
+  const drawRoute=useCallback((nextOrigin, nextRoute) => {
     const L = leafletRef.current;
     const map = mapRef.current;
     if (!L || !map || !hotelPosition) return;
@@ -675,10 +676,10 @@ export function HotelMapModal({
 
     originMarkerRef.current = L.marker(
       [nextOrigin.lat, nextOrigin.lng],
-      { icon: createMarkerIcon(L, "origin") },
+      { icon: createMarkerIcon(L, hotelAtOrigin ? "hotel" : "origin") },
     )
       .addTo(map)
-      .bindTooltip("Điểm xuất phát", {
+      .bindTooltip(hotelAtOrigin ? "Điểm đến" : "Điểm xuất phát", {
         direction: "top",
         offset: [0, -38],
       });
@@ -700,11 +701,33 @@ export function HotelMapModal({
       if (layer.getBounds) bounds.extend(layer.getBounds());
     });
 
-    map.fitBounds(bounds.pad(0.14), {
-      animate: true,
-      maxZoom: 16,
+    fitRouteBounds(bounds,!window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  },[hotelPosition,hotelAtOrigin,fitRouteBounds]);
+
+  useEffect(()=>{
+    if(mapStatus!=="ready" || !initialOrigin || !hotelPosition) return undefined;
+    const controller=new AbortController();
+    let active=true;
+    const timer=window.setTimeout(()=>{if(active)setRouteError("Chưa tải được tuyến đường. Bạn nhấn Xem khoảng cách để thử lại.");controller.abort();},12000);
+    setRouteBusy(true);
+    fetchDrivingRoute(hotelAtOrigin?hotelPosition:initialOrigin,hotelAtOrigin?initialOrigin:hotelPosition,controller.signal)
+      .then(nextRoute=>{if(!controller.signal.aborted){setOrigin(initialOrigin);setRoute(nextRoute);drawRoute(initialOrigin,nextRoute);}})
+      .catch(()=>{if(!controller.signal.aborted)setRouteError("Chưa tải được tuyến đường. Bạn nhấn Xem khoảng cách để thử lại.");})
+      .finally(()=>{window.clearTimeout(timer);if(active)setRouteBusy(false);});
+    return ()=>{active=false;window.clearTimeout(timer);controller.abort();};
+  },[mapStatus,initialOrigin,hotelPosition,hotelAtOrigin,drawRoute]);
+
+  useEffect(()=>{
+    const map=mapRef.current;
+    if(mapStatus!=="ready" || !map) return undefined;
+    const observer=new ResizeObserver(()=>{
+      map.invalidateSize({animate:false});
+      const bounds=routeLayerRef.current?.getBounds?.();
+      if(bounds?.isValid()) fitRouteBounds(bounds);
     });
-  }
+    observer.observe(mapNodeRef.current);
+    return ()=>observer.disconnect();
+  },[mapStatus,fitRouteBounds]);
 
   async function handleRouteSearch(event) {
     event?.preventDefault?.();
@@ -718,7 +741,7 @@ export function HotelMapModal({
         selectedOrigin?.displayName === originQuery
           ? selectedOrigin
           : await geocodeOrigin(originQuery);
-      const nextRoute = await fetchDrivingRoute(nextOrigin, hotelPosition);
+      const nextRoute = await fetchDrivingRoute(hotelAtOrigin?hotelPosition:nextOrigin,hotelAtOrigin?nextOrigin:hotelPosition);
       setOrigin(nextOrigin);
       setRoute(nextRoute);
       drawRoute(nextOrigin, nextRoute);
@@ -746,7 +769,7 @@ export function HotelMapModal({
             lng: position.coords.longitude,
             displayName: "Vị trí hiện tại của bạn",
           };
-          const nextRoute = await fetchDrivingRoute(nextOrigin, hotelPosition);
+          const nextRoute = await fetchDrivingRoute(hotelAtOrigin?hotelPosition:nextOrigin,hotelAtOrigin?nextOrigin:hotelPosition);
           setOriginQuery("Vị trí hiện tại của bạn");
           setSelectedOrigin(nextOrigin);
           setOriginSuggestions([]);
@@ -775,6 +798,7 @@ export function HotelMapModal({
   return (
     <div
       className="hotel-route-map-modal"
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={`Bản đồ ${hotel?.name ?? "khách sạn"}`}
@@ -802,15 +826,19 @@ export function HotelMapModal({
 
         <section className="hotel-route-distance-card">
           <span className="hotel-route-kicker">XEM KHOẢNG CÁCH</span>
-          <h3>Bạn đi từ đâu?</h3>
-          <p>Nhập địa điểm xuất phát để xem quãng đường đến khách sạn.</p>
+          <h3>{initialOrigin ? "Tuyến đường của bạn" : hotelAtOrigin ? "Bạn muốn đến đâu?" : "Bạn đi từ đâu?"}</h3>
+          {initialOrigin ? <p><b>Xuất phát:</b> {hotelAtOrigin?hotel?.name:initialOrigin.displayName}<br/><b>Điểm đến:</b> {hotelAtOrigin?initialOrigin.displayName:hotel?.name}</p>
+            : <p>{hotelAtOrigin ? "Nhập điểm đến để xem quãng đường từ khách sạn." : "Nhập địa điểm xuất phát để xem quãng đường đến khách sạn."}</p>}
 
+          <details className="hotel-route-edit" open={!initialOrigin}>
+          <summary>{hotelAtOrigin ? "Đổi điểm đến" : "Đổi điểm xuất phát"}</summary>
           <form onSubmit={handleRouteSearch}>
             <div className="hotel-route-autocomplete">
               <label>
                 <Search size={17} />
                 <input
                   value={originQuery}
+                  aria-label={hotelAtOrigin ? "Địa điểm đến" : "Địa điểm xuất phát"}
                   onFocus={() => setActiveOriginInput("sidebar")}
                   onChange={(event) =>
                     handleOriginQueryChange(event.target.value, "sidebar")
@@ -820,7 +848,7 @@ export function HotelMapModal({
                 />
               </label>
 
-              {activeOriginInput === "sidebar" ? (
+              {activeOriginInput === "sidebar" && selectedOrigin?.displayName !== originQuery ? (
                 <OriginSuggestions
                   items={originSuggestions}
                   loading={suggestionsBusy}
@@ -843,11 +871,14 @@ export function HotelMapModal({
             onClick={handleCurrentLocation}
           >
             <LocateFixed size={16} />
-            Dùng vị trí hiện tại
+            {hotelAtOrigin ? "Đi đến vị trí hiện tại" : "Dùng vị trí hiện tại"}
           </button>
+          </details>
+
+          {routeBusy ? <p role="status">Đang tính tuyến đường...</p> : null}
 
           {routeError ? (
-            <div className="hotel-route-error">{routeError}</div>
+            <div className="hotel-route-error" role="alert">{routeError}<button type="button" onClick={handleRouteSearch} disabled={routeBusy}>Thử lại</button></div>
           ) : null}
 
           {route && origin ? (
@@ -866,7 +897,7 @@ export function HotelMapModal({
                   <strong>{formatDuration(route.duration)}</strong>
                 </span>
               </div>
-              <p><b>Từ:</b> {origin.displayName}</p>
+              <p><b>Từ:</b> {hotelAtOrigin?hotel?.name:origin.displayName}<br/><b>Đến:</b> {hotelAtOrigin?origin.displayName:hotel?.name}</p>
             </div>
           ) : null}
         </section>
@@ -881,18 +912,19 @@ export function HotelMapModal({
           <Search size={19} />
           <input
             value={originQuery}
+            aria-label={hotelAtOrigin ? "Tìm địa điểm đến" : "Tìm địa điểm xuất phát"}
             onFocus={() => setActiveOriginInput("floating")}
             onChange={(event) =>
               handleOriginQueryChange(event.target.value, "floating")
             }
-            placeholder="Nhập nơi xuất phát để xem khoảng cách"
+            placeholder={hotelAtOrigin ? "Nhập điểm đến để xem khoảng cách" : "Nhập nơi xuất phát để xem khoảng cách"}
             autoComplete="off"
           />
           <button type="submit" disabled={routeBusy}>
             {routeBusy ? "Đang tính..." : "Xem đường"}
           </button>
 
-          {activeOriginInput === "floating" ? (
+          {activeOriginInput === "floating" && selectedOrigin?.displayName !== originQuery ? (
             <OriginSuggestions
               items={originSuggestions}
               loading={suggestionsBusy}

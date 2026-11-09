@@ -11,7 +11,6 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,7 +30,7 @@ public class HotelClient {
                 .uri("/api/hotels")
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<HotelResponse>>() {});
-        return hotels == null ? Collections.emptyList() : hotels;
+        return requireBody(hotels);
     }
 
     public HotelResponse getHotel(UUID hotelId) {
@@ -46,7 +45,7 @@ public class HotelClient {
                 .uri("/api/hotels/{hotelId}/room-types", hotelId)
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<RoomTypeResponse>>() {});
-        return roomTypes == null ? Collections.emptyList() : roomTypes;
+        return requireBody(roomTypes);
     }
 
     public RoomTypeResponse getRoomType(UUID roomTypeId) {
@@ -61,7 +60,7 @@ public class HotelClient {
                 .uri("/api/hotels/{hotelId}/rooms", hotelId)
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<RoomResponse>>() {});
-        return rooms == null ? Collections.emptyList() : rooms;
+        return requireBody(rooms);
     }
 
     public List<HotelWithRoomTypes> getHotelsWithRoomTypes() {
@@ -72,9 +71,21 @@ public class HotelClient {
                 .toList();
     }
 
+    public List<HotelWithRoomTypes> getHotelsWithRoomTypes(List<UUID> ids) {
+        return ids.stream().distinct().limit(8).map(this::getHotel)
+                .peek(hotel -> { if (hotel == null) throw new org.springframework.web.client.RestClientException("Hotel data unavailable"); })
+                .filter(this::isActive)
+                .map(hotel -> new HotelWithRoomTypes(hotel, getRoomTypes(hotel.id()))).toList();
+    }
+
     private boolean isActive(HotelResponse hotel) {
         return hotel.status() == null
                 || hotel.status().isBlank()
                 || "ACTIVE".equalsIgnoreCase(hotel.status());
+    }
+
+    private static <T> List<T> requireBody(List<T> rows) {
+        if (rows == null || rows.stream().anyMatch(java.util.Objects::isNull)) throw new org.springframework.web.client.RestClientException("Hotel data unavailable");
+        return rows;
     }
 }

@@ -25,7 +25,8 @@ public interface PartnerRequestRepository extends JpaRepository<PartnerRequest, 
     @Query("select request.userId from PartnerRequest request where request.id = :id")
     Optional<UUID> findUserIdById(@Param("id") UUID id);
 
-    boolean existsByIdentityNumberAndUserIdNot(String identityNumber, UUID userId);
+    @Query("select (count(r) > 0) from PartnerRequest r where r.identityNumber = :identityNumber and r.userId <> :userId and exists (select u.id from User u where u.id = r.userId and u.deleted = false)")
+    boolean existsByIdentityNumberAndUserIdNot(@Param("identityNumber") String identityNumber, @Param("userId") UUID userId);
 
     List<PartnerRequest> findAllByStatusOrderByCreatedAtAsc(PartnerRequestStatus status);
 }

@@ -786,7 +786,7 @@
 .system-admin-shell .admin-roomtype-modal-backdrop,
 .system-admin-shell .booking-management-modal-backdrop,
 .system-admin-shell .review-moderation-modal-backdrop {
-  z-index: 700;
+  z-index: 1500;
   padding: 16px;
   background: rgba(7, 20, 38, .68);
   backdrop-filter: blur(5px);

@@ -20,7 +20,7 @@ function buildRealtimeUrl(accessToken) {
     return url.toString();
   }
 
-  const apiBase = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080/api";
+  const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://localhost:8080/api" : "/api");
   const apiUrl = new URL(apiBase, window.location.origin);
   apiUrl.protocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
   apiUrl.pathname = "/ws/realtime";

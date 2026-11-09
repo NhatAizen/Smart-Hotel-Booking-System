@@ -1,3 +1,4 @@
+import useConfirm from "../../components/ui/useConfirm";
 import {
   BedDouble,
   Building2,
@@ -119,6 +120,7 @@ function normalizedText(value) {
 }
 
 export default function MyHotelsPage() {
+  const confirmAction = useConfirm();
   const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
@@ -222,10 +224,9 @@ export default function MyHotelsPage() {
   }
 
   async function handleDeleteHotel(hotel) {
-    const confirmed = window.confirm(
+    const confirmed = await confirmAction(
       `Xóa khách sạn "${hotel.name}" khỏi danh sách?\n\n`
-      + "Khách sạn sẽ ngừng hoạt động và không còn hiển thị cho khách hàng.",
-    );
+      + "Khách sạn sẽ ngừng hoạt động và không còn hiển thị cho khách hàng.", {"title": "Ngừng hoạt động khách sạn", "confirmLabel": "Ngừng hoạt động", "confirmTone": "danger"});
 
     if (!confirmed) return;
 
@@ -481,7 +482,7 @@ export default function MyHotelsPage() {
   }
 
   async function removeImage(imageId) {
-    if (!window.confirm("Xóa ảnh này khỏi khách sạn?")) return;
+    if (!await confirmAction("Xóa ảnh này khỏi khách sạn?", {"title": "Xóa ảnh khách sạn", "confirmLabel": "Xóa ảnh", "confirmTone": "danger"})) return;
 
     setBusyId(imageId);
     setError("");

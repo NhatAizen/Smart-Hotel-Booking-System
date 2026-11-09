@@ -1,3 +1,4 @@
+import useConfirm from "../../components/ui/useConfirm";
 import {
   ArrowRightLeft,
   BedDouble,
@@ -256,6 +257,7 @@ function paymentProgress(booking) {
 }
 
 export default function HotelBookingsPage() {
+  const confirmAction = useConfirm();
   const [hotels, setHotels] = useState([]);
   const [hotelId, setHotelId] = useState("");
   const [bookings, setBookings] = useState([]);
@@ -441,7 +443,7 @@ export default function HotelBookingsPage() {
   }
 
   async function handleNoShow(booking) {
-    if (!window.confirm(`Đánh dấu đơn ${booking.bookingCode} là khách không đến?`)) return;
+    if (!await confirmAction(`Đánh dấu đơn ${booking.bookingCode} là khách không đến?`, {"title": "Đánh dấu khách không đến", "confirmLabel": "Khách không đến", "confirmTone": "danger"})) return;
     setBusy(true);
     setError("");
     try {

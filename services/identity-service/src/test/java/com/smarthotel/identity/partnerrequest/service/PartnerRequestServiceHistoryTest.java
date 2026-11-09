@@ -19,6 +19,8 @@ import com.smarthotel.identity.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InOrder;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -39,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
@@ -132,12 +135,21 @@ class PartnerRequestServiceHistoryTest {
         lockOrder.verify(partnerRequestRepository).findByIdForUpdate(requestId);
     }
 
-    @Test
-    void customerAfterPriorApprovalSubmitsANewHistoryRow() {
+    @ParameterizedTest
+    @EnumSource(value = PartnerRequestStatus.class, names = {"APPROVED", "REJECTED"})
+    void customerAfterCompletedReviewSubmitsANewHistoryRow(PartnerRequestStatus previousStatus) {
         UUID applicantId = UUID.randomUUID();
         LocalDate dateOfBirth = LocalDate.of(1990, 1, 1);
         String identityNumber = "012345678901";
         User customer = user(applicantId, UserRole.CUSTOMER);
+        UUID reviewerId = UUID.randomUUID();
+        PartnerRequest previous = pendingRequest(applicantId);
+        if (previousStatus == PartnerRequestStatus.REJECTED) {
+            previous.reject(reviewerId, "Please correct the application");
+        } else {
+            previous.approve(reviewerId);
+        }
+        Instant reviewedAt = previous.getReviewedAt();
         MultipartFile front = org.mockito.Mockito.mock(MultipartFile.class);
         MultipartFile back = org.mockito.Mockito.mock(MultipartFile.class);
         SubmitPartnerRequest payload = new SubmitPartnerRequest(
@@ -155,6 +167,8 @@ class PartnerRequestServiceHistoryTest {
 
         when(userRepository.findByIdForUpdate(applicantId))
                 .thenReturn(Optional.of(customer));
+        when(partnerRequestRepository.findFirstByUserIdOrderByCreatedAtDescIdDesc(applicantId))
+                .thenReturn(Optional.of(previous));
         when(partnerRequestRepository.existsByUserIdAndStatus(
                 applicantId,
                 PartnerRequestStatus.PENDING
@@ -199,6 +213,16 @@ class PartnerRequestServiceHistoryTest {
         verify(partnerRequestRepository).saveAndFlush(requestCaptor.capture());
         assertEquals(applicantId, requestCaptor.getValue().getUserId());
         assertEquals(PartnerRequestStatus.PENDING, requestCaptor.getValue().getStatus());
+        assertNotSame(previous, requestCaptor.getValue());
+        assertNull(response.rejectionReason());
+        assertEquals(previousStatus, previous.getStatus());
+        assertEquals(reviewerId, previous.getReviewedBy());
+        assertEquals(reviewedAt, previous.getReviewedAt());
+        if (previousStatus == PartnerRequestStatus.REJECTED) {
+            assertEquals("Please correct the application", previous.getRejectionReason());
+        }
+        verify(ocrService).verify(front, back, identityNumber, "Applicant", dateOfBirth);
+        verify(ekycSessionService).consumeWithEvidence(applicantId, "receipt", front);
         verify(partnerRequestRepository)
                 .findFirstByUserIdOrderByCreatedAtDescIdDesc(applicantId);
     }

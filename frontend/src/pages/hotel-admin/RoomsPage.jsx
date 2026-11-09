@@ -1,3 +1,4 @@
+import useConfirm from "../../components/ui/useConfirm";
 import {
   BedDouble,
   Building2,
@@ -111,6 +112,7 @@ function formatDateTime(value) {
 }
 
 export default function RoomsPage() {
+  const confirmAction = useConfirm();
   const [realtimeTick, setRealtimeTick] = useState(0);
   useRealtimeRefresh("NOTIFICATION_CREATED", () => setRealtimeTick((value) => value + 1), { debounceMs: 120 });
   const [searchParams, setSearchParams] = useSearchParams();
@@ -425,9 +427,8 @@ export default function RoomsPage() {
   }
 
   async function handleCleaningComplete(room) {
-    const confirmed = window.confirm(
-      `Xác nhận phòng ${room.roomNumber} đã được vệ sinh và sẵn sàng đón khách mới?`,
-    );
+    const confirmed = await confirmAction(
+      `Xác nhận phòng ${room.roomNumber} đã được vệ sinh và sẵn sàng đón khách mới?`, {"title": "Hoàn tất vệ sinh phòng", "confirmLabel": "Phòng đã sẵn sàng", "confirmTone": "primary"});
     if (!confirmed) return;
 
     setWorkingRoomId(room.id);

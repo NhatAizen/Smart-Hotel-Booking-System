@@ -163,23 +163,7 @@ export default function HomePage() {
   setLoadingHotels(true);
 
   try {
-    let data;
-
-    if (window.location.hostname === "localhost") {
-      const response = await fetch("https://enziurooms.xyz/api/hotels", {
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      data = await response.json();
-    } else {
-      data = await getHotels();
-    }
+    const data = await getHotels();
 
     const hotelList = Array.isArray(data)
       ? data

@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.function.Predicate;
 
 @Service
 public class PartnerOcrService {
@@ -80,6 +81,7 @@ public class PartnerOcrService {
         Path frontTemp = null;
         Path backTemp = null;
         List<Path> generatedVariants = new ArrayList<>();
+        long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(75);
 
         try {
             frontTemp = copyToTemp(front, "cccd-front-");
@@ -87,9 +89,12 @@ public class PartnerOcrService {
 
             // Multi-pass OCR: PSM 6 tốt cho khối văn bản, PSM 11 tốt cho CCCD có nhiều vùng rời.
             // Ảnh được tăng tương phản + nhị phân hóa để xử lý ảnh điện thoại hơi tối/lóa.
-            String frontText = runMultiPassOcr(frontTemp, generatedVariants);
-            String backText = runMultiPassOcr(backTemp, generatedVariants);
-            String focusedMrzText = runFocusedMrzOcr(backTemp, generatedVariants);
+            Predicate<String> frontMatches=text->extractIdentityNumbers(text).contains(normalizedIdentity)
+                    && submittedDateOfBirth.equals(extractDateOfBirth(text,submittedDateOfBirth)) && nameMatchScore(submittedFullName,text)>=.72d;
+            Predicate<String> backMatches=text->{try{return PartnerMrzParser.parse(text,normalizedIdentity,submittedFullName,submittedDateOfBirth).verified();}catch(PartnerOcrVerificationException unreadable){return false;}};
+            String frontText = runMultiPassOcr(frontTemp, generatedVariants,frontMatches,deadline);
+            String focusedMrzText = runFocusedMrzOcr(backTemp, generatedVariants,backMatches,deadline);
+            String backText = backMatches.test(focusedMrzText)?focusedMrzText:runMultiPassOcr(backTemp, generatedVariants,backMatches,deadline);
             if (!focusedMrzText.isBlank()) {
                 backText = backText.isBlank()
                         ? focusedMrzText
@@ -178,6 +183,8 @@ public class PartnerOcrService {
                     backSideResult.verified(),
                     true
             );
+        } catch (PartnerOcrUnavailableException exception) {
+            throw exception;
         } catch (PartnerOcrVerificationException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -192,37 +199,40 @@ public class PartnerOcrService {
         }
     }
 
-    private String runMultiPassOcr(Path original, List<Path> generatedVariants)
+    private String runMultiPassOcr(Path original, List<Path> generatedVariants,Predicate<String> verified,long deadline)
             throws IOException, InterruptedException {
         StringBuilder combined = new StringBuilder();
 
-        appendOcr(combined, runTesseractPass(original, 6, null));
-        appendOcr(combined, runTesseractPass(original, 11, null));
+        appendOcr(combined, runTesseractPass(original, 6, null,deadline));
+        if(verified.test(combined.toString())) return combined.toString().trim();
+        appendOcr(combined, runTesseractPass(original, 11, null,deadline));
+        if(verified.test(combined.toString())) return combined.toString().trim();
 
         ImageVariants variants = createImageVariants(original);
         if (variants.enhanced() != null) {
             generatedVariants.add(variants.enhanced());
-            appendOcr(combined, runTesseractPass(variants.enhanced(), 11, null));
+            appendOcr(combined, runTesseractPass(variants.enhanced(), 11, null,deadline));
+            if(verified.test(combined.toString())) return combined.toString().trim();
             // Một lượt chỉ ưu tiên ký tự thường gặp ở số/date để giảm nhầm O/0, I/1.
             appendOcr(
                     combined,
                     runTesseractPass(
                             variants.enhanced(),
                             11,
-                            "0123456789OQILSZGB|./- "
+                            "0123456789OQILSZGB|./- ",deadline
                     )
             );
         }
 
         if (variants.binary() != null) {
             generatedVariants.add(variants.binary());
-            appendOcr(combined, runTesseractPass(variants.binary(), 11, null));
+            appendOcr(combined, runTesseractPass(variants.binary(), 11, null,deadline));
         }
 
         return combined.toString().trim();
     }
 
-    private String runFocusedMrzOcr(Path original, List<Path> generatedVariants)
+    private String runFocusedMrzOcr(Path original, List<Path> generatedVariants,Predicate<String> verified,long deadline)
             throws IOException, InterruptedException {
         BufferedImage source = ImageIO.read(original.toFile());
         if (source == null || source.getWidth() < 200 || source.getHeight() < 120) {
@@ -275,18 +285,22 @@ public class PartnerOcrService {
 
         StringBuilder combined = new StringBuilder();
         String mrzWhitelist = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<";
-        appendOcr(combined, runTesseractPass(cropPath, 6, mrzWhitelist));
-        appendOcr(combined, runTesseractPass(cropPath, 11, mrzWhitelist));
+        appendOcr(combined, runTesseractPass(cropPath, 6, mrzWhitelist,deadline));
+        if(verified.test(combined.toString())) return combined.toString().trim();
+        appendOcr(combined, runTesseractPass(cropPath, 11, mrzWhitelist,deadline));
+        if(verified.test(combined.toString())) return combined.toString().trim();
 
         ImageVariants variants = createImageVariants(cropPath);
         if (variants.enhanced() != null) {
             generatedVariants.add(variants.enhanced());
-            appendOcr(combined, runTesseractPass(variants.enhanced(), 6, mrzWhitelist));
-            appendOcr(combined, runTesseractPass(variants.enhanced(), 11, mrzWhitelist));
+            appendOcr(combined, runTesseractPass(variants.enhanced(), 6, mrzWhitelist,deadline));
+            if(verified.test(combined.toString())) return combined.toString().trim();
+            appendOcr(combined, runTesseractPass(variants.enhanced(), 11, mrzWhitelist,deadline));
+            if(verified.test(combined.toString())) return combined.toString().trim();
         }
         if (variants.binary() != null) {
             generatedVariants.add(variants.binary());
-            appendOcr(combined, runTesseractPass(variants.binary(), 6, mrzWhitelist));
+            appendOcr(combined, runTesseractPass(variants.binary(), 6, mrzWhitelist,deadline));
         }
 
         return combined.toString().trim();
@@ -302,7 +316,7 @@ public class PartnerOcrService {
         combined.append(value.trim());
     }
 
-    private String runTesseractPass(Path imagePath, int psm, String whitelist)
+    private String runTesseractPass(Path imagePath, int psm, String whitelist,long deadline)
             throws IOException, InterruptedException {
         List<String> command = new ArrayList<>();
         command.add(properties.command());
@@ -317,27 +331,21 @@ public class PartnerOcrService {
             command.add("tessedit_char_whitelist=" + whitelist);
         }
 
-        Process process = new ProcessBuilder(command)
-                .redirectErrorStream(true)
-                .start();
-
-        boolean finished = process.waitFor(
-                properties.timeoutSeconds(),
-                TimeUnit.SECONDS
-        );
-
-        if (!finished) {
-            process.destroyForcibly();
-            return "";
-        }
-
-        String output = new String(
-                process.getInputStream().readAllBytes(),
-                StandardCharsets.UTF_8
-        ).trim();
-
-        // Một pass OCR lỗi không làm hỏng toàn bộ quá trình; các pass khác vẫn có thể đọc tốt.
-        return process.exitValue() == 0 ? output : "";
+        long remaining=TimeUnit.NANOSECONDS.toMillis(deadline-System.nanoTime());
+        if(remaining<=0) throw new PartnerOcrUnavailableException("Kiểm tra CCCD mất quá thời gian xử lý. Bạn vui lòng thử lại.");
+        Path output=Files.createTempFile("cccd-ocr-output-",".txt");
+        Process process=null;
+        try {
+            process=new ProcessBuilder(command).redirectOutput(output.toFile()).redirectError(ProcessBuilder.Redirect.DISCARD).start();
+            if(!process.waitFor(Math.min(properties.timeoutSeconds()*1000,remaining),TimeUnit.MILLISECONDS)) {
+                process.destroyForcibly();
+                if(System.nanoTime()>=deadline) throw new PartnerOcrUnavailableException("Kiểm tra CCCD mất quá thời gian xử lý. Bạn vui lòng thử lại.");
+                return "";
+            }
+            if(process.exitValue()!=0) throw new PartnerOcrUnavailableException("Bộ đọc CCCD đang gặp lỗi xử lý. Bạn vui lòng thử lại sau.");
+            return Files.readString(output,StandardCharsets.UTF_8).trim();
+        } catch(IOException unavailable) {throw new PartnerOcrUnavailableException("Chưa khởi động được bộ đọc CCCD. Bạn vui lòng thử lại sau.",unavailable);}
+        finally {if(process!=null && process.isAlive())process.destroyForcibly();deleteTemp(output);}
     }
 
     private ImageVariants createImageVariants(Path imagePath) throws IOException {

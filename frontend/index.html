@@ -9,9 +9,17 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>EnziuRooms</title>
+    <script src="/bootstrap-recovery.js"></script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="enziu-startup" role="status" style="min-height:70vh;display:grid;place-content:center;gap:16px;text-align:center;font-family:system-ui,sans-serif;color:#18344b;padding:24px">
+        <strong>EnziuRooms</strong>
+        <span id="enziu-startup-status">Đang mở trang…</span>
+        <button id="enziu-startup-reload" type="button" hidden>Tải lại trang</button>
+        <noscript>Bạn cần bật JavaScript trong trình duyệt để sử dụng EnziuRooms.</noscript>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

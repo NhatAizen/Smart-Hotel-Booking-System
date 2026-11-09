@@ -1,0 +1,8 @@
+# Optional NVIDIA acceleration for the same local model. No inference leaves the host.
+# Keep the CUDA server on build 11913, matching the CPU server in docker-compose.yml.
+services:
+  dialogue-model:
+    image: ghcr.io/ggml-org/llama.cpp@sha256:8c219fe0367f7e794e3c69da50c5992d474077d60794a218b9e9a3b0c5aed688
+    gpus: all
+    environment:
+      LLAMA_ARG_N_GPU_LAYERS: "99"

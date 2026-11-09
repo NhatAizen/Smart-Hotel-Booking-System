@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -204,6 +205,11 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(com.smarthotel.identity.partnerrequest.ocr.PartnerOcrUnavailableException.class)
+    public ResponseEntity<ApiErrorResponse> handleOcrUnavailable(com.smarthotel.identity.partnerrequest.ocr.PartnerOcrUnavailableException exception,HttpServletRequest request) {
+        return build(HttpStatus.SERVICE_UNAVAILABLE,"CCCD_OCR_UNAVAILABLE",exception.getMessage(),request);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiErrorResponse> handleIllegalArgument(
             IllegalArgumentException exception,
@@ -245,6 +251,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .badRequest()
                 .body(response);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiErrorResponse> handleResponseStatus(ResponseStatusException exception, HttpServletRequest request) {
+        HttpStatus knownStatus=HttpStatus.resolve(exception.getStatusCode().value());
+        ApiErrorResponse response=ApiErrorResponse.of(exception.getStatusCode().value(),
+                knownStatus==null?"HTTP_ERROR":knownStatus.name(),
+                exception.getStatusCode().is5xxServerError()?"Hệ thống tạm thời không thể xử lý yêu cầu":
+                        exception.getReason()==null?"Yêu cầu không thể thực hiện":exception.getReason(),request.getRequestURI());
+        return ResponseEntity.status(exception.getStatusCode()).headers(exception.getHeaders()).body(response);
     }
 
     @ExceptionHandler(Exception.class)

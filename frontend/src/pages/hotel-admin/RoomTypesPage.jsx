@@ -1,3 +1,4 @@
+import useConfirm from "../../components/ui/useConfirm";
 import {
   BedDouble,
   Check,
@@ -227,6 +228,7 @@ function amenityGroupFor(roomType, group) {
 }
 
 export default function RoomTypesPage() {
+  const confirmAction = useConfirm();
   const [realtimeTick, setRealtimeTick] = useState(0);
   useRealtimeRefresh("NOTIFICATION_CREATED", () => setRealtimeTick((value) => value + 1), { debounceMs: 120 });
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1033,7 +1035,7 @@ export default function RoomTypesPage() {
   async function handleDeleteExistingImage(roomTypeId, image) {
     if (!roomTypeId || !image.id || image.id === "cover-url") return;
 
-    if (!window.confirm("Xóa ảnh này khỏi loại phòng?")) return;
+    if (!await confirmAction("Xóa ảnh này khỏi loại phòng?", {"title": "Xóa ảnh loại phòng", "confirmLabel": "Xóa ảnh", "confirmTone": "danger"})) return;
 
     setImageActionId(String(image.id));
     setError("");
@@ -1070,7 +1072,7 @@ export default function RoomTypesPage() {
   }
 
   async function handleDelete(roomTypeId) {
-    if (!window.confirm("Ngừng hoạt động loại phòng này?")) {
+    if (!await confirmAction("Ngừng hoạt động loại phòng này?", {"title": "Ngừng hoạt động loại phòng", "confirmLabel": "Ngừng hoạt động", "confirmTone": "danger"})) {
       return;
     }
 
@@ -1089,7 +1091,7 @@ export default function RoomTypesPage() {
   }
 
   async function handleSubmitApproval(roomType) {
-    if (!window.confirm(`Gửi loại phòng “${roomType.name}” để xét duyệt?`)) {
+    if (!await confirmAction(`Gửi loại phòng “${roomType.name}” để xét duyệt?`, {"title": "Gửi loại phòng xét duyệt", "confirmLabel": "Gửi xét duyệt", "confirmTone": "primary"})) {
       return;
     }
     setError("");

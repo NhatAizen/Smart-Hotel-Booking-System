@@ -28,6 +28,23 @@ import org.springframework.test.context.ActiveProfiles;
         }
 )
 class IdentityServiceApplicationTests {
+    @org.springframework.beans.factory.annotation.Autowired com.smarthotel.identity.user.repository.UserRepository users;
+    @org.springframework.beans.factory.annotation.Autowired com.smarthotel.identity.partnerrequest.repository.PartnerRequestRepository requests;
+    @org.springframework.beans.factory.annotation.Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void onlyDeletedApplicantsReleaseAnIdentityNumber() {
+        var applicant=users.saveAndFlush(new com.smarthotel.identity.user.entity.User("synthetic_partner", "synthetic@example.invalid", "unused", "SYNTHETIC TEST", com.smarthotel.identity.user.entity.UserRole.CUSTOMER));
+        var other=java.util.UUID.randomUUID();
+        jdbc.update("insert into partner_requests (id,user_id,applicant_type,legal_name,identity_number,business_phone,business_address,status,cccd_front_path,cccd_back_path) values (?,?, 'INDIVIDUAL','SYNTHETIC TEST','079099123456','0000000000','TEST ONLY','PENDING','test/front.png','test/back.png')",java.util.UUID.randomUUID(),applicant.getId());
+        org.junit.jupiter.api.Assertions.assertTrue(requests.existsByIdentityNumberAndUserIdNot("079099123456",other));
+        org.junit.jupiter.api.Assertions.assertFalse(requests.existsByIdentityNumberAndUserIdNot("079099123456",applicant.getId()));
+        applicant.deactivate();users.saveAndFlush(applicant);
+        org.junit.jupiter.api.Assertions.assertTrue(requests.existsByIdentityNumberAndUserIdNot("079099123456",other));
+        applicant.softDelete();users.saveAndFlush(applicant);
+        org.junit.jupiter.api.Assertions.assertFalse(requests.existsByIdentityNumberAndUserIdNot("079099123456",other));
+    }
 
     @Test
     void contextLoads() {

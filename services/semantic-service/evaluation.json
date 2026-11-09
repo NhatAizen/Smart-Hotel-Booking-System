@@ -1,0 +1,544 @@
+[
+  {
+    "id": "hotels-1",
+    "family": "hotels",
+    "message": "Tụi mình muốn nghỉ ở Sài Gòn cuối tuần",
+    "hotelContext": false,
+    "intent": "RECOMMEND_HOTELS"
+  },
+  {
+    "id": "hotels-2",
+    "family": "hotels",
+    "message": "Đề nghị vài nơi lưu trú tại Huế",
+    "hotelContext": false,
+    "intent": "RECOMMEND_HOTELS"
+  },
+  {
+    "id": "hotels-3",
+    "family": "hotels",
+    "message": "Ở Đà Lạt có chỗ nào cho hai vợ chồng không",
+    "hotelContext": false,
+    "intent": "RECOMMEND_HOTELS"
+  },
+  {
+    "id": "hotels-4",
+    "family": "hotels",
+    "message": "tim cho nghi tai da nang cho 2 nguoi",
+    "hotelContext": false,
+    "intent": "RECOMMEND_HOTELS"
+  },
+  {
+    "id": "hotels-5",
+    "family": "hotels",
+    "message": "Có nơi nào ở Hà Nội giá dưới 900 nghìn không",
+    "hotelContext": false,
+    "intent": "RECOMMEND_HOTELS"
+  },
+  {
+    "id": "hotels-6",
+    "family": "hotels",
+    "message": "Nhà có em bé thì nghỉ đâu ở Nha Trang",
+    "hotelContext": false,
+    "intent": "RECOMMEND_HOTELS"
+  },
+  {
+    "id": "hotels-7",
+    "family": "hotels",
+    "message": "Cần khách sạn bốn sao có hồ bơi ở HCM",
+    "hotelContext": false,
+    "intent": "RECOMMEND_HOTELS"
+  },
+  {
+    "id": "hotels-8",
+    "family": "hotels",
+    "message": "I need somewhere to stay in Hanoi",
+    "hotelContext": false,
+    "intent": "RECOMMEND_HOTELS"
+  },
+  {
+    "id": "rooms-1",
+    "family": "rooms",
+    "message": "Ở chỗ này thì lấy loại phòng nào hợp lý",
+    "hotelContext": true,
+    "intent": "ROOM_RECOMMEND"
+  },
+  {
+    "id": "rooms-2",
+    "family": "rooms",
+    "message": "Phòng nào đáng chọn cho cặp đôi",
+    "hotelContext": true,
+    "intent": "ROOM_RECOMMEND"
+  },
+  {
+    "id": "rooms-3",
+    "family": "rooms",
+    "message": "Tư vấn một phòng đủ chỗ cho ba người lớn",
+    "hotelContext": true,
+    "intent": "ROOM_RECOMMEND"
+  },
+  {
+    "id": "rooms-4",
+    "family": "rooms",
+    "message": "phong nao o day dang tien nhat",
+    "hotelContext": true,
+    "intent": "ROOM_RECOMMEND"
+  },
+  {
+    "id": "rooms-5",
+    "family": "rooms",
+    "message": "Muốn phòng có ăn sáng sẵn thì lấy loại nào",
+    "hotelContext": true,
+    "intent": "ROOM_RECOMMEND"
+  },
+  {
+    "id": "rooms-6",
+    "family": "rooms",
+    "message": "Có phòng nào cho phép hoàn khi hủy không",
+    "hotelContext": true,
+    "intent": "ROOM_RECOMMEND"
+  },
+  {
+    "id": "rooms-7",
+    "family": "rooms",
+    "message": "Which room would suit a family with a baby?",
+    "hotelContext": true,
+    "intent": "ROOM_RECOMMEND"
+  },
+  {
+    "id": "rooms-8",
+    "family": "rooms",
+    "message": "Tôi thích một phòng thật thoáng và rộng",
+    "hotelContext": true,
+    "intent": "ROOM_RECOMMEND"
+  },
+  {
+    "id": "comparisons-1",
+    "family": "comparisons",
+    "message": "Đối chiếu hai khách sạn vừa giới thiệu giúp mình",
+    "hotelContext": true,
+    "intent": "COMPARE_HOTELS"
+  },
+  {
+    "id": "comparisons-2",
+    "family": "comparisons",
+    "message": "Hai khách sạn đầu khác nhau điểm nào",
+    "hotelContext": true,
+    "intent": "COMPARE_HOTELS"
+  },
+  {
+    "id": "comparisons-3",
+    "family": "comparisons",
+    "message": "compare the two hotels you suggested",
+    "hotelContext": true,
+    "intent": "COMPARE_HOTELS"
+  },
+  {
+    "id": "comparisons-4",
+    "family": "comparisons",
+    "message": "Giữa Deluxe với phòng Suite thì khác gì",
+    "hotelContext": true,
+    "intent": "ROOM_COMPARE"
+  },
+  {
+    "id": "comparisons-5",
+    "family": "comparisons",
+    "message": "so sanh hai loai phong vua neu",
+    "hotelContext": true,
+    "intent": "ROOM_COMPARE"
+  },
+  {
+    "id": "comparisons-6",
+    "family": "comparisons",
+    "message": "Hai phòng ấy chênh lệch thế nào",
+    "hotelContext": true,
+    "intent": "ROOM_COMPARE"
+  },
+  {
+    "id": "details-1",
+    "family": "details",
+    "message": "Chỗ này nằm tại địa chỉ nào vậy",
+    "hotelContext": true,
+    "intent": "HOTEL_DETAILS"
+  },
+  {
+    "id": "details-2",
+    "family": "details",
+    "message": "Tôi muốn gọi điện đến khách sạn này",
+    "hotelContext": true,
+    "intent": "HOTEL_DETAILS"
+  },
+  {
+    "id": "details-3",
+    "family": "details",
+    "message": "Khách sạn đang mở có những tiện ích nào",
+    "hotelContext": true,
+    "intent": "HOTEL_DETAILS"
+  },
+  {
+    "id": "details-4",
+    "family": "details",
+    "message": "What facilities does this hotel offer?",
+    "hotelContext": true,
+    "intent": "HOTEL_DETAILS"
+  },
+  {
+    "id": "reviews-1",
+    "family": "reviews",
+    "message": "Những người ở trước nhận xét chỗ này ra sao",
+    "hotelContext": true,
+    "intent": "REVIEW_SUMMARY"
+  },
+  {
+    "id": "reviews-2",
+    "family": "reviews",
+    "message": "Có ai đánh giá khách sạn này chưa",
+    "hotelContext": true,
+    "intent": "REVIEW_SUMMARY"
+  },
+  {
+    "id": "reviews-3",
+    "family": "reviews",
+    "message": "Khách đã lưu trú có chê điểm gì không",
+    "hotelContext": true,
+    "intent": "REVIEW_SUMMARY"
+  },
+  {
+    "id": "reviews-4",
+    "family": "reviews",
+    "message": "Tóm lược các phản hồi đã có về khách sạn",
+    "hotelContext": true,
+    "intent": "REVIEW_SUMMARY"
+  },
+  {
+    "id": "bookings-1",
+    "family": "bookings",
+    "message": "Tôi đã đặt những đơn nào rồi",
+    "hotelContext": false,
+    "intent": "MY_BOOKINGS"
+  },
+  {
+    "id": "bookings-2",
+    "family": "bookings",
+    "message": "Số tiền còn thiếu của đơn tôi là bao nhiêu",
+    "hotelContext": false,
+    "intent": "MY_BOOKINGS"
+  },
+  {
+    "id": "bookings-3",
+    "family": "bookings",
+    "message": "Lần đặt của mình đã thanh toán hết chưa",
+    "hotelContext": false,
+    "intent": "MY_BOOKINGS"
+  },
+  {
+    "id": "bookings-4",
+    "family": "bookings",
+    "message": "Tôi cần xem các chuyến đi đã đặt của tôi",
+    "hotelContext": false,
+    "intent": "MY_BOOKINGS"
+  },
+  {
+    "id": "bookings-5",
+    "family": "bookings",
+    "message": "Show my reservations",
+    "hotelContext": false,
+    "intent": "MY_BOOKINGS"
+  },
+  {
+    "id": "faq-1",
+    "family": "faq",
+    "message": "Không nhớ mật khẩu nữa thì làm gì",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "PASSWORD"
+  },
+  {
+    "id": "faq-2",
+    "family": "faq",
+    "message": "Tạo tài khoản EnziuRooms cần làm những bước nào",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "REGISTER"
+  },
+  {
+    "id": "faq-3",
+    "family": "faq",
+    "message": "Làm thế nào để vào tài khoản của mình",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "LOGIN"
+  },
+  {
+    "id": "faq-4",
+    "family": "faq",
+    "message": "Đưa mã QR cho ai lúc tới khách sạn",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "QR"
+  },
+  {
+    "id": "faq-5",
+    "family": "faq",
+    "message": "Nếu hủy chỗ đã đặt thì cần thao tác ra sao",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "CANCELLATION"
+  },
+  {
+    "id": "faq-6",
+    "family": "faq",
+    "message": "Tại sao phải trả tiền cọc trước",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "DEPOSIT"
+  },
+  {
+    "id": "faq-7",
+    "family": "faq",
+    "message": "Có những cách trả tiền nào trên EnziuRooms",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "PAYMENT"
+  },
+  {
+    "id": "faq-8",
+    "family": "faq",
+    "message": "Tôi muốn biết quy trình trả phòng",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "CHECK_OUT"
+  },
+  {
+    "id": "faq-9",
+    "family": "faq",
+    "message": "Khi đến nơi nhận phòng cần làm gì",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "CHECK_IN"
+  },
+  {
+    "id": "faq-10",
+    "family": "faq",
+    "message": "Muốn đổi loại phòng đã đặt thì làm sao",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "ROOM_CHANGE"
+  },
+  {
+    "id": "faq-11",
+    "family": "faq",
+    "message": "Tôi nhập voucher ở bước nào",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "PROMOTION"
+  },
+  {
+    "id": "faq-12",
+    "family": "faq",
+    "message": "Sau chuyến đi tôi gửi nhận xét ở đâu",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "WRITE_REVIEW"
+  },
+  {
+    "id": "faq-13",
+    "family": "faq",
+    "message": "Tôi muốn nói chuyện với người hỗ trợ",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "SUPPORT"
+  },
+  {
+    "id": "faq-14",
+    "family": "faq",
+    "message": "Lịch sử ví Enziu xem thế nào",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "WALLET"
+  },
+  {
+    "id": "faq-15",
+    "family": "faq",
+    "message": "Có được đem chó mèo đi cùng không",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "POLICY"
+  },
+  {
+    "id": "faq-16",
+    "family": "faq",
+    "message": "Tôi là người mới, chỉ tôi cách đặt chỗ",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "BOOKING_GUIDE"
+  },
+  {
+    "id": "faq-17",
+    "family": "faq",
+    "message": "Chat này có gọi mô hình AI bên ngoài không",
+    "hotelContext": false,
+    "intent": "GENERAL",
+    "topic": "ENGINE"
+  },
+  {
+    "id": "actions-1",
+    "family": "actions",
+    "message": "Cho thêm các khách sạn chưa thấy trong danh sách",
+    "hotelContext": false,
+    "action": "MORE_HOTELS"
+  },
+  {
+    "id": "actions-2",
+    "family": "actions",
+    "message": "Ngoài những khách sạn đó còn chỗ nào nữa",
+    "hotelContext": false,
+    "action": "MORE_HOTELS"
+  },
+  {
+    "id": "actions-3",
+    "family": "actions",
+    "message": "Có loại phòng khác để tôi cân nhắc không",
+    "hotelContext": false,
+    "action": "MORE_ROOMS"
+  },
+  {
+    "id": "actions-4",
+    "family": "actions",
+    "message": "Xem tiếp các phòng chưa được gợi ý",
+    "hotelContext": false,
+    "action": "MORE_ROOMS"
+  },
+  {
+    "id": "actions-5",
+    "family": "actions",
+    "message": "Còn lựa chọn nào nữa vậy",
+    "hotelContext": false,
+    "action": "MORE_OPTIONS"
+  },
+  {
+    "id": "actions-6",
+    "family": "actions",
+    "message": "Đưa thêm phương án khác đi",
+    "hotelContext": false,
+    "action": "MORE_OPTIONS"
+  },
+  {
+    "id": "actions-7",
+    "family": "actions",
+    "message": "Ngày ở vừa sửa, tìm lại theo đó nhé",
+    "hotelContext": false,
+    "action": "RECHECK_TRIP"
+  },
+  {
+    "id": "actions-8",
+    "family": "actions",
+    "message": "Tra lại giúp mình giá với lịch vừa thay",
+    "hotelContext": false,
+    "action": "RECHECK_TRIP"
+  },
+  {
+    "id": "actions-9",
+    "family": "actions",
+    "message": "Thêm điều kiện có bãi đỗ xe",
+    "hotelContext": false,
+    "action": "REFINE_SEARCH"
+  },
+  {
+    "id": "actions-10",
+    "family": "actions",
+    "message": "Không cần hồ bơi nữa, giữ các yêu cầu còn lại",
+    "hotelContext": false,
+    "action": "REFINE_SEARCH"
+  },
+  {
+    "id": "actions-11",
+    "family": "actions",
+    "message": "Bỏ giới hạn tiền, vẫn giữ địa điểm",
+    "hotelContext": false,
+    "action": "REFINE_SEARCH"
+  },
+  {
+    "id": "actions-12",
+    "family": "actions",
+    "message": "Giờ tôi chuyển sang tìm ở Cần Thơ",
+    "hotelContext": false,
+    "action": "NEW_SEARCH"
+  },
+  {
+    "id": "actions-13",
+    "family": "actions",
+    "message": "Tôi muốn biết chi tiết lựa chọn thứ hai",
+    "hotelContext": false,
+    "action": "SELECT_OPTION"
+  },
+  {
+    "id": "actions-14",
+    "family": "actions",
+    "message": "Cho mình xem phòng số ba",
+    "hotelContext": false,
+    "action": "SELECT_OPTION"
+  },
+  {
+    "id": "out_of_scope-1",
+    "family": "out_of_scope",
+    "message": "Giải phương trình x bình phương bằng chín",
+    "hotelContext": false,
+    "intent": "OUT_OF_SCOPE"
+  },
+  {
+    "id": "out_of_scope-2",
+    "family": "out_of_scope",
+    "message": "Viết bài thơ về mùa thu",
+    "hotelContext": false,
+    "intent": "OUT_OF_SCOPE"
+  },
+  {
+    "id": "out_of_scope-3",
+    "family": "out_of_scope",
+    "message": "Đội nào vô địch World Cup năm 2018",
+    "hotelContext": false,
+    "intent": "OUT_OF_SCOPE"
+  },
+  {
+    "id": "out_of_scope-4",
+    "family": "out_of_scope",
+    "message": "How do I bake a chocolate cake?",
+    "hotelContext": false,
+    "intent": "OUT_OF_SCOPE"
+  },
+  {
+    "id": "ambiguity-1",
+    "family": "ambiguity",
+    "message": "Cái đó thì sao",
+    "hotelContext": false,
+    "behavior": "CLARIFY"
+  },
+  {
+    "id": "ambiguity-2",
+    "family": "ambiguity",
+    "message": "Được không nhỉ",
+    "hotelContext": false,
+    "behavior": "CLARIFY"
+  },
+  {
+    "id": "ambiguity-3",
+    "family": "ambiguity",
+    "message": "Làm giúp tôi với",
+    "hotelContext": false,
+    "behavior": "CLARIFY"
+  },
+  {
+    "id": "ambiguity-4",
+    "family": "ambiguity",
+    "message": "Tốt hơn nữa đi",
+    "hotelContext": false,
+    "behavior": "CLARIFY"
+  },
+  {
+    "id": "ambiguity-5",
+    "family": "ambiguity",
+    "message": "abc xyz qwerty",
+    "hotelContext": false,
+    "behavior": "CLARIFY"
+  }
+]

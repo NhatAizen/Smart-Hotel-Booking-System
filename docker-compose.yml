@@ -263,7 +263,7 @@ services:
       MAIL_STARTTLS_ENABLE: "true"
 
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5300}
-      PUBLIC_BASE_URL: http://localhost:8081
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8081}
       NOTIFICATION_SERVICE_URL: http://notification-service:8085
       NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:-dev-notification-internal-key-change-me}
 
@@ -324,7 +324,7 @@ services:
       SERVER_PORT: 8082
 
       MEDIA_UPLOAD_DIR: /app/uploads
-      PUBLIC_MEDIA_BASE_URL: http://localhost:8080/api/hotels/media
+      PUBLIC_MEDIA_BASE_URL: ${PUBLIC_MEDIA_BASE_URL:-http://localhost:8080/api/hotels/media}
       MEDIA_MAX_FILE_SIZE_BYTES: 10485760
 
       NOTIFICATION_SERVICE_URL: http://notification-service:8085
@@ -556,6 +556,49 @@ services:
       start_period: 40s
 
 
+  dialogue-model:
+    image: ghcr.io/ggml-org/llama.cpp@sha256:8ee4ec7ce58a921313d07390c6699af13aa5ec083f3cdf67e5f4155767047373
+    container_name: smart-hotel-dialogue-model
+    restart: unless-stopped
+    networks:
+      - semantic-internal
+    volumes:
+      - ./services/dialogue-model/models:/models:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        echo '2fde00ce69dd4899c70d020845e2638353015bba0fdf161b3eb965f2bca4464e  /models/dialogue.gguf' | sha256sum -c - &&
+        exec /app/llama-server -m /models/dialogue.gguf --alias enziu-dialogue --host 0.0.0.0 --port 8092
+        -c 4096 -t 6 --parallel 1 --cache-ram 128 --cache-idle-slots --jinja --no-ui --log-disable
+    mem_limit: 3500m
+    cpus: 6
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8092/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 120s
+      retries: 10
+
+  semantic-service:
+    image: enziu-semantic-service
+    build:
+      context: ./services/semantic-service
+    container_name: smart-hotel-semantic-service
+    restart: unless-stopped
+    environment:
+      DIALOGUE_MODEL_URL: http://dialogue-model:8092
+    depends_on:
+      dialogue-model:
+        condition: service_healthy
+    networks:
+      - semantic-internal
+    expose:
+      - "8091"
+    mem_limit: 768m
+    cpus: 2
+    pids_limit: 64
+
   ai-service:
     build:
       context: ./services/ai-service
@@ -566,11 +609,11 @@ services:
 
     environment:
       SERVER_PORT: 8086
+      AI_SEMANTIC_ENABLED: "true"
+      AI_SEMANTIC_URL: http://semantic-service:8091
+      AI_PLACES_ENABLED: ${AI_PLACES_ENABLED:-true}
+      AI_PLACES_BASE_URL: ${AI_PLACES_BASE_URL:-https://photon.komoot.io}
 
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
-      GEMINI_BASE_URL: https://generativelanguage.googleapis.com/v1beta
-      GEMINI_TIMEOUT_SECONDS: 30
 
       JWT_SECRET: ${JWT_SECRET}
       HOTEL_SERVICE_URL: http://hotel-service:8082
@@ -579,7 +622,13 @@ services:
     ports:
       - "8086:8086"
 
+    networks:
+      - default
+      - semantic-internal
+
     depends_on:
+      semantic-service:
+        condition: service_healthy
       hotel-service:
         condition: service_healthy
       booking-service:
@@ -794,6 +843,10 @@ services:
       retries: 10
       start_period: 30s
 
+
+networks:
+  semantic-internal:
+    internal: true
 
 volumes:
   identity_postgres_data:

@@ -1,0 +1,229 @@
+{
+  "checkedAtUtc": "2026-11-01T18:03:28.5009836+00:00",
+  "image": "smart-hotel-booking-system-ai-service",
+  "imageId": "sha256:18a389bb22ebc9197c89546ec1720bb26e21cf645e4cfa112308822c618c21e0",
+  "networkMode": "none",
+  "externalProviderClasses": 0,
+  "model": "enziuroom-local-v5",
+  "engineMode": "LOCAL_RULES_AND_SYSTEM_DATA",
+  "externalModelUsed": false,
+  "faqAnswer": "Mở đơn đã xác nhận trong mục Đặt phòng để xem QR nhận phòng. QR giúp khách sạn tra cứu đơn và xác minh; khách sạn xác nhận nhận phòng khi các điều kiện được đáp ứng.",
+  "familyAnswer": "Bạn đi 2 người lớn và 1 trẻ em. Bạn muốn ở tỉnh/thành nào? Tôi sẽ tìm khách sạn và loại phòng đủ chỗ cho bạn.",
+  "livePublicCatalog": {
+    "answer": "Cho 2 người lớn và 1 trẻ em, tôi gợi ý:\n• Gia Định Park Hotel: 680.000 ₫/phòng/đêm.\n• An Khang Riverside Hotel: 720.000 ₫/phòng/đêm.\n• Greenway Phu Nhuan Hotel: 780.000 ₫/phòng/đêm.\nPhòng trống đã kiểm tra theo ngày đã chọn. Giá cơ bản; giá cuối cùng xem khi đặt.",
+    "hotels": [
+      {
+        "name": "Gia Định Park Hotel",
+        "roomTypeName": "Phòng Tiêu Chuẩn Giường Queen",
+        "maxAdults": 2,
+        "maxChildren": 1,
+        "availableRooms": 6,
+        "pricePerNight": 680000.0
+      },
+      {
+        "name": "An Khang Riverside Hotel",
+        "roomTypeName": "Phòng Tiêu Chuẩn Giường Queen",
+        "maxAdults": 2,
+        "maxChildren": 1,
+        "availableRooms": 7,
+        "pricePerNight": 720000.0
+      },
+      {
+        "name": "Greenway Phu Nhuan Hotel",
+        "roomTypeName": "Phòng Tiêu Chuẩn Giường Queen",
+        "maxAdults": 2,
+        "maxChildren": 1,
+        "availableRooms": 6,
+        "pricePerNight": 780000.0
+      }
+    ],
+    "bidirectional": {
+      "nearbyHotels": [
+        {
+          "hotelId": "4393e9ed-faa7-4f72-9394-5ed40157b4fe",
+          "name": "Greenway Phu Nhuan Hotel"
+        },
+        {
+          "hotelId": "d3ebd6d2-f4e7-4652-9e49-f43ed370c730",
+          "name": "Thanh Binh Garden Residence"
+        },
+        {
+          "hotelId": "7d86a6e0-67f1-4e5c-8e53-1b1a88730b50",
+          "name": "Gia Định Park Hotel"
+        }
+      ],
+      "cases": [
+        {
+          "question": "cho tôi địa chỉ từ khách sạn gia định park hotel đến nhà ga t2 xem thử",
+          "answer": "Đường đi từ Gia Định Park Hotel đến International Terminal (T2), Ho Chi Minh City ở nút bên dưới. Mở OpenStreetMap để xem tuyến đường và thời gian di chuyển ước tính.",
+          "durationMs": 3211,
+          "directions": {
+            "origin": {
+              "query": "nha ga t2",
+              "radiusKm": 5.0,
+              "displayName": "International Terminal (T2), Ho Chi Minh City",
+              "latitude": 10.8167568,
+              "longitude": 106.6638006,
+              "sourceUrl": "https://www.openstreetmap.org/way/196966087"
+            },
+            "destinations": [
+              {
+                "hotelId": "7d86a6e0-67f1-4e5c-8e53-1b1a88730b50",
+                "name": "Gia Định Park Hotel",
+                "address": "18 Phan Văn Trị, Phường 7, Quận Gò Vấp, Hồ Chí Minh",
+                "mapsUrl": "https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=10.82701%2C106.68663%3B10.8167568%2C106.6638006"
+              }
+            ],
+            "hotelChoiceRequired": false,
+            "originRequired": false,
+            "hotelAtOrigin": true,
+            "landmark": {
+              "query": "nha ga t2",
+              "radiusKm": 5.0,
+              "displayName": "International Terminal (T2), Ho Chi Minh City",
+              "latitude": 10.8167568,
+              "longitude": 106.6638006,
+              "sourceUrl": "https://www.openstreetmap.org/way/196966087"
+            }
+          }
+        },
+        {
+          "question": "Gia Định Park Hotel 18 Phan Văn Trị, Phường 7, Quận Gò Vấp, Hồ Chí Minh",
+          "answer": "Đường đi từ Gia Định Park Hotel đến International Terminal (T2), Ho Chi Minh City ở nút bên dưới. Mở OpenStreetMap để xem tuyến đường và thời gian di chuyển ước tính.",
+          "durationMs": 749,
+          "directions": {
+            "origin": {
+              "query": "nha ga t2",
+              "radiusKm": 5.0,
+              "displayName": "International Terminal (T2), Ho Chi Minh City",
+              "latitude": 10.8167568,
+              "longitude": 106.6638006,
+              "sourceUrl": "https://www.openstreetmap.org/way/196966087"
+            },
+            "destinations": [
+              {
+                "hotelId": "7d86a6e0-67f1-4e5c-8e53-1b1a88730b50",
+                "name": "Gia Định Park Hotel",
+                "address": "18 Phan Văn Trị, Phường 7, Quận Gò Vấp, Hồ Chí Minh",
+                "mapsUrl": "https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=10.82701%2C106.68663%3B10.8167568%2C106.6638006"
+              }
+            ],
+            "hotelChoiceRequired": false,
+            "originRequired": false,
+            "hotelAtOrigin": true,
+            "landmark": {
+              "query": "nha ga t2",
+              "radiusKm": 5.0,
+              "displayName": "International Terminal (T2), Ho Chi Minh City",
+              "latitude": 10.8167568,
+              "longitude": 106.6638006,
+              "sourceUrl": "https://www.openstreetmap.org/way/196966087"
+            }
+          }
+        },
+        {
+          "question": "3",
+          "answer": "Đường đi từ Gia Định Park Hotel đến International Terminal (T2), Ho Chi Minh City ở nút bên dưới. Mở OpenStreetMap để xem tuyến đường và thời gian di chuyển ước tính.",
+          "durationMs": 726,
+          "directions": {
+            "origin": {
+              "query": "nha ga t2",
+              "radiusKm": 5.0,
+              "displayName": "International Terminal (T2), Ho Chi Minh City",
+              "latitude": 10.8167568,
+              "longitude": 106.6638006,
+              "sourceUrl": "https://www.openstreetmap.org/way/196966087"
+            },
+            "destinations": [
+              {
+                "hotelId": "7d86a6e0-67f1-4e5c-8e53-1b1a88730b50",
+                "name": "Gia Định Park Hotel",
+                "address": "18 Phan Văn Trị, Phường 7, Quận Gò Vấp, Hồ Chí Minh",
+                "mapsUrl": "https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=10.82701%2C106.68663%3B10.8167568%2C106.6638006"
+              }
+            ],
+            "hotelChoiceRequired": false,
+            "originRequired": false,
+            "hotelAtOrigin": true,
+            "landmark": {
+              "query": "nha ga t2",
+              "radiusKm": 5.0,
+              "displayName": "International Terminal (T2), Ho Chi Minh City",
+              "latitude": 10.8167568,
+              "longitude": 106.6638006,
+              "sourceUrl": "https://www.openstreetmap.org/way/196966087"
+            }
+          }
+        },
+        {
+          "question": "Xuất phát từ Nhà ga T2 đến đó",
+          "answer": "Đường đi từ International Terminal (T2), Ho Chi Minh City đến Gia Định Park Hotel ở nút bên dưới. Mở OpenStreetMap để xem tuyến đường và thời gian di chuyển ước tính.",
+          "durationMs": 2138,
+          "directions": {
+            "origin": {
+              "query": "nha ga t2",
+              "radiusKm": 5.0,
+              "displayName": "International Terminal (T2), Ho Chi Minh City",
+              "latitude": 10.8167568,
+              "longitude": 106.6638006,
+              "sourceUrl": "https://www.openstreetmap.org/way/196966087"
+            },
+            "destinations": [
+              {
+                "hotelId": "7d86a6e0-67f1-4e5c-8e53-1b1a88730b50",
+                "name": "Gia Định Park Hotel",
+                "address": "18 Phan Văn Trị, Phường 7, Quận Gò Vấp, Hồ Chí Minh",
+                "mapsUrl": "https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=10.8167568%2C106.6638006%3B10.82701%2C106.68663"
+              }
+            ],
+            "hotelChoiceRequired": false,
+            "originRequired": false,
+            "hotelAtOrigin": false,
+            "landmark": {
+              "query": "nha ga t2",
+              "radiusKm": 5.0,
+              "displayName": "International Terminal (T2), Ho Chi Minh City",
+              "latitude": 10.8167568,
+              "longitude": 106.6638006,
+              "sourceUrl": "https://www.openstreetmap.org/way/196966087"
+            }
+          }
+        },
+        {
+          "question": "Chỉ đường đến nhà ga T2 từ khách sạn đó",
+          "answer": "Đường đi từ Gia Định Park Hotel đến International Terminal (T2), Ho Chi Minh City ở nút bên dưới. Mở OpenStreetMap để xem tuyến đường và thời gian di chuyển ước tính.",
+          "durationMs": 2079,
+          "directions": {
+            "origin": {
+              "query": "nha ga t2",
+              "radiusKm": 5.0,
+              "displayName": "International Terminal (T2), Ho Chi Minh City",
+              "latitude": 10.8167568,
+              "longitude": 106.6638006,
+              "sourceUrl": "https://www.openstreetmap.org/way/196966087"
+            },
+            "destinations": [
+              {
+                "hotelId": "7d86a6e0-67f1-4e5c-8e53-1b1a88730b50",
+                "name": "Gia Định Park Hotel",
+                "address": "18 Phan Văn Trị, Phường 7, Quận Gò Vấp, Hồ Chí Minh",
+                "mapsUrl": "https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=10.82701%2C106.68663%3B10.8167568%2C106.6638006"
+              }
+            ],
+            "hotelChoiceRequired": false,
+            "originRequired": false,
+            "hotelAtOrigin": true,
+            "landmark": {
+              "query": "nha ga t2",
+              "radiusKm": 5.0,
+              "displayName": "International Terminal (T2), Ho Chi Minh City",
+              "latitude": 10.8167568,
+              "longitude": 106.6638006,
+              "sourceUrl": "https://www.openstreetmap.org/way/196966087"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

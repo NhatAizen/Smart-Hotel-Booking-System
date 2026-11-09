@@ -1,7 +1,7 @@
 import apiClient from "../api/apiClient";
 
 export async function askEnziuAssistant(payload) {
-  const response = await apiClient.post("/ai/assistant", payload);
+  const response = await apiClient.post("/ai/assistant", payload, { timeout: 60000 });
   return response.data;
 }
 

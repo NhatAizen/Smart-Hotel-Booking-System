@@ -19,6 +19,11 @@ public record AssistantRequest(
         @Min(1) @Max(20) Integer adults,
         @Min(0) @Max(20) Integer children,
         UUID hotelId,
-        @Size(max = 8) List<@Valid AssistantMessage> history
+        @Size(max = 8) List<@Valid AssistantMessage> history,
+        @Valid AssistantConversationContext conversationContext
 ) {
+    public AssistantRequest(String message, LocalDate checkIn, LocalDate checkOut, Integer adults,
+                            Integer children, UUID hotelId, List<AssistantMessage> history) {
+        this(message, checkIn, checkOut, adults, children, hotelId, history, null);
+    }
 }

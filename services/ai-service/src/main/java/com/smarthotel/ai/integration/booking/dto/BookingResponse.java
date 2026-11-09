@@ -25,6 +25,7 @@ public record BookingResponse(
         String paymentOption,
         String paymentStatus,
         String status,
+        Boolean roomRefundableSnapshot,
         Instant createdAt
 ) {
 }

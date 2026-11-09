@@ -19,7 +19,13 @@ import java.time.LocalDate;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.*;
 
-@DataJpaTest(properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop", "spring.jpa.show-sql=false"})
+@DataJpaTest(properties = {
+        "spring.datasource.url=jdbc:h2:mem:room_change_result;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=",
+        "spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop", "spring.jpa.show-sql=false"})
+@org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase(replace = org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace.NONE)
 @Import({RoomChangeFinancialResultService.class, RoomChangeFinancialResultServiceTest.JsonConfig.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class RoomChangeFinancialResultServiceTest {

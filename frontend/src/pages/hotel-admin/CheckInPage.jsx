@@ -1,3 +1,4 @@
+import useConfirm from "../../components/ui/useConfirm";
 import {
   BadgeCheck,
   BedDouble,
@@ -180,6 +181,7 @@ function clearCheckInPaymentContext() {
 }
 
 export default function CheckInPage({ embedded = false }) {
+  const confirmAction = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [code, setCode] = useState("");
   const [result, setResult] = useState(null);
@@ -729,9 +731,8 @@ export default function CheckInPage({ embedded = false }) {
 
   async function handleCollectAtHotel() {
     if (!result?.booking?.id) return;
-    if (!window.confirm(
-      `Xác nhận đã thu đủ ${money(result.booking.remainingAmount)} tại khách sạn?`,
-    )) return;
+    if (!await confirmAction(
+      `Xác nhận đã thu đủ ${money(result.booking.remainingAmount)} tại khách sạn?`, {"title": "Xác nhận thu tiền tại khách sạn", "confirmLabel": "Đã thu đủ tiền", "confirmTone": "primary"})) return;
 
     setWorking("COLLECT");
     setError("");

@@ -53,6 +53,14 @@ frontend/build/
 *.temp
 
 # Local working artifacts (not part of the product baseline)
+/artifacts/
+/docs/audit-*.json
+/docs/*-verification.json
+!/docs/assistant-bidirectional-directions-verification.json
+/docs/admin-dialog-audit.json
+/docs/integration-*.json
+/docs/platform-audit-results.json
+/docs/assistant-semantic-baseline.json
 /README1.md
 /demo-assets/
 /docs/design-mockups/

@@ -1,3 +1,4 @@
+import useConfirm from "../../components/ui/useConfirm";
 import {
   CheckCircle2,
   Edit3,
@@ -78,6 +79,7 @@ async function fallbackReviewsForHotels(hotels) {
 }
 
 export default function HotelReviewsPage() {
+  const confirmAction = useConfirm();
   const [hotels, setHotels] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -224,7 +226,7 @@ export default function HotelReviewsPage() {
   }
 
   async function removeReply(review) {
-    if (!window.confirm("Xóa phản hồi của khách sạn khỏi đánh giá này?")) return;
+    if (!await confirmAction("Xóa phản hồi của khách sạn khỏi đánh giá này?", {"title": "Xóa phản hồi đánh giá", "confirmLabel": "Xóa phản hồi", "confirmTone": "danger"})) return;
 
     setBusyId(review.id);
     setError("");

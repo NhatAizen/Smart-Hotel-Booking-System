@@ -1,3 +1,4 @@
+import useConfirm from "../../components/ui/useConfirm";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createDailyPriceRule,
@@ -15,6 +16,7 @@ const money = (value) => new Intl.NumberFormat("vi-VN", { style: "currency", cur
 const errorText = (error) => error?.response?.data?.message || "Không thể xử lý yêu cầu. Vui lòng thử lại.";
 
 export default function ManualDailyPricingPage() {
+  const confirmAction = useConfirm();
   const [hotels, setHotels] = useState([]);
   const [hotelId, setHotelId] = useState("");
   const [types, setTypes] = useState([]);
@@ -112,7 +114,7 @@ export default function ManualDailyPricingPage() {
     const prompt = `Xác nhận lưu giá ${money(form.nightlyPrice)} cho ${preview.totalNights} đêm?\n`
       + `Giá này sẽ thay giá riêng của ${impact} phòng và thay phụ thu ngày đặc biệt/cuối tuần khi được kích hoạt cho khách.\n`
       + "Hiện tại quy tắc chỉ dùng để quản lý và xem trước, chưa áp dụng cho khách đặt phòng.";
-    if (!window.confirm(prompt)) return;
+    if (!await confirmAction(prompt, {"title": "Lưu quy tắc giá phòng", "confirmLabel": "Lưu quy tắc", "confirmTone": "primary"})) return;
     setBusy(true);
     setError("");
     try {
@@ -146,7 +148,7 @@ export default function ManualDailyPricingPage() {
   }
 
   async function remove(rule) {
-    if (!window.confirm(`Xóa quy tắc từ ${rule.startDate} đến ${rule.endDate}?`)) return;
+    if (!await confirmAction(`Xóa quy tắc từ ${rule.startDate} đến ${rule.endDate}?`, {"title": "Xóa quy tắc giá phòng", "confirmLabel": "Xóa quy tắc", "confirmTone": "danger"})) return;
     setBusy(true);
     setError("");
     try {

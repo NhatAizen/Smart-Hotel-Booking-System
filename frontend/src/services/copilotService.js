@@ -1,5 +1,3 @@
-import apiClient from "../api/apiClient";
-
 const AMENITY_PATTERNS = [
   { value: "hồ bơi", patterns: ["ho boi", "be boi", "pool"] },
   { value: "wifi", patterns: ["wifi", "wi-fi"] },
@@ -20,11 +18,6 @@ function stripVietnamese(value) {
 
 function normalize(value) {
   return stripVietnamese(value).toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-function safeNumber(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function extractBudgetLocally(requirement) {
@@ -83,166 +76,18 @@ function localAnalysis(requirement) {
   };
 }
 
-function sanitizeAiAnalysis(payload, fallback) {
-  const destination =
-    typeof payload?.destination === "string" && payload.destination.trim()
-      ? payload.destination.trim().slice(0, 80)
-      : fallback.destination;
-
-  const budget = safeNumber(payload?.budget);
-  const safeBudget =
-    budget != null && budget > 0 && budget <= 1_000_000_000
-      ? Math.round(budget)
-      : fallback.budget;
-
-  const mode = String(payload?.budgetMode ?? "").toUpperCase();
-  const budgetMode = ["TOTAL", "PER_NIGHT"].includes(mode)
-    ? mode
-    : fallback.budgetMode;
-
-  const aiAmenities = Array.isArray(payload?.amenities)
-    ? payload.amenities
-        .filter((item) => typeof item === "string")
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .slice(0, 10)
-    : [];
-
-  const minStars = safeNumber(payload?.minStars);
-
-  return {
-    destination,
-    budget: safeBudget,
-    budgetMode,
-    amenities: [...new Set([...fallback.amenities, ...aiAmenities])],
-    preferGoodReviews:
-      typeof payload?.preferGoodReviews === "boolean"
-        ? payload.preferGoodReviews
-        : fallback.preferGoodReviews,
-    minStars:
-      minStars != null && minStars >= 1 && minStars <= 5
-        ? Math.round(minStars)
-        : fallback.minStars,
-    analysisSource: "GEMINI",
-  };
-}
-
-function extractJson(text) {
-  const value = String(text ?? "").trim();
-  const start = value.indexOf("{");
-  const end = value.lastIndexOf("}");
-  if (start < 0 || end <= start) return null;
-
-  try {
-    return JSON.parse(value.slice(start, end + 1));
-  } catch {
-    return null;
-  }
-}
-
 export async function analyzeCopilotRequirement(requirement) {
-  const fallback = localAnalysis(requirement);
-
-  if (!String(requirement ?? "").trim()) {
-    return fallback;
-  }
-
-  const prompt = `
-Bạn là bộ phân tích yêu cầu cho EnziuRooms Booking Copilot.
-Chỉ trích xuất điều người dùng THỰC SỰ nói. Không tự thêm dữ liệu.
-Trả về DUY NHẤT JSON hợp lệ, không markdown, theo schema:
-{
-  "destination": string|null,
-  "budget": number|null,
-  "budgetMode": "TOTAL"|"PER_NIGHT"|null,
-  "amenities": string[],
-  "preferGoodReviews": boolean,
-  "minStars": number|null
+  return localAnalysis(requirement);
 }
 
-Quy tắc:
-- budget luôn là số VND. "2 triệu" => 2000000.
-- "mỗi đêm", "/đêm" => PER_NIGHT.
-- Nếu người dùng nói "tôi có/ngân sách X" mà không nói mỗi đêm => TOTAL.
-- Không suy đoán ngày, số phòng hay số khách.
-- amenities dùng tên ngắn tiếng Việt.
-- destination giữ nguyên địa danh người dùng nêu.
-
-Yêu cầu:
-${requirement}
-`.trim();
-
-  try {
-    const response = await apiClient.post("/ai/chat", { message: prompt });
-    const parsed = extractJson(response?.data?.result);
-    if (!parsed) return fallback;
-    return sanitizeAiAnalysis(parsed, fallback);
-  } catch {
-    return fallback;
-  }
-}
-
-function compactCandidateFacts(candidate) {
-  return {
-    rank: candidate.rank,
-    name: candidate.name,
-    matchPercent: candidate.matchPercent,
-    location: candidate.location,
-    roomTypeName: candidate.roomTypeName,
-    totalAmount: candidate.totalAmount,
-    nightlyAmount: candidate.nightlyAmount,
-    pricingChecked: candidate.pricingChecked,
-    availabilityChecked: candidate.availabilityChecked,
-    availableRoomCount: candidate.availabilityChecked
-      ? candidate.availableRoomCount
-      : null,
-    averageRating: candidate.averageRating,
-    reviewCount: candidate.reviewCount,
-    matchedAmenities: candidate.matchedAmenities,
-    requestedAmenities: candidate.requestedAmenities,
-    budgetStatus: candidate.budgetStatus,
-    reasons: candidate.reasons,
-  };
-}
-
-export async function explainCopilotResults(
-  requirement,
-  candidates,
-  { datesSelected = false } = {},
-) {
+export async function explainCopilotResults(requirement, candidates) {
   if (!Array.isArray(candidates) || candidates.length === 0) return "";
 
-  const facts = candidates.map(compactCandidateFacts);
-  const prompt = `
-Bạn là EnziuRooms Booking Copilot.
-Viết tối đa 3 câu tiếng Việt để giải thích kết quả Top ${facts.length}.
-CHỈ được dùng dữ liệu FACTS bên dưới.
-Tuyệt đối không bịa giá, số phòng, khoảng cách, khuyến mãi hoặc đánh giá.
-${datesSelected
-  ? "Đã có ngày lưu trú; chỉ được nói còn phòng khi FACTS availabilityChecked=true."
-  : 'Chưa kiểm tra ngày lưu trú; nếu nhắc availability phải nói "chưa kiểm tra phòng trống".'}
-Không nói rằng bạn đã đặt phòng hay thực hiện thanh toán.
-Nêu lựa chọn #1 và trade-off đáng chú ý nếu có.
-
-Yêu cầu người dùng:
-${String(requirement ?? "").slice(0, 1200)}
-
-FACTS:
-${JSON.stringify(facts)}
-`.trim();
-
-  try {
-    const response = await apiClient.post("/ai/chat", { message: prompt });
-    const result = String(response?.data?.result ?? "").trim();
-    if (result) return result.slice(0, 900);
-  } catch {
-    // Deterministic fallback below.
-  }
-
   const first = candidates[0];
+  const requirementText = String(requirement ?? "").trim();
   const second = candidates[1];
   const parts = [
-    `${first.name} đứng đầu với mức phù hợp ${first.matchPercent}% dựa trên các tiêu chí bạn đã nhập.`,
+    `${first.name} đứng đầu với mức phù hợp ${first.matchPercent}%${requirementText ? " dựa trên các tiêu chí bạn đã nhập" : ""}.`,
   ];
 
   if (first.budgetStatus === "WITHIN") {

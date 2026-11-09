@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import AppErrorBoundary from "./components/common/AppErrorBoundary";
+import ConfirmationProvider from "./components/ui/ConfirmationProvider";
 import { AuthProvider } from "./auth/AuthContext";
 import AppRoutes from "./routes/AppRoutes";
 import { RealtimeProvider } from "./realtime/RealtimeContext";
@@ -16,7 +17,7 @@ createRoot(
     <AppErrorBoundary>
       <AuthProvider>
         <RealtimeProvider>
-          <AppRoutes />
+          <ConfirmationProvider><AppRoutes /></ConfirmationProvider>
         </RealtimeProvider>
       </AuthProvider>
     </AppErrorBoundary>

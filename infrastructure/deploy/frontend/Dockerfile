@@ -10,17 +10,10 @@ RUN npm run build
 FROM nginxinc/nginx-unprivileged:1.30.5-alpine
 USER root
 COPY --from=build --chown=root:root /app/dist /usr/share/nginx/html
-RUN printf '%s\n' \
-'server {' \
-'  listen 8080;' \
-'  server_name _;' \
-'  root /usr/share/nginx/html;' \
-'  index index.html;' \
-'  location / {' \
-'    try_files $uri $uri/ /index.html;' \
-'  }' \
-'}' > /etc/nginx/conf.d/default.conf \
-    && chown 101:101 /etc/nginx/conf.d/default.conf \
-    && chmod 0644 /etc/nginx/conf.d/default.conf
+COPY deploy/default.conf /etc/nginx/conf.d/default.conf
+COPY deploy/25-retain-assets.sh /docker-entrypoint.d/25-retain-assets.sh
+RUN mkdir -p /var/cache/enziu-frontend/assets \
+    && chown -R 101:101 /var/cache/enziu-frontend \
+    && chmod 0755 /docker-entrypoint.d/25-retain-assets.sh
 USER 101:101
 EXPOSE 8080

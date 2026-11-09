@@ -1,3 +1,4 @@
+import useConfirm from "../../components/ui/useConfirm";
 import {
   BadgeCheck,
   ArrowLeft,
@@ -19,12 +20,13 @@ import {
   UserRound,
   XCircle,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import useRealtimeRefresh from "../../realtime/useRealtimeRefresh";
 import EkycCameraCapture from "../../components/partner/EkycCameraCapture";
 import ErrorMessage from "../../components/common/ErrorMessage";
 import Loading from "../../components/common/Loading";
+import { friendlyErrorMessage } from "../../utils/userFacingText";
 import {
   getMyPartnerRequest,
   getMyProfile,
@@ -79,7 +81,7 @@ function statusMeta(status) {
       icon: XCircle,
       title: "Hồ sơ đã bị từ chối",
       description:
-        "Hồ sơ không được phê duyệt. Lý do xử lý được hiển thị bên dưới.",
+        "Bạn có thể chỉnh sửa thông tin bên dưới, xác minh lại CCCD và khuôn mặt rồi gửi lại hồ sơ.",
     };
   }
 
@@ -235,6 +237,7 @@ function SupportingFileField({
 }
 
 export default function PartnerApplicationPage() {
+  const confirmAction = useConfirm();
   const [form, setForm] = useState(EMPTY_FORM);
   const [request, setRequest] = useState(null);
   const [frontFile, setFrontFile] = useState(null);
@@ -254,19 +257,29 @@ export default function PartnerApplicationPage() {
   const [managementProofFile, setManagementProofFile] = useState(null);
   const [businessLicenseFile, setBusinessLicenseFile] = useState(null);
   const [fileError, setFileError] = useState("");
+  const latestLoad=useRef(0);
+  const currentRequest=useRef(null);
+  useEffect(()=>{currentRequest.current=request;},[request]);
 
   const status = normalizeStatus(request?.status);
-  const canSubmit = !request || status === "NEED_MORE_INFO";
+  const bothSidesMatched = Boolean(ocrCheck?.verified && ocrCheck.identityMatched
+    && ocrCheck.nameMatched && ocrCheck.dateOfBirthMatched && ocrCheck.mrzVerified
+    && ocrCheck.mrzIdentityMatched && ocrCheck.mrzNameMatched && ocrCheck.mrzDateOfBirthMatched);
+  const isResubmission = ["NEED_MORE_INFO", "REJECTED"].includes(status);
+  const canSubmit = !request || isResubmission;
+  // Only a request for more information reuses the existing application's documents.
+  // A rejected application remains in history; submitting again creates a new record.
+  const reusableDocuments = status === "NEED_MORE_INFO" ? request : null;
   const currentStatus = useMemo(
     () => (request ? statusMeta(status) : null),
     [request, status],
   );
   const StatusIcon = currentStatus?.icon;
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setPageError("");
-    setOcrError("");
+  const loadData = useCallback(async (event) => {
+    const background=Boolean(event);
+    const sequence=++latestLoad.current;
+    if(!background){setLoading(true);setPageError("");setOcrError("");}
 
     try {
       const [profileResult, partnerResult] = await Promise.allSettled([
@@ -275,10 +288,20 @@ export default function PartnerApplicationPage() {
       ]);
       const profile =
         profileResult.status === "fulfilled" ? profileResult.value : null;
+      if(sequence!==latestLoad.current) return;
+      if(partnerResult.status==="rejected" && ![400,404].includes(partnerResult.reason?.response?.status)) throw partnerResult.reason;
       const partner =
         partnerResult.status === "fulfilled" ? partnerResult.value : null;
 
+      const previous=currentRequest.current;
+      currentRequest.current=partner;
       setRequest(partner);
+      if(background && previous?.id===partner?.id && previous?.status===partner?.status) return;
+      if(background && previous && !partner){
+        setForm(EMPTY_FORM);setOcrCheck(null);setEkycCapture(null);setEkycResetVersion(value=>value+1);
+        setFrontFile(null);setBackFile(null);setActiveStep(1);setSuccess("");
+        setFrontPreview("");setBackPreview("");setManagementProofFile(null);setBusinessLicenseFile(null);setOcrError("");
+      }
       if (partner) {
         setForm({
           applicantType: partner.applicantType ?? "INDIVIDUAL",
@@ -305,12 +328,12 @@ export default function PartnerApplicationPage() {
         }));
       }
     } catch (requestError) {
-      setPageError(
+      if(!background) setPageError(
         requestError.response?.data?.message ??
           "Không thể tải thông tin đăng ký đối tác.",
       );
     } finally {
-      setLoading(false);
+      if(sequence===latestLoad.current) setLoading(false);
     }
   }, []);
 
@@ -318,7 +341,7 @@ export default function PartnerApplicationPage() {
     loadData();
   }, [loadData]);
 
-  useRealtimeRefresh("NOTIFICATION_CREATED", loadData, { debounceMs: 120 });
+  useRealtimeRefresh(["NOTIFICATION_CREATED","PARTNER_REQUEST_UPDATED","PARTNER_REQUEST_DELETED","USER_UPDATED"], loadData, { debounceMs: 120, revalidateOnFocus:true, pollMs:10000 });
 
   useEffect(
     () => () => {
@@ -492,8 +515,7 @@ export default function PartnerApplicationPage() {
     } catch (ocrError) {
       setOcrCheck(null);
       setOcrError(
-        ocrError.response?.data?.message ||
-          "Chưa đọc rõ thông tin trên CCCD. Hãy chụp lại đủ hai mặt, giữ thẻ thẳng, đủ sáng và tránh lóa.",
+        friendlyErrorMessage(ocrError,"Chưa thể hoàn tất kiểm tra CCCD. Vui lòng thử lại."),
       );
     } finally {
       setCheckingOcr(false);
@@ -527,7 +549,7 @@ export default function PartnerApplicationPage() {
     }
     if (form.applicantType === "BUSINESS"
       && !businessLicenseFile
-      && !request?.businessLicenseAvailable) {
+      && !reusableDocuments?.businessLicenseAvailable) {
       return "Vui lòng tải giấy chứng nhận đăng ký doanh nghiệp hoặc hộ kinh doanh.";
     }
     const managementError = validateSupportingFile(managementProofFile);
@@ -551,7 +573,7 @@ export default function PartnerApplicationPage() {
     if (step === 4) {
       if (form.applicantType === "BUSINESS"
         && !businessLicenseFile
-        && !request?.businessLicenseAvailable) {
+        && !reusableDocuments?.businessLicenseAvailable) {
         return "Vui lòng tải giấy chứng nhận đăng ký doanh nghiệp hoặc hộ kinh doanh.";
       }
       return validateSupportingFile(
@@ -561,7 +583,10 @@ export default function PartnerApplicationPage() {
     return "";
   }
 
-  function goToNextStep() {
+  function goToNextStep(event) {
+    // The next render replaces this button with a submit button on the final step.
+    // Cancel this click's default action so entering review cannot submit the form.
+    event.preventDefault();
     const validationError = validateCurrentStep(activeStep);
     if (validationError) {
       setPageError(validationError);
@@ -582,7 +607,7 @@ export default function PartnerApplicationPage() {
     }
 
     if (
-      !window.confirm(
+      !await confirmAction(
         "CCCD và khuôn mặt đã được xác minh. Gửi hồ sơ này để xét duyệt?",
       )
     ) {
@@ -624,6 +649,8 @@ export default function PartnerApplicationPage() {
         },
       );
 
+      latestLoad.current+=1;
+      currentRequest.current=saved;
       setRequest(saved);
       setFrontFile(null);
       setBackFile(null);
@@ -792,11 +819,13 @@ export default function PartnerApplicationPage() {
             <form className="partner-form-card" onSubmit={handleSubmit}>
               <div className="partner-section-heading">
                 <div>
-                  <span>{status === "NEED_MORE_INFO" ? "BỔ SUNG HỒ SƠ" : "HỒ SƠ ĐĂNG KÝ"}</span>
+                  <span>{status === "REJECTED" ? "GỬI LẠI HỒ SƠ" : status === "NEED_MORE_INFO" ? "BỔ SUNG HỒ SƠ" : "HỒ SƠ ĐĂNG KÝ"}</span>
                   <h2>{PARTNER_STEPS[activeStep - 1]}</h2>
-                  <p>Chọn hình thức phù hợp và hoàn thiện từng bước trước khi gửi hồ sơ.</p>
+                  <p>{status === "REJECTED"
+                    ? "Kiểm tra lý do từ chối, chỉnh sửa thông tin và tải lại giấy tờ cho hồ sơ mới."
+                    : "Chọn hình thức phù hợp và hoàn thiện từng bước trước khi gửi hồ sơ."}</p>
                 </div>
-                {status === "NEED_MORE_INFO" ? <RotateCcw size={24} /> : <FileCheck2 size={24} />}
+                {isResubmission ? <RotateCcw size={24} /> : <FileCheck2 size={24} />}
               </div>
 
               <nav className="partner-stepper" aria-label="Tiến trình đăng ký đối tác">
@@ -914,6 +943,7 @@ export default function PartnerApplicationPage() {
 
                     {ocrCheck?.verified ? (
                       <>
+                        <p><strong>Mặt trước · Đối chiếu với thông tin đã khai</strong></p>
                         <div className="partner-ocr-precheck-results">
                           <div><CheckCircle2 size={16} /><span>Số CCCD</span><strong>{ocrCheck.identityNumber || form.identityNumber}</strong></div>
                           <div><CheckCircle2 size={16} /><span>Họ tên</span><strong>{ocrCheck.fullName || (form.applicantType === "INDIVIDUAL" ? form.legalName : form.representativeName)}</strong></div>
@@ -924,21 +954,22 @@ export default function PartnerApplicationPage() {
                           <div className="partner-mrz-result-head">
                             <div>
                               <span>THÔNG TIN MẶT SAU</span>
-                              <strong>Thông tin trên CCCD</strong>
+                              <strong>Thông tin đọc từ mặt sau CCCD</strong>
                             </div>
                             <span className="partner-mrz-valid-badge">
-                              <CheckCircle2 size={16} /> Hợp lệ
+                              {ocrCheck.mrzVerified ? <CheckCircle2 size={16} /> : <Info size={16} />}
+                              {ocrCheck.mrzVerified ? "Đã xác minh mặt sau" : "Chưa đủ kết quả mặt sau"}
                             </span>
                           </div>
 
                           <div className="partner-mrz-detail-grid">
                             <div>
                               <span>Số định danh</span>
-                              <strong>{ocrCheck.mrzIdentityNumber || ocrCheck.identityNumber || form.identityNumber}</strong>
+                              <strong>{ocrCheck.mrzIdentityNumber || "Chưa đọc được"}</strong>
                             </div>
                             <div>
                               <span>Ngày sinh</span>
-                              <strong>{formatCompactDate(ocrCheck.mrzDateOfBirth || ocrCheck.dateOfBirth || form.dateOfBirth)}</strong>
+                              <strong>{formatCompactDate(ocrCheck.mrzDateOfBirth)}</strong>
                             </div>
                             <div>
                               <span>Giới tính</span>
@@ -955,8 +986,10 @@ export default function PartnerApplicationPage() {
                           </div>
 
                           <div className="partner-mrz-match-banner">
-                            <CheckCircle2 size={17} />
-                            <span>Khớp với thông tin mặt trước</span>
+                            {bothSidesMatched ? <CheckCircle2 size={17} /> : <Info size={17} />}
+                            <span>{bothSidesMatched
+                              ? "Số CCCD, họ tên và ngày sinh trên hai mặt khớp nhau và khớp thông tin bạn đã khai."
+                              : "Chưa đủ kết quả để xác nhận thông tin hai mặt khớp nhau."}</span>
                           </div>
                         </section>
                       </>
@@ -970,7 +1003,7 @@ export default function PartnerApplicationPage() {
 
                     {ocrError ? (
                       <div className="partner-ekyc-error" role="alert">
-                        <strong>Chưa đọc rõ CCCD</strong>
+                        <strong>Chưa hoàn tất kiểm tra CCCD</strong>
                         <span>{ocrError}</span>
                       </div>
                     ) : null}
@@ -1018,7 +1051,7 @@ export default function PartnerApplicationPage() {
                         description="PDF, JPG, JPEG hoặc PNG · tối đa 8MB"
                         required
                         file={businessLicenseFile}
-                        existingName={request?.businessLicenseName}
+                        existingName={reusableDocuments?.businessLicenseName}
                         submitting={submitting}
                         onSelect={(file) => chooseSupportingFile(file, "business")}
                         onRemove={() => setBusinessLicenseFile(null)}
@@ -1028,7 +1061,7 @@ export default function PartnerApplicationPage() {
                         title="Giấy tờ chứng minh quyền quản lý cơ sở lưu trú"
                         description="Không bắt buộc · PDF, JPG, JPEG hoặc PNG · tối đa 8MB"
                         file={managementProofFile}
-                        existingName={request?.managementProofName}
+                        existingName={reusableDocuments?.managementProofName}
                         submitting={submitting}
                         onSelect={(file) => chooseSupportingFile(file, "management")}
                         onRemove={() => setManagementProofFile(null)}
@@ -1062,8 +1095,8 @@ export default function PartnerApplicationPage() {
                       <div><small>Xác minh CCCD</small><strong>{ocrCheck?.verified ? "Đã hoàn tất" : "Chưa hoàn tất"}</strong></div>
                       <div><small>Khuôn mặt</small><strong>{ekycCapture?.verified ? "Đã xác minh" : "Chưa hoàn tất"}</strong></div>
                       <div><small>Giấy tờ bổ sung</small><strong>{form.applicantType === "BUSINESS"
-                        ? businessLicenseFile?.name ?? request?.businessLicenseName ?? "Chưa có"
-                        : managementProofFile?.name ?? request?.managementProofName ?? "Không cung cấp"}</strong></div>
+                        ? businessLicenseFile?.name ?? reusableDocuments?.businessLicenseName ?? "Chưa có"
+                        : managementProofFile?.name ?? reusableDocuments?.managementProofName ?? "Không cung cấp"}</strong></div>
                     </div>
                     <label className="partner-field wide">
                       <span>Ghi chú</span>
@@ -1093,7 +1126,7 @@ export default function PartnerApplicationPage() {
                 ) : (
                   <button type="submit" className="partner-submit-button" disabled={submitting || !ocrCheck?.verified || !ekycCapture?.verified || !ekycCapture?.verificationReceipt}>
                     <Send size={18} />
-                    {submitting ? "Đang gửi hồ sơ..." : status === "NEED_MORE_INFO" ? "Gửi lại hồ sơ" : "Gửi hồ sơ xét duyệt"}
+                    {submitting ? "Đang gửi hồ sơ..." : isResubmission ? "Gửi lại hồ sơ" : "Gửi hồ sơ xét duyệt"}
                   </button>
                 )}
               </div>

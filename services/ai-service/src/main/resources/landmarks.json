@@ -1,0 +1,24 @@
+[
+  {
+    "name": "Nhà ga T3 sân bay Tân Sơn Nhất",
+    "city": "Hồ Chí Minh",
+    "latitude": 10.8122002,
+    "longitude": 106.654338,
+    "aliases": ["nhà ga T3", "ga T3", "T3", "terminal 3", "terminal T3", "T3 Tân Sơn Nhất", "nhà ga T3 Tân Sơn Nhất"],
+    "sourceUrl": "https://www.openstreetmap.org/way/1240951104",
+    "identitySource": "https://caa.gov.vn/thong-tin-du-an/nha-ga-t3-cang-hkqt-tan-son-nhat-hoan-tat-nhung-khau-cuoi-cung-20250412140249757.htm",
+    "verifiedAt": "2026-11-01",
+    "qualifiers": ["Tân Sơn Nhất", "Tan Son Nhat"]
+  },
+  {
+    "name": "Nhà ga T1 sân bay Tân Sơn Nhất",
+    "city": "Hồ Chí Minh",
+    "latitude": 10.8137889,
+    "longitude": 106.6620986,
+    "aliases": ["nhà ga T1", "ga T1", "T1", "terminal 1", "terminal T1", "T1 Tân Sơn Nhất", "nhà ga T1 Tân Sơn Nhất", "Domestic Terminal T1"],
+    "qualifiers": ["Tân Sơn Nhất", "Tan Son Nhat"],
+    "sourceUrl": "https://www.openstreetmap.org/way/196966091",
+    "identitySource": "https://caa.gov.vn/doanh-nghiep/tu-ngay-13-1-cac-chuyen-bay-noi-dia-cua-vietjet-se-lam-thu-tuc-tai-sanh-a-nha-ga-t1-cang-hkqt-tan-son-nhat-20260110093303440.htm",
+    "verifiedAt": "2026-11-01"
+  }
+]

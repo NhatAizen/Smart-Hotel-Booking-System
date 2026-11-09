@@ -187,8 +187,7 @@ export function subscribeHotelAvailability(
   }
 
   const apiBase =
-    import.meta.env.VITE_API_BASE_URL ??
-    "http://localhost:8080/api";
+    import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://localhost:8080/api" : "/api");
   const url = `${apiBase.replace(/\/$/, "")}/availability/stream/hotels/${hotelId}`;
   const source = new EventSource(url);
 

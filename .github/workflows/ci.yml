@@ -11,6 +11,22 @@ permissions:
   security-events: write
 
 jobs:
+  assistant-semantics:
+    name: Assistant semantic and dialogue regression
+    if: github.event_name == 'pull_request' || github.ref_name == 'main' || github.ref_name == 'develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify evidence and constraint invariants
+        run: python -m unittest discover -s services/semantic-service -p test_grounding.py -v
+      - name: Replay 100 recorded local-model decisions through current validation
+        run: |
+          python services/semantic-service/evaluate.py services/semantic-service/evaluation.json --replay docs/assistant-semantic-evaluation.json --output /tmp/assistant-evaluation.json
+          python services/semantic-service/evaluate.py services/semantic-service/acceptance.json --replay docs/assistant-semantic-acceptance.json --output /tmp/assistant-acceptance.json
+
   configuration:
     name: Compose and migration validation
     if: github.event_name == 'pull_request' || github.ref_name == 'main' || github.ref_name == 'develop'
@@ -44,8 +60,18 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - run: node --test src/ai/assistantPresentation.test.js
+      - run: node --test src/ai/groundedEvidence.test.js
+      - run: node --test src/utils/media.test.js
+      - run: node ../scripts/test-assistant-presentation.mjs
+      - run: node ../scripts/test-nearby-enhancer.mjs
+      - run: node --test ../scripts/test-bootstrap-recovery.mjs
       - run: npm run lint
       - run: npm run build
+      - name: Verify production image retains all frontend bundles
+        run: |
+          docker build -f ../infrastructure/deploy/frontend/Dockerfile -t enziu-frontend-ci .
+          docker run --rm --network none -i --entrypoint sh enziu-frontend-ci < ../scripts/test-frontend-assets.sh
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
