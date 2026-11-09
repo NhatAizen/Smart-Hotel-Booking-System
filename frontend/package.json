@@ -15,7 +15,7 @@
   "dependencies": {
     "@capacitor/android": "^8.5.1",
     "@capacitor/app": "^8.1.1",
-    "@capacitor/browser": "^8.0.4",
+    "@capacitor/browser": "^8.0.5",
     "@capacitor/cli": "^8.5.1",
     "@capacitor/core": "^8.5.1",
     "@maplibre/maplibre-gl-leaflet": "0.1.4",
