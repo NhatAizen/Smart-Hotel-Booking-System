@@ -30,7 +30,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -80,7 +80,7 @@ jobs:
       NOTIFICATION_SERVICE_URL: http://localhost:1
       JPA_SHOW_SQL: "false"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Generate ephemeral test-only JWT secret
         shell: bash
         run: echo "JWT_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
@@ -172,7 +172,7 @@ jobs:
       DB_USERNAME: ci_http
       DB_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Generate ephemeral test-only JWT secret
         shell: bash
         run: echo "JWT_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
