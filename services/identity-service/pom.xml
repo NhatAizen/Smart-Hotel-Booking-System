@@ -31,7 +31,7 @@
         <!-- Coherent security family patches; do not pin individual Spring-managed JARs. -->
         <jackson-bom.version>2.21.7</jackson-bom.version>
         <tomcat.version>10.1.60</tomcat.version>
-		<springdoc.version>2.8.17</springdoc.version>
+		<springdoc.version>3.2.0</springdoc.version>
         <!-- Boot 3.5.15 manages 42.7.11; 42.7.12 also fixes CVE-2026-54291. -->
         <postgresql.version>42.7.12</postgresql.version>
     </properties>
